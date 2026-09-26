@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoinGabbarSignals — BTC/USDT Signal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --bg:#0a0e1a;
+    --panel:#0f1524;
+    --panel2:#111a2b;
+    --border:#1e293f;
+    --border-light:#25324a;
+    --text:#e8ecf4;
+    --text-dim:#8b96ab;
+    --text-mute:#5e6a80;
+    --green:#22c55e;
+    --green-dim:#16a34a;
+    --red:#f43f5e;
+    --blue:#3b82f6;
+    --amber:#f59e0b;
+    --gold:#f0b429;
+    --card-radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;
+    line-height:1.4;
+  }
+  a{color:inherit;text-decoration:none;}
+
+  /* ===== TOP NAV ===== */
+  .navbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 24px;
+    background:#0b1020;
+    border-bottom:1px solid var(--border);
+  }
+  .nav-left{display:flex;align-items:center;gap:36px;}
+  .logo{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:700;}
+  .logo .lion{font-size:22px;}
+  .logo .coin{color:#fff;}
+  .logo .signals{color:var(--gold);}
+  .nav-links{display:flex;gap:26px;font-size:14px;color:var(--text-dim);}
+  .nav-links a.active{color:#fff;font-weight:600;position:relative;}
+  .nav-links a.active::after{
+    content:"";position:absolute;left:0;right:0;bottom:-16px;height:2px;background:var(--blue);
+  }
+  .nav-right{display:flex;align-items:center;gap:16px;}
+  .search-box{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel2);border:1px solid var(--border);
+    border-radius:8px;padding:8px 14px;color:var(--text-mute);font-size:13px;min-width:230px;
+  }
+  .icon-btn{
+    width:34px;height:34px;border-radius:8px;background:var(--panel2);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+    position:relative;color:var(--text-dim);
+  }
+  .dot-badge{position:absolute;top:6px;right:7px;width:6px;height:6px;background:var(--red);border-radius:50%;}
+
+  /* ===== LAYOUT ===== */
+  .layout{display:grid;grid-template-columns:220px 1fr 340px;gap:20px;padding:20px 24px;align-items:start;}
+
+  /* ===== SIDEBAR ===== */
+  .sidebar{display:flex;flex-direction:column;gap:4px;}
+  .side-item{
+    display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;
+    color:var(--text-dim);font-size:14px;cursor:pointer;
+  }
+  .side-item.active{background:var(--panel2);color:#fff;border:1px solid var(--border-light);}
+  .promo-card{
+    margin-top:18px;background:linear-gradient(160deg,#132038,#0d1526);
+    border:1px solid var(--border-light);border-radius:12px;padding:18px;
+  }
+  .promo-card .crown{font-size:20px;margin-bottom:8px;}
+  .promo-card h4{font-size:16px;margin-bottom:8px;line-height:1.3;}
+  .promo-card p{font-size:12.5px;color:var(--text-dim);}
+  .market-card{
+    margin-top:18px;background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:16px;
+  }
+  .market-card h4{font-size:13px;color:var(--text-dim);font-weight:600;margin-bottom:14px;}
+  .market-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;}
+  .market-row .name{display:flex;align-items:center;gap:8px;color:var(--text-dim);}
+  .market-row .val{font-weight:600;}
+  .up{color:var(--green);}
+  .coin-dot{width:16px;height:16px;border-radius:50%;display:inline-block;}
+  .btc-dot{background:#f7931a;}
+  .eth-dot{background:#8a92b2;}
+  .cap-dot{background:#3b82f6;}
+  .dom-dot{background:var(--gold);}
+
+  /* ===== MAIN COLUMN ===== */
+  .main{display:flex;flex-direction:column;gap:18px;}
+  .breadcrumb{display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:13.5px;margin-bottom:2px;}
+
+  .header-row{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .pair-block{display:flex;align-items:center;gap:12px;}
+  .coin-icon{
+    width:42px;height:42px;border-radius:50%;background:#f7931a;
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#1a1200;
+  }
+  .pair-title{display:flex;align-items:center;gap:10px;}
+  .pair-title h1{font-size:22px;font-weight:700;}
+  .badge{padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:.3px;}
+  .badge-long{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.35);}
+  .pair-sub{color:var(--text-dim);font-size:13px;margin-top:2px;}
+  .tag-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .tag{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11.5px;color:var(--text-dim);}
+  .status-block{text-align:right;}
+  .status-active{
+    display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.12);
+    color:var(--green);border:1px solid rgba(34,197,94,.3);padding:5px 12px;border-radius:20px;
+    font-size:12px;font-weight:700;
+  }
+  .status-active .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .gen-time{color:var(--text-mute);font-size:12px;margin-top:6px;}
+
+  /* setup score bar */
+  .score-panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);
+    padding:18px 22px;
+  }
+  .score-row1{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:20px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border);}
+  .score-row2{display:grid;grid-template-columns:1.2fr 1fr 1.3fr 0.9fr;gap:20px;}
+  .score-block .label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:600;}
+  .score-block .label .ic{font-size:13px;}
+  .score-block .big{font-size:32px;font-weight:700;line-height:1;}
+  .score-block .big small{font-size:15px;color:var(--text-mute);font-weight:500;}
+  .score-block .sub{font-size:13.5px;color:var(--green);font-weight:600;margin-top:4px;}
+  .score-bar{height:6px;background:var(--border);border-radius:4px;margin-top:10px;overflow:hidden;width:220px;max-width:100%;}
+  .score-bar-fill{height:100%;width:89%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:4px;}
+  .conf-val{color:#fff;font-weight:700;font-size:15px;}
+  .tf-val{font-weight:700;font-size:15px;}
+  .entry-val{font-weight:700;font-size:16px;}
+  .sl-val{font-weight:700;font-size:16px;}
+  .tp-list{display:flex;gap:18px;font-size:13.5px;color:var(--text-dim);margin-bottom:4px;}
+  .tp-list b{color:#fff;font-size:14px;}
+  .tp3{font-size:13.5px;color:var(--text-dim);}
+  .tp3 b{color:#fff;font-size:14px;}
+  .rr-val{font-size:20px;font-weight:700;color:var(--blue);}
+
+  /* chart + reason grid */
+  .chart-reason-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start;}
+  .chart-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);padding:16px 18px;
+  }
+  .chart-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;font-size:13px;color:var(--text-dim);}
+  .chart-top b{color:#fff;font-size:14px;}
+  .chart-canvas{width:100%;height:260px;display:block;}
+  .chart-tabs{display:flex;gap:16px;margin-top:10px;font-size:12.5px;color:var(--text-mute);}
+  .chart-tabs span.active{color:#fff;font-weight:600;}
+
+  .reason-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);padding:18px;
+  }
+  .reason-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .reason-head h3{font-size:14.5px;display:flex;align-items:center;gap:8px;color:var(--gold);}
+  .reason-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .reason-list li{display:flex;align-items:center;gap:9px;font-size:13.5px;color:#d6dceb;}
+  .check{color:var(--green);font-size:13px;}
+  .view-full{
+    display:flex;align-items:center;justify-content:space-between;
+    border:1px solid var(--border-light);border-radius:8px;padding:11px 14px;
+    color:var(--blue);font-size:13.5px;font-weight:600;
+  }
+
+  /* four info cards */
+  .info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .info-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);padding:16px 18px;
+  }
+  .info-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .info-head h4{font-size:13px;display:flex;align-items:center;gap:7px;}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;}
+  .pill-bullish{background:rgba(34,197,94,.15);color:var(--green);}
+  .pill-supportive{background:rgba(59,130,246,.15);color:var(--blue);}
+  .pill-optimal{background:rgba(240,180,41,.15);color:var(--gold);}
+  .info-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:12.8px;color:var(--text-dim);}
+  .info-row .val{display:flex;align-items:center;gap:6px;color:#e8ecf4;font-weight:500;}
+  .info-row .val::before{content:"●";font-size:8px;color:var(--green);}
+  .info-row .val.neutral::before{color:var(--text-mute);}
+  .info-row .val.amber::before{color:var(--amber);}
+  .arrow{color:var(--text-mute);font-size:12px;}
+
+  /* bottom row: risks / status / position */
+  .bottom-grid{display:grid;grid-template-columns:1.4fr 0.8fr 1fr;gap:16px;}
+  .risk-card{
+    background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.25);border-radius:var(--card-radius);padding:16px 18px;
+  }
+  .risk-card h4{color:var(--red);font-size:13px;display:flex;align-items:center;gap:7px;margin-bottom:12px;}
+  .risk-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;}
+  .risk-item{font-size:12.8px;color:#d6dceb;display:flex;align-items:center;gap:7px;}
+  .risk-item::before{content:"•";color:var(--red);}
+  .status-card,.pos-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);padding:16px 18px;
+  }
+  .status-card h4,.pos-card h4{font-size:13px;color:var(--text-dim);margin-bottom:12px;}
+  .status-active-lg{
+    display:inline-flex;align-items:center;gap:7px;background:rgba(34,197,94,.12);color:var(--green);
+    border:1px solid rgba(34,197,94,.3);padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;
+  }
+  .pos-row{display:flex;justify-content:space-between;font-size:12.8px;padding:6px 0;color:var(--text-dim);}
+  .pos-row .val{color:#e8ecf4;font-weight:500;}
+
+  /* ===== RIGHT SIDEBAR ===== */
+  .right-col{display:flex;flex-direction:column;gap:16px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);padding:18px;}
+  .card-title{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:14px;}
+  .card-title .ic{color:var(--blue);}
+
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;}
+  .gauge{width:190px;height:190px;position:relative;}
+  .gauge-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+  .gauge-center .num{font-size:34px;font-weight:700;}
+  .gauge-center .of{font-size:13px;color:var(--text-mute);}
+  .gauge-label{text-align:center;margin-top:6px;}
+  .gauge-label .l1{font-size:11.5px;color:var(--text-dim);letter-spacing:.5px;}
+  .gauge-label .l2{font-size:15px;font-weight:700;color:var(--green);margin-top:2px;}
+
+  .qc-box{border:1px solid var(--border-light);border-radius:8px;padding:12px 14px;margin-top:8px;}
+  .qc-title{font-size:12px;font-weight:700;color:var(--text-dim);margin-bottom:10px;letter-spacing:.4px;}
+  .qc-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:6px;font-size:12.5px;margin-bottom:3px;}
+  .qc-row.selected{background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.35);color:var(--green);font-weight:700;}
+  .qc-row span:last-child{color:var(--text-mute);font-weight:500;}
+  .qc-row.selected span:last-child{color:var(--green);}
+
+  .critical-card{
+    background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.3);border-radius:var(--card-radius);padding:16px 18px;
+  }
+  .critical-head{display:flex;align-items:center;justify-content:space-between;color:var(--red);font-weight:700;font-size:13px;margin-bottom:6px;}
+  .critical-card p{font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.5;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;padding:5px 0;color:#d6dceb;}
+  .cf-row .x{color:var(--red);margin-right:6px;}
+  .no-trade{background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;float:right;margin-top:-32px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.3px;}
+  th{text-align:left;color:var(--text-mute);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);font-size:11.5px;}
+  td{padding:8px 4px;border-bottom:1px solid var(--border);color:#d6dceb;}
+  .res-tp{color:var(--green);font-weight:700;}
+  .res-sl{color:var(--red);font-weight:700;}
+  .pl-pos{color:var(--green);font-weight:600;}
+  .pl-neg{color:var(--red);font-weight:600;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0;}
+  .stat-box{text-align:center;}
+  .stat-box .v{font-size:16px;font-weight:700;}
+  .stat-box .l{font-size:10.5px;color:var(--text-mute);margin-top:2px;}
+  .stat-box.g .v{color:var(--green);}
+  .stat-box.r .v{color:var(--red);}
+
+  .score-range-row td:first-child{color:#fff;font-weight:600;}
+  .toggle-row{display:flex;gap:8px;margin-top:14px;}
+  .toggle-btn{flex:1;text-align:center;padding:8px;border-radius:7px;font-size:12px;border:1px solid var(--border-light);color:var(--text-dim);}
+  .toggle-btn.on{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600;}
+
+  .footer{
+    display:flex;justify-content:space-between;align-items:center;padding:18px 28px;
+    border-top:1px solid var(--border);color:var(--text-mute);font-size:12.5px;margin-top:10px;
+  }
+  .footer .flinks{display:flex;gap:20px;}
+  .footer .flogo{display:flex;align-items:center;gap:8px;font-weight:700;color:#fff;}
+
+  @media(max-width:1200px){
+    .layout{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .info-grid,.bottom-grid,.chart-reason-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+  <div class="nav-left">
+    <div class="logo"><span class="lion">🦁</span><span class="coin">CoinGabbar</span><span class="signals">Signals</span></div>
+    <div class="nav-links">
+      <a>Home</a>
+      <a class="active">Signals</a>
+      <a>Market Analysis</a>
+      <a>Performance</a>
+      <a>Academy</a>
+      <a>Tools</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="search-box">🔍 Search coin, pair, or signal...</div>
+    <div class="icon-btn">🔔<span class="dot-badge"></span></div>
+    <div class="icon-btn">👤</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="side-item active">📡 Latest Signals</div>
+    <div class="side-item">📋 Signal History</div>
+    <div class="side-item">📊 Performance</div>
+    <div class="side-item">🧪 Backtesting</div>
+    <div class="side-item">⭐ Watchlist</div>
+    <div class="side-item">⚙️ Settings</div>
+
+    <div class="promo-card">
+      <div class="crown">👑</div>
+      <h4>Trade Smarter<br>With Data</h4>
+      <p>Professional crypto signals with real analysis, not just buy/sell alerts.</p>
+    </div>
+
+    <div class="market-card">
+      <h4>Market Overview</h4>
+      <div class="market-row"><span class="name"><span class="coin-dot btc-dot"></span>BTC</span><span class="val">$65,248</span><span class="up">+2.12%</span></div>
+      <div class="market-row"><span class="name"><span class="coin-dot eth-dot"></span>ETH</span><span class="val">$3,482</span><span class="up">+1.76%</span></div>
+      <div class="market-row"><span class="name"><span class="coin-dot cap-dot"></span>TOTAL CAP</span><span class="val">$2.45T</span><span class="up">+1.89%</span></div>
+      <div class="market-row"><span class="name"><span class="coin-dot dom-dot"></span>BTC DOM</span><span class="val">52.3%</span><span class="up">+0.12%</span></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="breadcrumb">‹ Back to Signals</div>
+
+    <div class="header-row">
+      <div>
+        <div class="pair-block">
+          <div class="coin-icon">₿</div>
+          <div>
+            <div class="pair-title">
+              <h1>BTC/USDT</h1>
+              <span class="badge badge-long">LONG</span>
+            </div>
+            <div class="pair-sub">Bitcoin / TetherUS</div>
+          </div>
+        </div>
+        <div class="tag-row">
+          <span class="tag">Spot</span>
+          <span class="tag">Futures</span>
+          <span class="tag">High Liquidity</span>
+          <span class="tag">Top Coin</span>
+        </div>
+      </div>
+      <div class="status-block">
+        <div class="status-active"><span class="pulse"></span>ACTIVE</div>
+        <div class="gen-time">Signal Generated<br>Apr 26, 2025 14:32 (UTC)</div>
+      </div>
+    </div>
+
+    <!-- SCORE PANEL -->
+    <div class="score-panel">
+      <div class="score-row1">
+        <div class="score-block">
+          <div class="label"><span class="ic">⭐</span>SETUP SCORE</div>
+          <div class="big">89 <small>/ 100</small></div>
+          <div class="sub">Strong Setup</div>
+          <div class="score-bar"><div class="score-bar-fill"></div></div>
+        </div>
+        <div class="score-block">
+          <div class="label"><span class="ic">📈</span>CONFIDENCE</div>
+          <div class="conf-val">Strong Setup</div>
+        </div>
+        <div class="score-block">
+          <div class="label"><span class="ic">🕐</span>TIMEFRAME</div>
+          <div class="tf-val">4H → 1H → 15M</div>
+        </div>
+      </div>
+      <div class="score-row2">
+        <div class="score-block">
+          <div class="label"><span class="ic">📍</span>ENTRY ZONE</div>
+          <div class="entry-val">$65,000 – 65,300</div>
+        </div>
+        <div class="score-block">
+          <div class="label"><span class="ic">🛡</span>STOP LOSS</div>
+          <div class="sl-val">$64,500</div>
+        </div>
+        <div class="score-block">
+          <div class="label"><span class="ic">🎯</span>TAKE PROFIT</div>
+          <div class="tp-list">
+            <span>TP1 <b>$66,000</b></span>
+            <span>TP2 <b>$67,000</b></span>
+          </div>
+          <div class="tp3">TP3 <b>$68,200</b></div>
+        </div>
+        <div class="score-block">
+          <div class="label"><span class="ic">⚖</span>RISK / REWARD</div>
+          <div class="rr-val">1 : 2.8</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART + REASON -->
+    <div class="chart-reason-grid">
+      <div class="chart-card">
+        <div class="chart-top">
+          <div><b>BTC/USDT · 1h</b> &nbsp; O 65,210 &nbsp;H 65,398 &nbsp;L 65,120 &nbsp;C 65,348 <span class="up">+138 (+0.21%)</span></div>
+        </div>
+        <svg class="chart-canvas" viewBox="0 0 700 260" preserveAspectRatio="none">
+          <line x1="0" y1="20" x2="700" y2="20" stroke="#1e293f" stroke-width="1"/>
+          <line x1="0" y1="70" x2="700" y2="70" stroke="#1e293f" stroke-width="1"/>
+          <line x1="0" y1="120" x2="700" y2="120" stroke="#1e293f" stroke-width="1"/>
+          <line x1="0" y1="170" x2="700" y2="170" stroke="#1e293f" stroke-width="1"/>
+          <line x1="0" y1="220" x2="700" y2="220" stroke="#1e293f" stroke-width="1"/>
+          <polyline points="0,190 60,180 120,170 180,150 240,140 300,120 360,110 420,90 480,70 540,60 600,45 660,30 700,25" fill="none" stroke="#3b82f6" stroke-width="2"/>
+          <polyline points="0,210 60,205 120,195 180,180 240,170 300,155 360,150 420,130 480,110 540,100 600,85 660,70 700,60" fill="none" stroke="#60a5fa" stroke-width="1.4" opacity="0.6"/>
+          <g>
+            <rect x="10" y="170" width="6" height="30" fill="#22c55e"/>
+            <rect x="30" y="160" width="6" height="35" fill="#f43f5e"/>
+            <rect x="50" y="150" width="6" height="40" fill="#22c55e"/>
+            <rect x="70" y="145" width="6" height="30" fill="#22c55e"/>
+            <rect x="90" y="140" width="6" height="45" fill="#f43f5e"/>
+            <rect x="110" y="125" width="6" height="35" fill="#22c55e"/>
+            <rect x="130" y="115" width="6" height="40" fill="#22c55e"/>
+            <rect x="150" y="110" width="6" height="30" fill="#f43f5e"/>
+            <rect x="170" y="100" width="6" height="42" fill="#22c55e"/>
+            <rect x="190" y="90" width="6" height="35" fill="#22c55e"/>
+            <rect x="210" y="95" width="6" height="30" fill="#f43f5e"/>
+            <rect x="230" y="80" width="6" height="40" fill="#22c55e"/>
+            <rect x="250" y="75" width="6" height="30" fill="#22c55e"/>
+            <rect x="270" y="70" width="6" height="35" fill="#f43f5e"/>
+            <rect x="290" y="60" width="6" height="40" fill="#22c55e"/>
+            <rect x="310" y="55" width="6" height="30" fill="#22c55e"/>
+            <rect x="330" y="60" width="6" height="32" fill="#f43f5e"/>
+            <rect x="350" y="50" width="6" height="38" fill="#22c55e"/>
+            <rect x="370" y="45" width="6" height="30" fill="#22c55e"/>
+            <rect x="390" y="40" width="6" height="35" fill="#f43f5e"/>
+            <rect x="410" y="35" width="6" height="30" fill="#22c55e"/>
+            <rect x="430" y="30" width="6" height="40" fill="#22c55e"/>
+            <rect x="450" y="35" width="6" height="30" fill="#f43f5e"/>
+            <rect x="470" y="25" width="6" height="35" fill="#22c55e"/>
+            <rect x="490" y="20" width="6" height="30" fill="#22c55e"/>
+            <rect x="510" y="25" width="6" height="32" fill="#f43f5e"/>
+            <rect x="530" y="15" width="6" height="38" fill="#22c55e"/>
+            <rect x="550" y="10" width="6" height="30" fill="#22c55e"/>
+            <rect x="570" y="15" width="6" height="28" fill="#f43f5e"/>
+            <rect x="590" y="8" width="6" height="35" fill="#22c55e"/>
+            <rect x="610" y="5" width="6" height="30" fill="#22c55e"/>
+            <rect x="630" y="10" width="6" height="28" fill="#f43f5e"/>
+            <rect x="650" y="3" width="6" height="32" fill="#22c55e"/>
+          </g>
+        </svg>
+        <div class="chart-tabs"><span class="active">1D</span><span>1W</span><span>1M</span><span>3M</span><span>6M</span><span>1Y</span></div>
+      </div>
+
+      <div class="reason-card">
+        <div class="reason-head"><h3>💡 SIGNAL REASON</h3><span class="arrow">›</span></div>
+        <ul class="reason-list">
+          <li><span class="check">✔</span>Daily &amp; 4H trend bullish</li>
+          <li><span class="check">✔</span>1H bullish structure</li>
+          <li><span class="check">✔</span>Support retest confirmed</li>
+          <li><span class="check">✔</span>Liquidity sweep completed</li>
+          <li><span class="check">✔</span>Volume increasing</li>
+          <li><span class="check">✔</span>Price above VWAP</li>
+          <li><span class="check">✔</span>EMA structure bullish</li>
+          <li><span class="check">✔</span>OI supportive</li>
+          <li><span class="check">✔</span>Funding neutral</li>
+          <li><span class="check">✔</span>No major negative catalyst</li>
+        </ul>
+        <div class="view-full">View Full Analysis <span>›</span></div>
+      </div>
+    </div>
+
+    <!-- 4 INFO CARDS -->
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-head"><h4>🌐 MARKET</h4><span class="pill pill-bullish">BULLISH</span></div>
+        <div class="info-row">BTC Trend <span class="val">Bullish</span></div>
+        <div class="info-row">ETH Trend <span class="val">Bullish</span></div>
+        <div class="info-row">BTC Dominance <span class="val neutral">Neutral</span></div>
+        <div class="info-row">Total Market Cap <span class="val">Uptrend</span></div>
+        <div class="info-row">Market Sentiment <span class="val">Neutral-Bullish</span></div>
+        <div class="info-row">Macro Environment <span class="val neutral">No major negative</span></div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-head"><h4>📈 TECHNICAL</h4><span class="pill pill-bullish">BULLISH</span></div>
+        <div class="info-row">Structure <span class="val">HH + HL</span></div>
+        <div class="info-row">BOS <span class="val">Bullish</span></div>
+        <div class="info-row">RSI <span class="val neutral">58</span></div>
+        <div class="info-row">MACD <span class="val">Bullish</span></div>
+        <div class="info-row">VWAP <span class="val">Above</span></div>
+        <div class="info-row">EMA <span class="val neutral">20 &gt; 50 &gt; 200</span></div>
+        <div class="info-row">ATR <span class="val amber">Moderate</span></div>
+        <div class="info-row">Divergence <span class="val neutral">None</span></div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-head"><h4>🛡 DERIVATIVES</h4><span class="pill pill-supportive">SUPPORTIVE</span></div>
+        <div class="info-row">Open Interest <span class="val">Increasing</span></div>
+        <div class="info-row">Funding Rate <span class="val neutral">Neutral</span></div>
+        <div class="info-row">Liquidations <span class="val amber">Long squeeze done</span></div>
+        <div class="info-row">Long/Short Ratio <span class="val">Balanced</span></div>
+        <div class="info-row">Order Book <span class="val">Bid support</span></div>
+        <div class="info-row">Spread <span class="val">Low</span></div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-head"><h4>⚖ RISK &amp; EXECUTION</h4><span class="pill pill-optimal">OPTIMAL</span></div>
+        <div class="info-row">Risk/Reward <span class="val">1:2.8</span></div>
+        <div class="info-row">Leverage <span class="val neutral">Low/Moderate</span></div>
+        <div class="info-row">Liquidity <span class="val">High</span></div>
+        <div class="info-row">Position Size <span class="val amber">Risk-controlled</span></div>
+        <div class="info-row">Entry Quality <span class="val">Support retest</span></div>
+        <div class="info-row">SL Quality <span class="val">Structure-based</span></div>
+        <div class="info-row">TP Quality <span class="val">Resistance based</span></div>
+        <div class="info-row">Invalidation <span class="val amber">1H close &lt; 64,500</span></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-grid">
+      <div class="risk-card">
+        <h4>⚠ WHAT CAN GO WRONG?</h4>
+        <div class="risk-cols">
+          <div class="risk-item">BTC loses major support</div>
+          <div class="risk-item">Volume disappears</div>
+          <div class="risk-item">Unexpected macro/news event</div>
+          <div class="risk-item">OI becomes excessively crowded</div>
+          <div class="risk-item">Breakout becomes false</div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <h4>STATUS</h4>
+        <div class="status-active-lg"><span class="pulse"></span>ACTIVE</div>
+      </div>
+
+      <div class="pos-card">
+        <h4>POSITION DETAILS</h4>
+        <div class="pos-row">Suggested Leverage <span class="val">5x – 10x</span></div>
+        <div class="pos-row">Position Size <span class="val">1 – 3% (Risk)</span></div>
+        <div class="pos-row">Type <span class="val">Spot / Futures (Isolated)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <div class="card">
+      <div class="card-title"><span class="ic">📊</span> SIGNAL QUALITY <span style="color:var(--text-mute);font-size:12px;">ⓘ</span></div>
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="85" fill="none" stroke="#1e293f" stroke-width="14"/>
+          <circle cx="100" cy="100" r="85" fill="none" stroke="#22c55e" stroke-width="14"
+            stroke-dasharray="534" stroke-dashoffset="59" stroke-linecap="round" transform="rotate(-90 100 100)"/>
+        </svg>
+        <div class="gauge-center">
+          <div class="num">89</div>
+          <div class="of">/ 100</div>
+        </div>
+      </div>
+      <div class="gauge-label" style="margin-top:-10px;">
+        <div class="l1">SETUP SCORE</div>
+        <div class="l2">Strong Setup</div>
+      </div>
+
+      <div class="qc-box">
+        <div class="qc-title">QUALITY CLASSIFICATION</div>
+        <div class="qc-row"><span>Very Strong Setup</span><span>(90–100)</span></div>
+        <div class="qc-row selected"><span>Strong Setup</span><span>(80–89)</span></div>
+        <div class="qc-row"><span>Moderate Setup</span><span>(70–79)</span></div>
+        <div class="qc-row"><span>Weak Setup</span><span>(60–69)</span></div>
+        <div class="qc-row"><span>No Signal</span><span>(&lt;60)</span></div>
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-head">⚠ CRITICAL FACTORS CHECK <span>›</span></div>
+      <p>If any critical factor fails, this signal will be stopped even if the overall score is high.</p>
+      <div class="cf-row"><span><span class="x">✕</span>Major security incident</span></div>
+      <div class="cf-row"><span><span class="x">✕</span>Extreme liquidity problem</span></div>
+      <div class="cf-row"><span><span class="x">✕</span>Entry already invalidated</span> <span class="no-trade">NO TRADE</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 AFTER-TRADE ANALYSIS <span>›</span></div>
+      <table>
+        <tr><th>Signal</th><th>Score</th><th>Result</th><th>Max P/L</th></tr>
+        <tr><td>BTC LONG #001</td><td>89</td><td class="res-tp">TP2</td><td class="pl-pos">+5.2%</td></tr>
+        <tr><td>ETH SHORT #002</td><td>83</td><td class="res-sl">SL</td><td class="pl-neg">-2.1%</td></tr>
+        <tr><td>SOL LONG #003</td><td>76</td><td class="res-tp">TP1</td><td class="pl-pos">+2.4%</td></tr>
+      </table>
+
+      <div style="margin-top:16px;font-size:11.5px;color:var(--text-mute);font-weight:600;">PERFORMANCE SUMMARY <span style="color:var(--text-mute);">(100 Signals)</span></div>
+      <div class="stat-grid">
+        <div class="stat-box g"><div class="v">78%</div><div class="l">TP1 Hit Rate</div></div>
+        <div class="stat-box"><div class="v">1.82</div><div class="l">Avg. R Multiple</div></div>
+        <div class="stat-box g"><div class="v">62%</div><div class="l">Win Rate</div></div>
+        <div class="stat-box"><div class="v">1.46</div><div class="l">Profit Factor</div></div>
+        <div class="stat-box r"><div class="v">12.8%</div><div class="l">Max Drawdown</div></div>
+        <div class="stat-box g"><div class="v">+3.2%</div><div class="l">Avg. Win</div></div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--red);margin-top:-6px;">−1.4% Avg. Loss</div>
+
+      <div style="margin-top:16px;font-size:12px;color:var(--text-mute);font-weight:600;">PERFORMANCE BY SCORE RANGE</div>
+      <table style="margin-top:6px;">
+        <tr><th>Range</th><th>Signals</th><th>TP1 Hit</th><th>Avg. R</th></tr>
+        <tr class="score-range-row"><td>90–100</td><td>18</td><td>89%</td><td>2.8</td></tr>
+        <tr class="score-range-row"><td>80–89</td><td>32</td><td>81%</td><td>2.1</td></tr>
+        <tr class="score-range-row"><td>70–79</td><td>26</td><td>65%</td><td>1.5</td></tr>
+        <tr class="score-range-row"><td>60–69</td><td>14</td><td>50%</td><td>0.9</td></tr>
+      </table>
+
+      <div class="toggle-row">
+        <div class="toggle-btn on">Long/Short</div>
+        <div class="toggle-btn">BTC/Altcoin</div>
+        <div class="toggle-btn">Timeframe</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  <div class="flogo">🦁 CoinGabbarSignals</div>
+  <div class="flinks">
+    <span>Smarter Analysis</span><span>Better Trades</span><span>Real Performance</span>
+  </div>
+  <div>Historical performance is not a guarantee of future results. Trade responsibly. ⓘ</div>
+</div>
+
+</body>
+</html>
