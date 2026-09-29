@@ -1,0 +1,2 @@
+# Calculations
+Risk/unit = abs(entry-SL). LONG risk = entry-SL; SHORT risk = SL-entry. TP = entry ± risk×R. R:R = reward/risk. Position size = (balance×risk%) / abs(entry-SL). Order-book imbalance = (bid-ask)/(bid+ask). Backtests apply fees/slippage and only prior candles.

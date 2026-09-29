@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CoinGabbarSignals — Backend Control Center</title>
+<meta name="description" content="CoinGabbarSignals internal backend control center">
+<style>
+:root{--bg:#020810;--panel:#071424;--panel2:#0a1a2d;--panel3:#0d2138;--line:#193451;--text:#dce9f6;--muted:#71869e;--soft:#9eb1c5;--cyan:#27bfff;--green:#21e39a;--red:#ff5368;--yellow:#ffc84d;--orange:#ff9e45;--purple:#9b86ff}
+*{box-sizing:border-box}html,body{margin:0;background:#000;color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:12px}button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+.app{min-height:100vh;background:radial-gradient(circle at 55% 0,#0b213b 0,#030a13 32%,#000 78%)}
+.top{height:62px;border-bottom:1px solid var(--line);background:#031020;display:flex;align-items:center;padding:0 18px;gap:20px;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:9px;width:190px}.mark{width:31px;height:31px;border:2px solid #f4b42f;border-radius:50%;display:grid;place-items:center;color:#f4b42f;font-weight:900}.brand b{font-size:12px}.brand small{display:block;color:#f4b42f;font-size:8px;margin-top:3px}
+.toplinks{display:flex;gap:22px;flex:1}.toplinks a{color:#8196ac;text-decoration:none;font-size:10px}.toplinks a.active{color:#fff}.env{padding:5px 8px;border:1px solid #174f40;background:#06271f;color:#40eaa8;border-radius:4px;font-size:8px}.user{padding:6px 10px;border:1px solid #2a4058;background:#071427;border-radius:4px;font-size:9px}
+.layout{display:grid;grid-template-columns:190px minmax(0,1fr);max-width:1450px;margin:auto;min-height:calc(100vh - 62px)}
+.side{border-right:1px solid var(--line);background:rgba(3,14,28,.92);padding:16px 10px;position:sticky;top:62px;height:calc(100vh - 62px);overflow:auto}.side h4{font-size:8px;color:#617991;text-transform:uppercase;letter-spacing:.1em;margin:12px 9px 7px}.nav{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:4px;color:#8da2b8;text-decoration:none;font-size:9px;margin:2px 0}.nav:hover,.nav.active{background:linear-gradient(90deg,#0c2a47,#09203a);color:#e7f7ff}.nav.active{box-shadow:inset 2px 0 var(--cyan)}.ico{width:15px;text-align:center;color:#83abc9}.count{margin-left:auto;background:#102e48;color:#72d2ff;border-radius:9px;padding:2px 6px;font-size:7px}
+.main{padding:18px;min-width:0}.title{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}.title h1{font-size:17px;margin:0 0 4px}.title p{margin:0;color:var(--muted);font-size:9px}.actions{display:flex;gap:7px}.btn{background:#08192c;border:1px solid #27425e;border-radius:4px;padding:7px 10px;font-size:9px}.btn.primary{background:#073454;border-color:#1a8bc3;color:#dff6ff}
+.cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}.card{border:1px solid var(--line);background:linear-gradient(135deg,#081729,#061222);border-radius:5px;padding:11px}.label{color:#70859c;font-size:7px;text-transform:uppercase;letter-spacing:.07em}.value{font-size:16px;font-weight:800;margin-top:6px}.sub{color:#7890a7;font-size:7px;margin-top:4px}.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}.cyan{color:var(--cyan)}
+.grid2{display:grid;grid-template-columns:1.45fr .9fr;gap:10px;margin-top:10px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.panel{border:1px solid var(--line);background:#061221;border-radius:5px;overflow:hidden}.ph{height:40px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 12px}.ph b{font-size:10px}.ph span{color:var(--muted);font-size:8px}.pb{padding:11px}
+.table{width:100%;border-collapse:collapse}.table th{color:#627b95;text-align:left;font-size:7px;font-weight:600;padding:7px 8px;border-bottom:1px solid var(--line)}.table td{padding:8px;border-bottom:1px solid #10253d;font-size:8px;color:#b6c7d8}.table tr:last-child td{border-bottom:0}.status{display:inline-flex;padding:3px 6px;border-radius:8px;font-size:7px}.active{background:#06392e;color:#39e8a5}.pending{background:#3a2d06;color:#ffd45b}.danger{background:#3b1018;color:#ff7383}.neutral{background:#13273c;color:#a4bad0}
+.health{display:grid;gap:8px}.healthrow{display:grid;grid-template-columns:1fr auto;align-items:center;padding:7px 8px;border:1px solid #142c46;background:#07182a;border-radius:4px}.healthrow small{color:#70869e;display:block;margin-top:3px}.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;background:var(--green);box-shadow:0 0 8px rgba(33,227,154,.45)}
+.bar{height:5px;background:#10273f;border-radius:5px;overflow:hidden;margin-top:8px}.fill{height:100%;background:linear-gradient(90deg,#1689c7,#28d6a0);width:78%}
+.log{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:8px;line-height:1.8;color:#8fa7bd;max-height:220px;overflow:auto}.log .ok{color:#39dfa3}.log .warn{color:#ffc84d}.log .err{color:#ff6578}
+.pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.stage{border:1px solid #183653;background:#07182a;border-radius:4px;padding:8px;text-align:center}.stage b{display:block;font-size:8px}.stage span{font-size:7px;color:#70869e;display:block;margin-top:4px}
+.footer{padding:20px 0 10px;color:#536b83;font-size:8px;text-align:right}
+@media(max-width:1050px){.cards{grid-template-columns:repeat(3,1fr)}.grid2,.grid3{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.toplinks{display:none}.layout{grid-template-columns:1fr}.side{position:fixed;left:-210px;top:62px;width:190px;z-index:30;transition:.2s}.side.open{left:0}.main{padding:10px}.cards{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:repeat(2,1fr)}.brand{width:auto}.menu{display:block!important}}
+.menu{display:none;background:none;border:1px solid #28445f;border-radius:4px;padding:6px 8px}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+<button class="menu" id="menu">☰</button>
+<div class="brand"><div class="mark">CG</div><div><b>CoinGabbarSignals</b><small>BACKEND CONTROL CENTER</small></div></div>
+<nav class="toplinks"><a class="active" href="#">Dashboard</a><a href="#">Signals</a><a href="#">Market Data</a><a href="#">Calculations</a><a href="#">Backtests</a><a href="#">System</a></nav>
+<span class="env">● DEMO / API ONLINE</span><span class="user">Admin ▾</span>
+</header>
+<div class="layout">
+<aside class="side" id="side">
+<h4>Control Center</h4>
+<a class="nav active" href="#"><span class="ico">▦</span>Dashboard</a>
+<a class="nav" href="#"><span class="ico">⚡</span>Signal Engine <span class="count">12</span></a>
+<a class="nav" href="#"><span class="ico">◈</span>Signal Events</a>
+<a class="nav" href="#"><span class="ico">◌</span>Market Data</a>
+<a class="nav" href="#"><span class="ico">ƒ</span>Indicators</a>
+<a class="nav" href="#"><span class="ico">◎</span>Risk Engine</a>
+<a class="nav" href="#"><span class="ico">↗</span>Performance</a>
+<a class="nav" href="#"><span class="ico">▤</span>Backtesting</a>
+<h4>Data & Users</h4>
+<a class="nav" href="#"><span class="ico">☆</span>Watchlists</a>
+<a class="nav" href="#"><span class="ico">♢</span>Alerts <span class="count">4</span></a>
+<a class="nav" href="#"><span class="ico">♙</span>Users</a>
+<a class="nav" href="#"><span class="ico">◫</span>Database</a>
+<h4>Security</h4>
+<a class="nav" href="#"><span class="ico">✓</span>Audit Logs</a>
+<a class="nav" href="#"><span class="ico">⚿</span>API & Keys</a>
+<a class="nav" href="#"><span class="ico">⚙</span>Settings</a>
+</aside>
+<main class="main">
+<div class="title"><div><h1>Backend Control Center</h1><p>CoinGabbarSignals internal operations, engines, data quality and system monitoring.</p></div><div class="actions"><button class="btn" onclick="location.reload()">↻ Refresh</button><button class="btn primary">+ Create Signal</button></div></div>
+
+<section class="cards">
+<div class="card"><div class="label">Active Signals</div><div class="value green">12</div><div class="sub">3 entry triggered</div></div>
+<div class="card"><div class="label">Market Feeds</div><div class="value cyan">8/8</div><div class="sub">All providers responding</div></div>
+<div class="card"><div class="label">API Requests</div><div class="value">18.4K</div><div class="sub">Last 24 hours</div></div>
+<div class="card"><div class="label">Data Quality</div><div class="value green">99.2%</div><div class="sub">Fresh observations</div></div>
+<div class="card"><div class="label">Backtests</div><div class="value">24</div><div class="sub">2 running</div></div>
+<div class="card"><div class="label">System Errors</div><div class="value yellow">3</div><div class="sub">Needs review</div></div>
+</section>
+
+<div class="grid2">
+<section class="panel">
+<div class="ph"><b>Signal Engine Monitor</b><span>Pipeline status</span></div>
+<div class="pb">
+<div class="pipeline">
+<div class="stage"><b>Market Data</b><span class="green">● Healthy</span></div>
+<div class="stage"><b>Validation</b><span class="green">● Healthy</span></div>
+<div class="stage"><b>Indicators</b><span class="green">● Healthy</span></div>
+<div class="stage"><b>Structure</b><span class="green">● Healthy</span></div>
+<div class="stage"><b>Risk Engine</b><span class="green">● Healthy</span></div>
+<div class="stage"><b>Signal Score</b><span class="green">● Healthy</span></div>
+</div>
+<div style="margin-top:12px">
+<table class="table"><thead><tr><th>Signal</th><th>Direction</th><th>Score</th><th>Status</th><th>Updated</th></tr></thead>
+<tbody>
+<tr><td>BTC/USDT · CGB-230928</td><td class="green">LONG</td><td>89/100</td><td><span class="status active">ACTIVE</span></td><td>20:41:22</td></tr>
+<tr><td>ETH/USDT · CGB-230927</td><td class="red">SHORT</td><td>82/100</td><td><span class="status pending">ENTRY</span></td><td>20:40:08</td></tr>
+<tr><td>SOL/USDT · CGB-230926</td><td class="green">LONG</td><td>76/100</td><td><span class="status active">ACTIVE</span></td><td>20:38:51</td></tr>
+<tr><td>DOGE/USDT · CGB-230925</td><td class="neutral">WAIT</td><td>58/100</td><td><span class="status neutral">NO SIGNAL</span></td><td>20:37:10</td></tr>
+</tbody></table>
+</div>
+</div>
+</section>
+
+<section class="panel">
+<div class="ph"><b>System Health</b><span>Updated now</span></div>
+<div class="pb health">
+<div class="healthrow"><div>API Server<small>Latency 42ms</small></div><div><span class="dot"></span><b class="green">ONLINE</b></div></div>
+<div class="healthrow"><div>Database<small>Connections 18 / 100</small></div><div><span class="dot"></span><b class="green">ONLINE</b></div></div>
+<div class="healthrow"><div>Market Providers<small>8 active providers</small></div><div><span class="dot"></span><b class="green">ONLINE</b></div></div>
+<div class="healthrow"><div>Queue Worker<small>14 jobs pending</small></div><div><span class="dot"></span><b class="green">ONLINE</b></div></div>
+<div class="healthrow"><div>Memory<small>62% utilization</small><div class="bar"><div class="fill" style="width:62%"></div></div></div><b class="cyan">62%</b></div>
+</div>
+</section>
+</div>
+
+<div class="grid3">
+<section class="panel"><div class="ph"><b>Market Data Quality</b><span>Provider status</span></div><div class="pb"><table class="table"><tbody>
+<tr><td>Binance</td><td>BTC/USDT</td><td class="green">FRESH</td><td>38ms</td></tr>
+<tr><td>Bybit</td><td>BTC/USDT</td><td class="green">FRESH</td><td>51ms</td></tr>
+<tr><td>CoinGlass</td><td>Derivatives</td><td class="green">FRESH</td><td>94ms</td></tr>
+<tr><td>News Provider</td><td>Market News</td><td class="yellow">DELAYED</td><td>1.8s</td></tr>
+</tbody></table></div></section>
+<section class="panel"><div class="ph"><b>Risk & Execution</b><span>Current checks</span></div><div class="pb"><table class="table"><tbody>
+<tr><td>Critical failures</td><td class="green">0</td></tr>
+<tr><td>Invalid SL</td><td class="green">0</td></tr>
+<tr><td>Negative R:R</td><td class="green">0</td></tr>
+<tr><td>Extreme spread</td><td class="yellow">1</td></tr>
+<tr><td>Stale signals blocked</td><td>7</td></tr>
+</tbody></table></div></section>
+<section class="panel"><div class="ph"><b>Alert Queue</b><span>4 unread</span></div><div class="pb"><table class="table"><tbody>
+<tr><td>TP1 HIT</td><td>BTC/USDT</td><td>2m ago</td></tr>
+<tr><td>ENTRY</td><td>ETH/USDT</td><td>5m ago</td></tr>
+<tr><td>Spread warning</td><td>SOL/USDT</td><td>8m ago</td></tr>
+<tr><td>Score threshold</td><td>BTC/USDT</td><td>12m ago</td></tr>
+</tbody></table></div></section>
+</div>
+
+<div class="grid2">
+<section class="panel"><div class="ph"><b>Recent Audit Activity</b><span>Security log</span></div><div class="pb"><div class="log">
+<div><span class="ok">20:42:16 INFO</span> signal.score.calculated id=CGB-230928 score=89</div>
+<div><span class="ok">20:41:58 INFO</span> market.snapshot.saved exchange=binance symbol=BTCUSDT</div>
+<div><span class="warn">20:41:12 WARN</span> provider.latency exchange=coinglass latency=1840ms</div>
+<div><span class="ok">20:40:44 INFO</span> alert.dispatched event=ENTRY user=42</div>
+<div><span class="ok">20:39:27 INFO</span> backtest.completed run=BT-1042 trades=384</div>
+<div><span class="err">20:38:11 ERROR</span> provider.retry source=news attempt=2</div>
+</div></div></section>
+<section class="panel"><div class="ph"><b>Database Overview</b><span>Core entities</span></div><div class="pb"><table class="table"><tbody>
+<tr><td>signals</td><td>12,482</td><td class="green">Healthy</td></tr>
+<tr><td>signal_events</td><td>58,901</td><td class="green">Healthy</td></tr>
+<tr><td>market_snapshots</td><td>4.8M</td><td class="green">Healthy</td></tr>
+<tr><td>performance_records</td><td>9,731</td><td class="green">Healthy</td></tr>
+<tr><td>audit_logs</td><td>31,204</td><td class="green">Healthy</td></tr>
+</tbody></table></div></section>
+</div>
+
+<div class="footer">CoinGabbarSignals Backend Control Center · Internal operations interface · Demo values shown for UI preview</div>
+</main>
+</div>
+</div>
+<script>
+const menu=document.getElementById('menu'),side=document.getElementById('side');
+menu.addEventListener('click',()=>side.classList.toggle('open'));
+document.querySelectorAll('.nav').forEach(a=>a.addEventListener('click',e=>{
+ document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));a.classList.add('active');
+}));
+</script>
+</body>
+</html>

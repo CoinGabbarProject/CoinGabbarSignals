@@ -1,0 +1,2 @@
+# Design System
+CoinGabbarSignals uses its own terminal shell, navigation, tokens, cards, chart surfaces, status badges and responsive layout. Signal components are data-driven and do not contain live market-provider logic.

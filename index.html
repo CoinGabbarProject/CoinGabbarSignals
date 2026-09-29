@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#061326">
+<title>CoinGabbarSignals — Live Signal Terminal</title>
+<meta name="description" content="CoinGabbarSignals professional crypto signal terminal">
+<style>
+:root{
+  --bg:#020913;--panel:#061326;--panel2:#081a31;--panel3:#0b203a;--line:#18314e;
+  --text:#dce8f5;--muted:#758aa3;--soft:#9db0c5;--cyan:#20b8ff;--cyan2:#55d5ff;
+  --green:#19df91;--red:#ff5266;--yellow:#ffc84a;--orange:#ff9e45;--purple:#8c78ff;
+  --shadow:0 16px 45px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}html,body{margin:0;background:#000;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{font-size:12px;min-height:100vh}button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}.app{min-height:100vh;background:radial-gradient(circle at 45% 0%,#0a2039 0,#030b16 35%,#000 78%);overflow:hidden}
+.topbar{height:62px;background:#031024;border-bottom:1px solid #142b46;display:flex;align-items:center;padding:0 18px;gap:22px;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:8px;width:110px;text-decoration:none;color:#fff;font-weight:800;line-height:1}
+.brand-mark{width:30px;height:30px;border-radius:50%;border:2px solid #f3b12c;display:grid;place-items:center;color:#f3b12c;font-weight:900;font-size:14px;box-shadow:0 0 14px rgba(243,177,44,.18)}
+.brand small{display:block;color:#f3b12c;font-size:12px;margin-top:3px}.topnav{display:flex;gap:3px;align-items:center;flex:1;overflow-x:auto;scrollbar-width:none}.topnav::-webkit-scrollbar{display:none}.topnav a{display:inline-flex;align-items:center;gap:6px;color:#8da1b7;text-decoration:none;font-size:9px;font-weight:700;white-space:nowrap;padding:7px 8px;border:1px solid transparent;border-radius:4px}.topnav a span{color:#7f9ab5}.topnav a.active{color:#e7f1fb;background:#0b3150;border-color:#1d9fe5;box-shadow:inset 0 -2px #27b6f2}.topnav a.active span{color:#55d5ff}.topnav a:hover{color:#fff;background:#0a233c}.top-badge{font-size:7px;background:#102e48;color:#74cfff;border-radius:8px;padding:2px 5px}
+.search{width:170px;height:30px;border:1px solid #1c3552;border-radius:17px;background:#08182c;display:flex;align-items:center;padding:0 11px;color:#66809d}.search input{background:transparent;border:0;outline:0;width:100%;font-size:10px;color:#cfe0f1}.login{height:30px;padding:0 11px;border:1px solid #3a4d65;border-radius:5px;background:#071427;font-size:10px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 246px;max-width:1200px;margin:0 auto;min-height:calc(100vh - 62px)}
+.sidebar{display:none}.side-title{font-size:9px;color:#8da0b6;padding:0 9px 9px}.side-link{display:flex;align-items:center;gap:9px;padding:9px 9px;margin:2px 0;border-radius:4px;color:#91a5bb;text-decoration:none;font-size:9px}.side-link:hover,.side-link.active{background:linear-gradient(90deg,#0c2947,#08203a);color:#dff5ff}.side-link.active{box-shadow:inset 2px 0 #22b9ff}.side-icon{width:13px;text-align:center;color:#8fb1d0}.badge{margin-left:auto;border-radius:8px;padding:2px 5px;background:#102e48;color:#74cfff;font-size:8px}.side-section{margin-top:17px;border-top:1px solid #112841;padding-top:12px}.main{padding:16px 10px 26px;min-width:0}.hero{border:1px solid #1b3b5d;border-radius:4px;background:linear-gradient(135deg,#0a2440,#06152a);padding:14px 16px;position:relative;overflow:hidden}.hero:after{content:"";position:absolute;right:0;top:0;width:46%;height:100%;background:radial-gradient(circle at 65% 45%,rgba(15,177,255,.24),transparent 55%);pointer-events:none}.hero-title{font-size:12px;font-weight:800;position:relative;z-index:1}.hero-title b{color:#f1a928}.hero-sub{font-size:8px;color:#8ea3b8;margin-top:4px}.powered{position:absolute;right:12px;top:12px;color:#8ba0b5;font-size:7px;text-align:right}.powered b{display:block;color:#e3edf8;font-size:9px;margin-top:2px}
+.market-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:#18314e;border:1px solid #18314e;margin-top:8px}.market{background:#07182b;padding:9px 10px;min-width:0}.market label{display:block;color:#748aa2;font-size:7px;margin-bottom:5px}.market strong{font-size:9px;white-space:nowrap}.up{color:var(--green)}.down{color:var(--red)}.neutral{color:#9fb1c4}
+.signal-head{margin-top:8px;border:1px solid #1b3654;background:#061326;border-radius:4px}.signal-top{padding:9px 12px;border-bottom:1px solid #18314e;display:flex;align-items:center;justify-content:space-between}.pair{display:flex;align-items:center;gap:9px}.coin{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#f39c19;color:#fff;font-weight:900;font-size:12px}.pair strong{font-size:13px}.pill{font-size:7px;border-radius:8px;padding:3px 7px;background:#063a2d;color:#3df1aa;border:1px solid #0d775b}.meta{font-size:7px;color:#71869d;margin-top:4px}.sigid{font-size:7px;color:#6f839a;text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid #18314e}.kpi{padding:8px 9px;border-right:1px solid #18314e}.kpi:last-child{border-right:0}.kpi label{display:block;font-size:7px;color:#758aa2;margin-bottom:5px}.kpi strong{font-size:9px}.kpi .big{font-size:10px}
+.content-grid{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:7px;padding:8px}.chartbox,.panel{border:1px solid #18314e;background:#051225;border-radius:4px;overflow:hidden}.tabs{height:31px;display:flex;align-items:center;border-bottom:1px solid #18314e;background:#07182b}.tab{border:0;background:transparent;color:#71879f;font-size:8px;padding:0 10px;height:100%}.tab.active{color:#e5f5ff;border-bottom:2px solid #23baff}.chart-toolbar{height:28px;display:flex;align-items:center;gap:8px;padding:0 9px;color:#7f96ad;font-size:8px}.tf{border:0;background:transparent;color:#738aa2;font-size:8px}.tf.active{color:#fff;background:#12304c;border-radius:3px;padding:3px 6px}.chart{height:320px;background:linear-gradient(180deg,#06172b,#041021);position:relative}.chart svg{width:100%;height:100%;display:block}.chart-legend{position:absolute;left:9px;top:7px;font-size:7px;color:#758da7}.chart-price{position:absolute;right:8px;top:50%;font-size:7px;color:#7f95aa}.side-summary{display:flex;flex-direction:column;gap:7px}.mini{border:1px solid #18314e;background:#061326;border-radius:4px;padding:10px}.mini h4{margin:0 0 8px;font-size:8px;color:#d7e6f5}.mini-row{display:flex;justify-content:space-between;gap:6px;margin:6px 0;color:#7f94aa;font-size:7px}.mini-row b{color:#dbe8f5;font-size:8px}.buy{background:#10d88d;color:#03150e;border:0;border-radius:4px;padding:8px 18px;font-weight:900;font-size:9px}.sell{background:#ff5265;color:white;border:0;border-radius:4px;padding:8px 18px;font-weight:900;font-size:9px}.btnrow{display:flex;gap:7px;margin:9px 0}.scoreline{height:5px;background:#17304a;border-radius:4px;overflow:hidden;margin:7px 0}.scoreline i{display:block;height:100%;width:89%;background:linear-gradient(90deg,#16db8b,#29b7ff);border-radius:4px}
+.analysis{padding:0 8px 8px}.analysis-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:7px}.analysis .panel{padding:10px}.panel h3{margin:0 0 9px;font-size:9px}.reason{display:grid;grid-template-columns:17px 1fr auto;gap:7px;align-items:start;padding:7px 0;border-top:1px solid #122a43;font-size:7px;color:#7e94aa}.reason b{color:#dce9f4;font-size:8px}.reason:first-of-type{border-top:0}.reason .rscore{color:#4beaa9}.signal-breakdown{margin-top:7px}.score-circle{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#1bdd90 0 89%,#17314b 89%);position:relative;margin:5px auto}.score-circle:after{content:"";position:absolute;inset:7px;background:#061326;border-radius:50%}.score-circle span{position:relative;z-index:1;font-size:19px;font-weight:800}.bars .bar{display:grid;grid-template-columns:92px 1fr 26px;align-items:center;gap:5px;margin:6px 0;font-size:7px;color:#7e94aa}.bar i{height:4px;background:#1b334d;border-radius:4px;overflow:hidden}.bar i b{display:block;height:100%;background:#1edc91}.recent{margin-top:7px}.recent table{width:100%;border-collapse:collapse;font-size:7px}.recent th{color:#71869d;font-weight:500;text-align:left;background:#07182b;padding:7px}.recent td{border-top:1px solid #122b44;padding:7px;color:#a9bacb}.right{border-left:1px solid #142a44;background:rgba(3,14,29,.82);padding:16px 8px;position:sticky;top:62px;height:calc(100vh - 62px);overflow:auto}.right .panel{margin-bottom:7px;padding:10px}.right h3{font-size:9px;margin:0 0 9px}.right .mini-row{margin:7px 0}.toggle{width:28px;height:15px;border:0;border-radius:9px;background:#18cf8b;position:relative}.toggle:after{content:"";width:11px;height:11px;background:#fff;border-radius:50%;position:absolute;right:2px;top:2px}.footer{border-top:1px solid #18314e;background:#030d1c;padding:10px 18px;color:#6d8299;font-size:7px;display:flex;justify-content:space-between;max-width:1200px;margin:0 auto}.footer b{color:#d8e4ef}
+
+/* Interactive signal detail controls */
+.detail-tabs{overflow-x:auto;scrollbar-width:none}.detail-tabs::-webkit-scrollbar{display:none}.tab-panel{display:none}.tab-panel.active{display:block}.chart-panel{display:none}.chart-panel.active{display:block}.data-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.data-card{border:1px solid #18314e;background:#07182b;border-radius:4px;padding:8px}.data-card label{display:block;color:#71869d;font-size:6.5px;margin-bottom:4px}.data-card strong{font-size:9px}.data-card small{display:block;color:#687f97;font-size:6px;margin-top:3px}.inline-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.mini-action.primary{border-color:#17618a;background:#0b2944;color:#dff7ff}.mini-action.danger{border-color:#663040;color:#ff9aaa}.mini-action.active{border-color:#18c98c;background:#073b2d;color:#54efb2}.detail-list{display:grid;gap:5px;margin-top:7px}.detail-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border-top:1px solid #122a43;padding:6px 0;font-size:7px;color:#7f94aa}.detail-row:first-child{border-top:0}.detail-row b{color:#dbe8f5;font-size:8px}.detail-row small{display:block;color:#607994;font-size:6px;margin-top:2px}.indicator-row{cursor:pointer;transition:.15s}.indicator-row:hover{background:#09213a}.indicator-row .indicator-name{display:flex;align-items:center;gap:5px}.indicator-dot{width:5px;height:5px;border-radius:50%;background:#19df91;display:inline-block}.indicator-detail{display:none;padding:5px 0 2px 12px;color:#6f879e;font-size:6.5px;line-height:1.45}.indicator-row.open .indicator-detail{display:block}.orderbook{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px}.depth-side{border:1px solid #18314e;background:#07182b;border-radius:4px;overflow:hidden}.depth-side h5{margin:0;padding:6px 7px;background:#091e35;font-size:7px}.depth-side.ask h5{color:#ff7c8b}.depth-side.bid h5{color:#45e8ad}.depth-row{display:grid;grid-template-columns:1fr auto auto;gap:5px;padding:5px 7px;border-top:1px solid #102840;font-size:6.5px;color:#8aa0b5}.depth-row b{color:#dce8f5}.depth-row .depth-bar{height:3px;background:#17304a;overflow:hidden;border-radius:3px;min-width:35px}.depth-row .depth-bar i{display:block;height:100%;background:#ff5266}.bid .depth-row .depth-bar i{background:#19df91}.liq-levels{margin-top:7px}.liq-line{display:grid;grid-template-columns:78px 1fr 48px;align-items:center;gap:7px;padding:6px 0;border-top:1px solid #122a43;font-size:6.5px;color:#7f94aa}.liq-line b{font-size:8px;color:#dce8f5}.liq-meter{height:6px;background:#172e48;border-radius:4px;overflow:hidden}.liq-meter i{display:block;height:100%;border-radius:4px;background:#ff5266}.liq-meter.green i{background:#19df91}.context-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:7px}.context-card{border:1px solid #18314e;background:#07182b;border-radius:4px;padding:8px}.context-card h5{margin:0 0 4px;font-size:7px}.context-card p{margin:0;color:#71869d;font-size:6.5px;line-height:1.4}.score-chip{display:inline-flex;align-items:center;border:1px solid #214765;border-radius:10px;padding:2px 6px;font-size:6px;color:#8fc8e8}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;z-index:80;padding:14px}.modal-backdrop.open{display:flex}.modal{width:min(420px,100%);border:1px solid #244867;background:#061326;border-radius:6px;box-shadow:0 20px 70px rgba(0,0,0,.5);padding:12px}.modal h3{margin:0 0 10px;font-size:11px}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modal label{display:block;color:#758aa2;font-size:7px;margin-bottom:4px}.modal input{width:100%;height:30px;border:1px solid #1b3b5d;border-radius:4px;background:#07182b;padding:0 8px;outline:none;font-size:8px}.modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#09243b;border:1px solid #245677;color:#dff5ff;border-radius:5px;padding:8px 11px;font-size:7px;z-index:90;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr)}.right{display:none}.topnav{gap:2px}.topnav a{padding-inline:7px}}
+@media(max-width:760px){.topbar{height:auto;min-height:56px;padding:8px 10px;gap:10px;flex-wrap:wrap}.brand{width:auto;flex:0 0 auto}.topnav{order:3;flex:1 1 100%;width:100%;overflow-x:auto;padding-bottom:1px}.topnav a{font-size:8px;padding:7px 8px}.search{width:150px;margin-left:auto}.layout{display:block}.main{padding:9px 7px}.market-strip{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(3,1fr)}.content-grid{grid-template-columns:1fr}.side-summary{display:grid;grid-template-columns:repeat(2,1fr)}.analysis-grid{grid-template-columns:1fr}.chart{height:260px}.footer{font-size:6px}.right{display:none}}
+
+
+.alert-list{display:flex;flex-direction:column;gap:6px}.alert-item{border:1px solid #15304b;background:#07182b;border-radius:4px;padding:7px}.alert-item.unread{border-left:2px solid #20b8ff}.alert-top{display:flex;justify-content:space-between;gap:5px;font-size:7px}.alert-title{font-size:8px;font-weight:800;color:#dce8f5}.alert-time{font-size:6px;color:#66809a}.alert-copy{margin-top:4px;color:#7f95aa;font-size:6.5px;line-height:1.35}.alert-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#20b8ff;margin-right:4px}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.section-head h3{margin:0}.performance-summary{margin-top:7px;padding:8px}.perf-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.perf-card{border:1px solid #18314e;background:#07182b;border-radius:4px;padding:9px}.perf-card label{display:block;color:#71869d;font-size:6.5px;margin-bottom:5px}.perf-card strong{font-size:11px}.perf-card small{display:block;color:#657c95;font-size:6px;margin-top:3px}.perf-meter{height:4px;background:#17304a;border-radius:4px;margin-top:7px;overflow:hidden}.perf-meter i{display:block;height:100%;background:#19df91}.watch-btn{width:100%;border:1px solid #28506f;border-radius:4px;padding:9px;background:#09223a;color:#dff5ff;font-size:8px;font-weight:800}.watch-btn:hover{background:#0d3150;border-color:#20b8ff}.watch-btn.added{background:#073b2d;border-color:#18c98c;color:#54efb2}.mini-action{border:1px solid #284563;background:#081a30;color:#9ec0da;border-radius:4px;padding:6px 7px;font-size:7px}.right .panel .section-note{font-size:6px;color:#627b94;margin-top:-4px;margin-bottom:7px}
+@media(max-width:760px){.perf-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <a class="brand" href="#"><span class="brand-mark">CG</span><span><b>CoinGabbar</b><small>Signals</small></span></a>
+  <nav class="topnav trader-topnav" aria-label="Trader navigation">
+    <a class="active" href="/signals"><span>◉</span> Active Signals</a>
+    <a href="/history"><span>◌</span> Signal History</a>
+    <a href="/performance"><span>▥</span> Performance</a>
+    <a href="/watchlist"><span>☆</span> Watchlist</a>
+    <a href="/market"><span>⌁</span> Market Analysis</a>
+    <a href="/tools"><span>⚒</span> Tools</a>
+    <a href="/alerts"><span>♧</span> Alerts <b class="top-badge">3</b></a>
+    <a href="/settings"><span>⚙</span> Settings</a>
+  </nav>
+  <label class="search">⌕ <input placeholder="Search coin, pair, or signal..."></label>
+  <button class="login">Login</button>
+</header>
+
+<div class="layout">
+
+
+<main class="main">
+  <section class="hero">
+    <div class="hero-title">⚡ Trade Smarter with <b>CoinGabbarSignals</b></div>
+    <div class="hero-sub">Real-time crypto signals backed by technical analysis, on-chain data, and market insights.</div>
+    <div class="powered">Powered by<br><b>CoinGabbar</b></div>
+  </section>
+
+  <section class="market-strip">
+    <div class="market"><label>BTC</label><strong>$65,248.32</strong> <span class="up">+2.34%</span></div>
+    <div class="market"><label>24h High</label><strong>$66,120.45</strong></div>
+    <div class="market"><label>24h Low</label><strong>$62,987.11</strong></div>
+    <div class="market"><label>BTC Dominance</label><strong>56.4%</strong> <span class="up">+0.3%</span></div>
+    <div class="market"><label>Fear &amp; Greed</label><strong class="up">72 Greed</strong></div>
+    <div class="market"><label>Funding Rate</label><strong>0.010%</strong></div>
+  </section>
+
+  <section class="signal-head">
+    <div class="signal-top">
+      <div class="pair"><div class="coin">₿</div><div><strong>BTC/USDT</strong> <span class="pill">LONG</span><div class="meta">Binance • Futures • Perpetual</div></div></div>
+      <div class="sigid">Signal ID: CGS-20250928-001<br>Created: 28 Sep 2025, 09:24 AM (IST)<br>Updated: 28 Sep 2025, 10:36 AM (IST) • Age: 3h 12m</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><label>Setup Score</label><strong class="up big">89 / 100</strong><div class="meta">Strong Setup</div></div>
+      <div class="kpi"><label>Timeframe</label><strong>4H → 1H → 15M</strong></div>
+      <div class="kpi"><label>Entry Zone</label><strong>$65,000 – $65,300</strong></div>
+      <div class="kpi"><label>Current Price</label><strong>$65,248.32</strong></div>
+      <div class="kpi"><label>Stop Loss</label><strong class="down">$64,500</strong></div>
+      <div class="kpi"><label>Position Status</label><strong class="up">● Active</strong></div>
+    </div>
+    <div class="content-grid">
+      <div>
+        <div class="chartbox">
+          <div class="tabs detail-tabs">
+            <button class="tab active" data-chart-tab="chart-panel">Chart</button>
+            <button class="tab" data-chart-tab="indicator-panel">Indicators</button>
+            <button class="tab" data-chart-tab="order-panel">Order Book</button>
+            <button class="tab" data-chart-tab="liq-panel">Liquidation Levels</button>
+          </div>
+          <div class="chart-panel active" id="chart-panel">
+            <div class="chart-toolbar"><button class="tf">1m</button><button class="tf">5m</button><button class="tf active">15m</button><button class="tf">1h</button><button class="tf">4h</button><button class="tf">1D</button><span style="margin-left:auto"><button class="mini-action chart-tool" data-toast="Crosshair enabled">⌖</button> <button class="mini-action chart-tool" data-toast="Chart expanded">⛶</button> <button class="mini-action chart-tool" data-toast="Chart settings opened">⚙</button></span></div>
+          <div class="chart" id="chart">
+            <div class="chart-legend">BTC/USDT · Binance &nbsp; O 64,985 H 65,248 L 64,765 C 65,248 +420.18 (+0.65%)</div>
+            <svg viewBox="0 0 700 320" preserveAspectRatio="none" aria-label="BTC candlestick chart">
+              <g stroke="#17314c" stroke-width="1" opacity=".7">
+                <line x1="0" y1="45" x2="700" y2="45"/><line x1="0" y1="95" x2="700" y2="95"/><line x1="0" y1="145" x2="700" y2="145"/><line x1="0" y1="195" x2="700" y2="195"/><line x1="0" y1="245" x2="700" y2="245"/>
+              </g>
+              <polyline points="10,215 50,230 90,218 130,245 170,235 210,198 250,205 290,180 330,195 370,164 410,176 450,137 490,148 530,120 570,150 610,115 650,128 690,95" fill="none" stroke="#2cc7ff" stroke-width="2"/>
+              <polyline points="10,235 50,238 90,228 130,232 170,222 210,212 250,205 290,194 330,190 370,181 410,174 450,164 490,158 530,151 570,145 610,139 650,130 690,120" fill="none" stroke="#f1a933" stroke-width="1.4"/>
+              <polyline points="10,250 50,248 90,244 130,242 170,238 210,230 250,225 290,218 330,210 370,203 410,197 450,188 490,181 530,175 570,169 610,160 650,154 690,146" fill="none" stroke="#8a79ff" stroke-width="1.2"/>
+              <g stroke="#c5d8e8" stroke-width="1.2">
+                <path d="M28 210v28 M23 216h10v10h-10z M63 222v24 M58 226h10v11h-10z M98 212v26 M93 216h10v9h-10z M133 231v30 M128 237h10v12h-10z M168 224v24 M163 226h10v12h-10z M203 195v34 M198 201h10v14h-10z M238 201v22 M233 205h10v9h-10z M273 177v26 M268 184h10v11h-10z M308 183v22 M303 188h10v10h-10z M343 158v28 M338 166h10v13h-10z M378 166v22 M373 172h10v10h-10z M413 139v30 M408 145h10v15h-10z M448 146v22 M443 151h10v10h-10z M483 119v28 M478 125h10v13h-10z M518 131v22 M513 136h10v10h-10z M553 108v30 M548 114h10v14h-10z M588 132v22 M583 136h10v11h-10z M623 103v30 M618 110h10v13h-10z M658 115v24 M653 120h10v11h-10z"/>
+              </g>
+              <g stroke="#16d98e" stroke-width="1.5"><line x1="420" y1="98" x2="700" y2="98"/><line x1="470" y1="123" x2="700" y2="123"/><line x1="505" y1="148" x2="700" y2="148"/></g>
+              <g stroke="#ff5266" stroke-width="1.5"><line x1="410" y1="272" x2="700" y2="272"/></g>
+              <g fill="#17d991" opacity=".8">
+                <rect x="20" y="276" width="10" height="25"/><rect x="55" y="286" width="10" height="15"/><rect x="90" y="280" width="10" height="21"/><rect x="125" y="292" width="10" height="9"/><rect x="160" y="275" width="10" height="26"/><rect x="195" y="284" width="10" height="17"/><rect x="230" y="268" width="10" height="33"/><rect x="265" y="278" width="10" height="23"/><rect x="300" y="260" width="10" height="41"/><rect x="335" y="275" width="10" height="26"/><rect x="370" y="256" width="10" height="45"/><rect x="405" y="270" width="10" height="31"/><rect x="440" y="250" width="10" height="51"/><rect x="475" y="267" width="10" height="34"/><rect x="510" y="242" width="10" height="59"/><rect x="545" y="263" width="10" height="38"/><rect x="580" y="235" width="10" height="66"/><rect x="615" y="254" width="10" height="47"/><rect x="650" y="230" width="10" height="71"/></g>
+            </svg>
+            <div class="chart-price">70,000<br><br>68,000<br><br>66,000<br><br>64,000<br><br>62,000</div>
+          </div>
+          </div>
+          <div class="chart-panel" id="indicator-panel">
+            <div class="data-grid">
+              <div class="data-card"><label>Trend</label><strong class="up">Bullish</strong><small>Price above EMA 20/50/200</small></div>
+              <div class="data-card"><label>Momentum</label><strong>62.4 RSI</strong><small>Neutral-to-bullish</small></div>
+              <div class="data-card"><label>Volatility</label><strong>1,240 ATR</strong><small>Medium range</small></div>
+            </div>
+            <div class="detail-list">
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> EMA 20</span><b>64,980 · Bullish</b><div class="indicator-detail">Fast trend reference. Price is above EMA 20, supporting the current bullish structure.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> EMA 50</span><b>64,320 · Bullish</b><div class="indicator-detail">Medium trend reference. EMA 20 remains above EMA 50 in the current setup.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> SMA 200</span><b>60,832 · Bullish</b><div class="indicator-detail">Long-term trend reference. Current price remains materially above the 200-period average.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> RSI 14</span><b>62.4 · Neutral</b><div class="indicator-detail">Momentum is positive without being in the supplied overbought zone.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> MACD</span><b>1,245 · Bullish</b><div class="indicator-detail">Momentum confirmation is currently aligned with the signal direction.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> Bollinger Bands</span><b>64,200–66,100</b><div class="indicator-detail">Current price is inside the displayed band range, with upside room toward the upper band.</div></div>
+              <div class="detail-row indicator-row"><span class="indicator-name"><i class="indicator-dot"></i> VWAP</span><b>64,870 · Bullish</b><div class="indicator-detail">Price is above VWAP, supporting positive intraday positioning.</div></div>
+            </div>
+            <div class="inline-actions"><button class="mini-action primary" data-toast="Indicator comparison selected">Compare Timeframes</button><button class="mini-action" data-toast="Indicator details opened">View Indicator Details</button></div>
+          </div>
+          <div class="chart-panel" id="order-panel">
+            <div class="data-grid"><div class="data-card"><label>Spread</label><strong>0.10 USDT</strong><small>Best bid / ask</small></div><div class="data-card"><label>Imbalance</label><strong class="up">+18.6%</strong><small>Bid-side pressure</small></div><div class="data-card"><label>Depth</label><strong>High</strong><small>Within visible range</small></div></div>
+            <div class="orderbook">
+              <div class="depth-side ask"><h5>ASKS · SELL WALLS</h5><div class="depth-row"><span>65,255</span><b>1.82 BTC</b><span class="depth-bar"><i style="width:82%"></i></span></div><div class="depth-row"><span>65,270</span><b>1.35 BTC</b><span class="depth-bar"><i style="width:62%"></i></span></div><div class="depth-row"><span>65,300</span><b>2.40 BTC</b><span class="depth-bar"><i style="width:100%"></i></span></div><div class="depth-row"><span>65,350</span><b>1.12 BTC</b><span class="depth-bar"><i style="width:48%"></i></span></div></div>
+              <div class="depth-side bid"><h5>BIDS · BUY SUPPORT</h5><div class="depth-row"><span>65,240</span><b>2.15 BTC</b><span class="depth-bar"><i style="width:88%"></i></span></div><div class="depth-row"><span>65,200</span><b>2.80 BTC</b><span class="depth-bar"><i style="width:100%"></i></span></div><div class="depth-row"><span>65,100</span><b>1.74 BTC</b><span class="depth-bar"><i style="width:64%"></i></span></div><div class="depth-row"><span>65,000</span><b>3.05 BTC</b><span class="depth-bar"><i style="width:100%"></i></span></div></div>
+            </div>
+            <div class="inline-actions"><button class="mini-action primary" data-toast="Order book imbalance refreshed">Refresh Depth</button><button class="mini-action" data-toast="Large orders highlighted">Highlight Walls</button></div>
+          </div>
+          <div class="chart-panel" id="liq-panel">
+            <div class="data-grid"><div class="data-card"><label>Nearest Long Liquidation</label><strong class="down">64,020</strong><small>Below current price</small></div><div class="data-card"><label>Nearest Short Liquidation</label><strong class="up">66,180</strong><small>Above current price</small></div><div class="data-card"><label>Risk Cluster</label><strong>64,500</strong><small>Signal invalidation area</small></div></div>
+            <div class="liq-levels"><div class="liq-line"><span>66,180</span><div class="liq-meter green"><i style="width:78%"></i></div><b class="up">Shorts</b></div><div class="liq-line"><span>65,850</span><div class="liq-meter green"><i style="width:48%"></i></div><b class="up">Shorts</b></div><div class="liq-line"><span>64,500</span><div class="liq-meter"><i style="width:92%"></i></div><b class="down">Longs</b></div><div class="liq-line"><span>64,020</span><div class="liq-meter"><i style="width:66%"></i></div><b class="down">Longs</b></div><div class="liq-line"><span>63,420</span><div class="liq-meter"><i style="width:42%"></i></div><b class="down">Longs</b></div></div>
+            <div class="inline-actions"><button class="mini-action primary" data-toast="Liquidation heatmap refreshed">Refresh Heatmap</button><button class="mini-action" data-toast="Liquidation alerts armed">Set Liquidation Alert</button></div>
+          </div>
+        </div>
+      </div>
+      <aside class="side-summary">
+        <div class="mini"><h4>Signal Summary</h4><div class="btnrow"><button class="buy">LONG</button></div><div class="mini-row"><span>Setup Score</span><b class="up">89 / 100</b></div><div class="scoreline"><i></i></div><div class="mini-row"><span>Entry Zone</span><b>65,000–65,300</b></div><div class="mini-row"><span>Stop Loss</span><b class="down">64,500</b></div><div class="mini-row"><span>Take Profit 1</span><b>66,000</b></div><div class="mini-row"><span>Take Profit 2</span><b>67,000</b></div><div class="mini-row"><span>Take Profit 3</span><b>68,200</b></div><div class="mini-row"><span>Risk / Reward</span><b>1:2.8</b></div><div class="inline-actions"><button class="mini-action primary" data-toast="Signal copied">Copy Setup</button><button class="mini-action" data-toast="Signal alert armed">Set Alert</button><button class="mini-action" data-toast="Watchlist updated">Watchlist</button></div></div>
+        <div class="mini"><h4>Risk Management</h4><div class="mini-row"><span>Account Balance</span><b>1,000 USDT</b></div><div class="mini-row"><span>Risk %</span><b>1%</b></div><div class="mini-row"><span>Risk Amount</span><b>10 USDT</b></div><div class="mini-row"><span>Position Size</span><b>0.0154 BTC</b></div><div class="mini-row"><span>Leverage</span><b>5x</b></div><div class="mini-row"><span>Margin Required</span><b>326.25 USDT</b></div><div class="mini-row"><span>Max Loss</span><b>10 USDT</b></div><button class="tf calculator-btn" style="border:1px solid #284563;border-radius:4px;padding:6px;width:100%">▣ Position Size Calculator</button></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="analysis">
+    <div class="analysis-grid">
+      <div class="panel">
+        <div class="tabs detail-tabs" style="margin:-10px -10px 9px"><button class="tab active" data-detail-tab="reasoning-panel">Analysis &amp; Reasoning</button><button class="tab" data-detail-tab="technical-panel">Technical Analysis</button><button class="tab" data-detail-tab="derivatives-panel">Derivatives Data</button><button class="tab" data-detail-tab="context-panel">Market Context</button></div>
+        <div class="tab-panel active" id="reasoning-panel"><h3>Why This Signal? <span class="pill">LONG</span></h3>
+        <div class="reason"><span class="up">✦</span><div><b>Primary Reason</b><br>Uptrend confirmed with bullish structure and strong volume.</div><span class="rscore">+</span></div>
+        <div class="reason"><span class="up">▥</span><div><b>Trend + Structure</b><br>Higher highs and higher lows on 4H and 1H.</div><span class="rscore">+</span></div>
+        <div class="reason"><span class="up">▦</span><div><b>Volume</b><br>Increasing volume with positive CVD.</div><span class="rscore">+</span></div>
+        <div class="reason"><span class="up">⌁</span><div><b>Derivatives</b><br>Long/Short ratio rising, funding stable, OI rising.</div><span class="rscore">+</span></div>
+        <div class="reason"><span class="up">◈</span><div><b>Liquidity</b><br>Key support zone holds, no major sell wall.</div><span class="rscore">+</span></div>
+        <div class="reason"><span class="red">!</span><div><b>Invalidating Factors</b><br>Break below 64,500 or loss of 4H uptrend.</div><span class="down">!</span></div>
+          <div class="inline-actions"><button class="mini-action primary" data-toast="Full reasoning expanded">Expand Full Reasoning</button><button class="mini-action" data-toast="Signal evidence copied">Copy Signal Evidence</button><button class="mini-action" data-toast="Reasoning alert set">Set Reasoning Alert</button></div>
+        </div>
+        <div class="tab-panel" id="technical-panel">
+          <h3>Technical Analysis <span class="score-chip">Trend + Momentum + Structure</span></h3>
+          <div class="data-grid"><div class="data-card"><label>Market Structure</label><strong class="up">HH / HL</strong><small>4H + 1H confirmed</small></div><div class="data-card"><label>Momentum</label><strong class="up">Bullish</strong><small>MACD positive</small></div><div class="data-card"><label>Volume</label><strong class="up">Increasing</strong><small>Positive CVD</small></div></div>
+          <div class="detail-list"><div class="detail-row"><span>Support Zone<small>Primary demand area</small></span><b>64,500–64,900</b></div><div class="detail-row"><span>Resistance Zone<small>First upside supply</small></span><b>65,850–66,100</b></div><div class="detail-row"><span>Structure Bias<small>Higher highs / higher lows</small></span><b class="up">Bullish</b></div><div class="detail-row"><span>Momentum Bias<small>RSI + MACD alignment</small></span><b class="up">Positive</b></div><div class="detail-row"><span>Volatility<small>ATR 1,240</small></span><b>Medium</b></div></div>
+          <div class="inline-actions"><button class="mini-action primary" data-toast="Multi-timeframe comparison opened">Compare MTF</button><button class="mini-action" data-toast="Support and resistance marked">Mark S/R</button><button class="mini-action" data-toast="Technical chart overlay toggled">Chart Overlay</button></div>
+        </div>
+        <div class="tab-panel" id="derivatives-panel">
+          <h3>Derivatives Data <span class="score-chip">Futures + Positioning</span></h3>
+          <div class="data-grid"><div class="data-card"><label>Open Interest</label><strong>+4.8%</strong><small>Rising with price</small></div><div class="data-card"><label>Funding</label><strong>0.010%</strong><small>Stable positive</small></div><div class="data-card"><label>Long / Short</label><strong>1.24</strong><small>Long bias</small></div></div>
+          <div class="detail-list"><div class="detail-row"><span>Open Interest<small>Position participation</small></span><b class="up">Rising</b></div><div class="detail-row"><span>Funding Rate<small>Perpetual futures</small></span><b>0.010%</b></div><div class="detail-row"><span>Long / Short Ratio<small>Account positioning</small></span><b class="up">1.24</b></div><div class="detail-row"><span>CVD<small>Cumulative volume delta</small></span><b class="up">Positive</b></div><div class="detail-row"><span>24H Liquidations<small>Across tracked contracts</small></span><b>Moderate</b></div><div class="detail-row"><span>Basis<small>Futures vs spot</small></span><b>+0.18%</b></div></div>
+          <div class="inline-actions"><button class="mini-action primary" data-toast="Derivatives data refreshed">Refresh Derivatives</button><button class="mini-action" data-toast="Funding alert set">Set Funding Alert</button><button class="mini-action" data-toast="OI chart opened">Open OI Chart</button></div>
+        </div>
+        <div class="tab-panel" id="context-panel">
+          <h3>Market Context <span class="score-chip">Macro + Sentiment + News</span></h3>
+          <div class="context-grid"><div class="context-card"><h5>Fear &amp; Greed <span class="up">72 · Greed</span></h5><p>Risk appetite is elevated in the supplied market snapshot.</p></div><div class="context-card"><h5>BTC Dominance <span class="up">56.4%</span></h5><p>Dominance is higher by 0.3% in the displayed snapshot.</p></div><div class="context-card"><h5>Market Regime <span class="up">Risk-On</span></h5><p>Price structure and momentum currently support the displayed bias.</p></div><div class="context-card"><h5>News Context <span class="score-chip">Monitor</span></h5><p>Review major macro, ETF, regulatory and exchange headlines before execution.</p></div></div>
+          <div class="inline-actions"><button class="mini-action primary" data-toast="Market context refreshed">Refresh Context</button><button class="mini-action" data-toast="News panel opened">View Related News</button><button class="mini-action" data-toast="Context alert set">Set Context Alert</button></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Technical Indicators</h3>
+        <div class="mini-row"><span>EMA (20)</span><b>64,980 <span class="up">Bullish</span></b></div>
+        <div class="mini-row"><span>EMA (50)</span><b>64,320 <span class="up">Bullish</span></b></div>
+        <div class="mini-row"><span>SMA (200)</span><b>60,832 <span class="up">Bullish</span></b></div>
+        <div class="mini-row"><span>RSI (14)</span><b>62.4 <span class="neutral">Neutral</span></b></div>
+        <div class="mini-row"><span>MACD</span><b>1,245 <span class="up">Bullish</span></b></div>
+        <div class="mini-row"><span>Bollinger Bands</span><b>64,200–66,100</b></div>
+        <div class="mini-row"><span>ATR</span><b>1,240 <span class="yellow">Medium</span></b></div>
+        <div class="mini-row"><span>VWAP</span><b>64,870 <span class="up">Bullish</span></b></div>
+        <div class="inline-actions"><button class="mini-action primary" data-toast="Technical details opened">View Details</button><button class="mini-action" data-toast="Indicator alerts set">Set Indicator Alert</button></div>
+      </div>
+      <div class="panel">
+        <h3>Multi-Timeframe Trend</h3>
+        <div class="mini-row"><span>1m</span><b class="up">↑</b></div><div class="mini-row"><span>5m</span><b class="up">↑</b></div><div class="mini-row"><span>15m</span><b class="up">↑</b></div><div class="mini-row"><span>1H</span><b class="up">↑</b></div><div class="mini-row"><span>4H</span><b class="up">↑</b></div><div class="mini-row"><span>1D</span><b class="up">↑</b></div>
+        <div class="mini-row" style="border-top:1px solid #18314e;padding-top:8px"><span>Overall MTF</span><b class="up">Bullish</b></div>
+        <div class="inline-actions"><button class="mini-action primary" data-toast="MTF matrix opened">Open MTF Matrix</button><button class="mini-action" data-toast="MTF alert set">Set MTF Alert</button></div>
+      </div>
+    </div>
+
+    <div class="panel signal-breakdown">
+      <h3>Signal Score Breakdown <span style="float:right;color:#71879e;font-weight:400">90–100 Very Strong &nbsp; 80–89 Strong &nbsp; 70–79 Moderate &nbsp; 60–69 Weak &nbsp; &lt;60 No Signal</span></h3>
+      <div style="display:grid;grid-template-columns:90px 1fr;gap:15px;align-items:center">
+        <div class="score-circle"><span>89</span></div>
+        <div class="bars">
+          <div class="bar"><span>Market Context</span><i><b style="width:100%"></b></i><span>15/15</span></div>
+          <div class="bar"><span>Trend + MTF</span><i><b style="width:100%"></b></i><span>15/15</span></div>
+          <div class="bar"><span>Structure</span><i><b style="width:100%"></b></i><span>15/15</span></div>
+          <div class="bar"><span>Liquidity / S/R</span><i><b style="width:100%"></b></i><span>10/10</span></div>
+          <div class="bar"><span>Volume + Momentum</span><i><b style="width:93%"></b></i><span>14/15</span></div>
+          <div class="bar"><span>Derivatives / Orderbook</span><i><b style="width:100%"></b></i><span>15/15</span></div>
+          <div class="bar"><span>News / Fundamentals</span><i><b style="width:60%"></b></i><span>3/5</span></div>
+          <div class="bar"><span>Risk / Execution</span><i><b style="width:100%"></b></i><span>10/10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel recent">
+      <h3>Recent Signals <span style="float:right;color:#7c92a9;font-weight:400">All Coins ▾ &nbsp;&nbsp; All Directions ▾ &nbsp;&nbsp; All Status ▾</span></h3>
+      <table><thead><tr><th>Pair</th><th>Direction</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Status</th><th>R:R</th><th>Created</th></tr></thead>
+      <tbody><tr><td>BTC/USDT</td><td class="up">LONG</td><td>65,000</td><td>64,500</td><td>66,000</td><td>67,000</td><td>68,200</td><td class="up">ACTIVE</td><td>1:2.8</td><td>28 Sep 09:24</td></tr>
+      <tr><td>ETH/USDT</td><td class="down">SHORT</td><td>2,420</td><td>2,480</td><td>2,300</td><td>2,200</td><td>2,050</td><td class="up">TP1 Hit</td><td>1:2.8</td><td>27 Sep 22:10</td></tr>
+      <tr><td>SOL/USDT</td><td class="up">LONG</td><td>142.5</td><td>138.0</td><td>150.0</td><td>158.0</td><td>165.0</td><td class="up">ACTIVE</td><td>1:2.7</td><td>27 Sep 22:10</td></tr>
+      <tr><td>BNB/USDT</td><td class="down">SHORT</td><td>580.2</td><td>598.0</td><td>560.0</td><td>540.0</td><td>520.0</td><td class="down">SL Hit</td><td>1:2.1</td><td>27 Sep 18:40</td></tr>
+      <tr><td>DOGE/USDT</td><td class="up">LONG</td><td>0.132</td><td>0.127</td><td>0.140</td><td>0.150</td><td>0.158</td><td class="up">TP2 Hit</td><td>1:2.7</td><td>27 Sep 14:03</td></tr></tbody></table>
+    </div>
+
+    <section class="panel performance-summary">
+      <div class="section-head"><h3>Performance Summary</h3><span style="font-size:7px;color:#71869d">Historical signals • 32 total</span></div>
+      <div class="perf-grid">
+        <div class="perf-card"><label>Closed Signals</label><strong>27</strong><small>84.4% of total</small><div class="perf-meter"><i style="width:84%"></i></div></div>
+        <div class="perf-card"><label>Average R</label><strong class="up">+0.68R</strong><small>Across closed signals</small><div class="perf-meter"><i style="width:68%"></i></div></div>
+        <div class="perf-card"><label>Total R</label><strong class="up">+18.4R</strong><small>Realized historical R</small><div class="perf-meter"><i style="width:82%"></i></div></div>
+        <div class="perf-card"><label>Profit Factor</label><strong>1.94</strong><small>Gross profit / loss</small><div class="perf-meter"><i style="width:78%"></i></div></div>
+        <div class="perf-card"><label>Max Drawdown</label><strong class="down">-3.2R</strong><small>Historical peak-to-trough</small><div class="perf-meter"><i style="width:32%"></i></div></div>
+        <div class="perf-card"><label>Avg Duration</label><strong>7h 24m</strong><small>Closed signal duration</small><div class="perf-meter"><i style="width:58%"></i></div></div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<aside class="right">
+  <div class="panel"><h3>Signal Summary</h3><div class="mini-row"><span>Direction</span><b class="up">LONG</b></div><div class="mini-row"><span>Setup Score</span><b class="up">89 / 100</b></div><div class="mini-row"><span>Entry Zone</span><b>65,000–65,300</b></div><div class="mini-row"><span>Stop Loss</span><b class="down">64,500</b></div><div class="mini-row"><span>Take Profit 1</span><b>66,000 (33%)</b></div><div class="mini-row"><span>Take Profit 2</span><b>67,000 (33%)</b></div><div class="mini-row"><span>Take Profit 3</span><b>68,200 (34%)</b></div><div class="mini-row"><span>Risk / Reward</span><b>1:2.8</b></div><div class="mini-row"><span>Position Status</span><b class="up">● Active</b></div></div>
+  <div class="panel"><h3>Risk Management</h3><div class="mini-row"><span>Account Balance</span><b>1,000 USDT</b></div><div class="mini-row"><span>Risk %</span><b>1%</b></div><div class="mini-row"><span>Risk Amount</span><b>10 USDT</b></div><div class="mini-row"><span>Position Size</span><b>0.0154 BTC</b></div><div class="mini-row"><span>Leverage</span><b>5x</b></div><div class="mini-row"><span>Margin Required</span><b>326.25 USDT</b></div><div class="mini-row"><span>Max Loss</span><b>10 USDT</b></div><div class="mini-row"><span>Liquidation Price</span><b>58,420 (approx)</b></div><button class="tf" style="border:1px solid #284563;border-radius:4px;padding:7px;width:100%">▣ Position Size Calculator</button></div>
+  <div class="panel">
+    <div class="section-head"><h3>Alerts &amp; Notifications</h3><span class="badge">3 new</span></div>
+    <div class="section-note">Live signal events and account notifications</div>
+    <div class="alert-list">
+      <div class="alert-item unread"><div class="alert-top"><span class="alert-title"><span class="alert-dot"></span>BTC/USDT Entry Triggered</span><span class="alert-time">2m</span></div><div class="alert-copy">Price entered the configured 65,000–65,300 entry zone.</div></div>
+      <div class="alert-item unread"><div class="alert-top"><span class="alert-title"><span class="alert-dot"></span>BTC/USDT Score Updated</span><span class="alert-time">8m</span></div><div class="alert-copy">Setup strength remains 89/100 after the latest market update.</div></div>
+      <div class="alert-item unread"><div class="alert-top"><span class="alert-title"><span class="alert-dot"></span>TP1 Alert</span><span class="alert-time">18m</span></div><div class="alert-copy">TP1 level alert is armed at 66,000 USDT.</div></div>
+    </div>
+    <div class="mini-row"><span>Signal Alerts</span><button class="toggle"></button></div>
+    <div class="mini-row"><span>Price Alerts</span><button class="toggle"></button></div>
+    <div class="mini-row"><span>Risk Alerts</span><button class="toggle"></button></div>
+    <button class="mini-action" style="width:100%">View Alert Center →</button>
+  </div>
+  <div class="panel">
+    <div class="section-head"><h3>Performance Overview</h3><span class="up" style="font-size:7px">+18.4R</span></div>
+    <div class="mini-row"><span>Total Signals</span><b>32</b></div>
+    <div class="mini-row"><span>Closed Signals</span><b>27</b></div>
+    <div class="mini-row"><span>Active Signals</span><b class="up">5</b></div>
+    <div class="mini-row"><span>TP1 / TP2 / TP3</span><b>19 / 14 / 9</b></div>
+    <div class="mini-row"><span>SL Hits</span><b class="down">6</b></div>
+    <div class="mini-row"><span>Average R</span><b class="up">+0.68R</b></div>
+    <div class="mini-row"><span>Best Trade</span><b class="up">+2.8R</b></div>
+    <div class="mini-row"><span>Worst Trade</span><b class="down">-1.0R</b></div>
+    <button class="mini-action" style="width:100%">View Full Performance →</button>
+  </div>
+  <div class="panel">
+    <div class="section-head"><h3>Watchlist</h3><span style="font-size:7px;color:#7088a0">1 asset</span></div>
+    <div class="mini-row"><span>BTC/USDT</span><b class="up">+2.34%</b></div>
+    <button class="watch-btn" id="watchBtn">☆ Add BTC/USDT to Watchlist</button>
+  </div>
+</aside>
+</div>
+<footer class="footer"><div><b>⚡ CoinGabbarSignals</b><br>Trading involves risk. Past performance is not indicative of future results. Always do your own research and trade responsibly.</div><div>Data from: Binance • CoinMarketCap • CoinGlass • TradingView<br>Last updated: 28 Sep 2025, 12:36 PM (IST)</div></footer>
+</div>
+<script>
+document.querySelectorAll('.tf').forEach(b=>b.addEventListener('click',e=>{
+  const group=e.target.parentElement;
+  if(!group) return;
+  group.querySelectorAll('.tf').forEach(x=>x.classList.remove('active'));
+  e.target.classList.add('active');
+}));
+
+const toast=document.createElement('div'); toast.className='toast'; document.body.appendChild(toast);
+let toastTimer; function showToast(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
+document.querySelectorAll('[data-toast]').forEach(b=>b.addEventListener('click',()=>showToast(b.dataset.toast)));
+
+// Chart sub-tabs
+document.querySelectorAll('[data-chart-tab]').forEach(t=>t.addEventListener('click',()=>{
+  const parent=t.closest('.chartbox');
+  parent.querySelectorAll('[data-chart-tab]').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  parent.querySelectorAll('.chart-panel').forEach(p=>p.classList.toggle('active',p.id===t.dataset.chartTab));
+}));
+
+// Analysis sub-tabs
+document.querySelectorAll('[data-detail-tab]').forEach(t=>t.addEventListener('click',()=>{
+  const parent=t.closest('.panel');
+  parent.querySelectorAll('[data-detail-tab]').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  parent.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===t.dataset.detailTab));
+}));
+
+// Expand indicator rows
+document.querySelectorAll('.indicator-row').forEach(row=>row.addEventListener('click',()=>row.classList.toggle('open')));
+
+const watchBtn=document.getElementById('watchBtn');
+watchBtn?.addEventListener('click',()=>{ const added=watchBtn.classList.toggle('added'); watchBtn.textContent=added?'✓ BTC/USDT Added to Watchlist':'☆ Add BTC/USDT to Watchlist'; showToast(added?'Added to watchlist':'Removed from watchlist'); });
+document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{t.classList.toggle('off');showToast(t.classList.contains('off')?'Alert disabled':'Alert enabled')}));
+
+// Position size calculator
+const backdrop=document.createElement('div'); backdrop.className='modal-backdrop'; backdrop.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>Position Size Calculator</h3><div class="modal-grid"><div><label>Account Balance</label><input id="calcBalance" type="number" value="1000"></div><div><label>Risk %</label><input id="calcRisk" type="number" step="0.1" value="1"></div><div><label>Entry Price</label><input id="calcEntry" type="number" value="65248.32"></div><div><label>Stop Loss</label><input id="calcStop" type="number" value="64500"></div></div><div class="detail-row" style="margin-top:8px"><span>Risk Amount</span><b id="calcRiskAmount">10.00 USDT</b></div><div class="detail-row"><span>Position Size</span><b id="calcPosition">0.0130 BTC</b></div><div class="modal-footer"><button class="mini-action" id="calcClose">Close</button><button class="mini-action primary" id="calcApply">Use Calculation</button></div></div>`; document.body.appendChild(backdrop);
+function recalc(){const bal=+document.getElementById('calcBalance').value||0,risk=+document.getElementById('calcRisk').value||0,e=+document.getElementById('calcEntry').value||0,sl=+document.getElementById('calcStop').value||0;const amt=bal*risk/100,size=Math.abs(e-sl)>0?amt/Math.abs(e-sl):0;document.getElementById('calcRiskAmount').textContent=amt.toFixed(2)+' USDT';document.getElementById('calcPosition').textContent=size.toFixed(4)+' BTC'}
+document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdrop.classList.add('open');recalc()}); backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('open')}); backdrop.querySelectorAll('input').forEach(i=>i.addEventListener('input',recalc)); backdrop.querySelector('#calcClose').addEventListener('click',()=>backdrop.classList.remove('open')); backdrop.querySelector('#calcApply').addEventListener('click',()=>{showToast('Position size calculation applied');backdrop.classList.remove('open')});
+</script>
+</body>
+</html>

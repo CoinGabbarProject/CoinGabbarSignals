@@ -1,0 +1,2 @@
+# Testing
+Vitest is configured for unit/integration tests. Existing Parts 07–30 tests remain. Parts 31–50 add deterministic tests for risk, lifecycle, performance and backtesting. Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` after dependencies are installed.

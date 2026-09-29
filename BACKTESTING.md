@@ -1,0 +1,2 @@
+# Backtesting
+The engine passes only candles strictly before the decision candle into the strategy callback. It records entry/exit, direction, R, P&L, fees, slippage, duration and reason. Configuration snapshots provide reproducibility.

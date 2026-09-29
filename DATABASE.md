@@ -1,0 +1,2 @@
+# Database
+Core entities include users, signals, signal_events, signal_analysis, signal_scores, signal_targets, market_snapshots, indicator_snapshots, watchlists, alerts, alert_events, performance_records, backtests, backtest_trades, audit_logs, data_sources plus risk/performance/backtest/notification tables. Closed signals are append-only and corrections require audit workflow.

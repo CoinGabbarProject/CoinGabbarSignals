@@ -1,0 +1,2 @@
+# Deployment
+Install Node 22+, run `npm ci`, configure environment variables from `.env.example`, run database migrations, run tests/typecheck/build, then start the server with `npm start`. Configure real market providers and secrets before enabling live operation.

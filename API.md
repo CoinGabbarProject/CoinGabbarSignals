@@ -1,0 +1,2 @@
+# API
+`GET /api/v1/health` health. `POST /api/v1/tools/position-size`, `/risk-reward`, `/stop-loss`, `/take-profit`, `/liquidation` use the same backend calculation engines. Admin routes require authenticated admin role. Signal and market routes remain under `/api/v1`.

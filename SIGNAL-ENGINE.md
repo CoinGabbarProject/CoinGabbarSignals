@@ -1,0 +1,2 @@
+# Signal Engine
+Setup Score is a 100-point strength measure only. It is not accuracy, win probability, profit probability or guaranteed return. Critical failure always overrides score and produces NO_TRADE.

@@ -1,0 +1,2 @@
+# Risk Engine
+Stop loss uses structural support/resistance and ATR. TP uses R multiples and optional technical levels. R:R keeps theoretical and realized calculations separate. Position sizing validates balance, risk and stop. Liquidation estimates are exchange-labeled and marked estimated.

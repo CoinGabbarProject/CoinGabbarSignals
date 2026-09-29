@@ -1,0 +1,2 @@
+# Security
+Security headers, CORS allow-list, API validation, rate limiting, bearer authentication boundary, server-side RBAC and audit logging are included. Production secrets must come from environment/secret management, never source code.
