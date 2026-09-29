@@ -351,5 +351,557 @@ const backdrop=document.createElement('div'); backdrop.className='modal-backdrop
 function recalc(){const bal=+document.getElementById('calcBalance').value||0,risk=+document.getElementById('calcRisk').value||0,e=+document.getElementById('calcEntry').value||0,sl=+document.getElementById('calcStop').value||0;const amt=bal*risk/100,size=Math.abs(e-sl)>0?amt/Math.abs(e-sl):0;document.getElementById('calcRiskAmount').textContent=amt.toFixed(2)+' USDT';document.getElementById('calcPosition').textContent=size.toFixed(4)+' BTC'}
 document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdrop.classList.add('open');recalc()}); backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('open')}); backdrop.querySelectorAll('input').forEach(i=>i.addEventListener('input',recalc)); backdrop.querySelector('#calcClose').addEventListener('click',()=>backdrop.classList.remove('open')); backdrop.querySelector('#calcApply').addEventListener('click',()=>{showToast('Position size calculation applied');backdrop.classList.remove('open')});
 </script>
+  <script>
+(function () {
+
+  const main = document.querySelector('.main');
+  const navLinks = document.querySelectorAll('[data-page]');
+
+  if (!main || !navLinks.length) return;
+
+  const originalSignalsPage = main.innerHTML;
+
+  const pages = {
+
+    signals: {
+      title: '⚡ Active Signals',
+      subtitle: 'Live crypto trading signals, setup scores and market conditions.',
+      content: `
+        <div class="analysis-grid">
+
+          <div class="panel">
+            <h3>🔥 Active Signal</h3>
+
+            <div class="mini-row">
+              <span>BTC/USDT</span>
+              <b class="up">LONG</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Setup Score</span>
+              <b class="up">89 / 100</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Entry</span>
+              <b>$65,000 - $65,300</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Stop Loss</span>
+              <b class="down">$64,500</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Target</span>
+              <b class="up">$68,000</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Signal Strength</h3>
+
+            <div class="score-circle">
+              <span>89</span>
+            </div>
+
+            <div class="mini-row">
+              <span>Trend</span>
+              <b class="up">Bullish</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Momentum</span>
+              <b class="up">Strong</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Market Condition</h3>
+
+            <div class="mini-row">
+              <span>BTC Dominance</span>
+              <b>56.4%</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Fear & Greed</span>
+              <b class="up">72 Greed</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Funding Rate</span>
+              <b>0.010%</b>
+            </div>
+          </div>
+
+        </div>
+      `
+    },
+
+    history: {
+      title: '📊 Signal History',
+      subtitle: 'Review previous crypto signals and their outcomes.',
+      content: `
+        <div class="panel recent">
+
+          <h3>Recent Signals</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Pair</th>
+                <th>Side</th>
+                <th>Score</th>
+                <th>Result</th>
+                <th>R</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>BTC/USDT</td>
+                <td class="up">LONG</td>
+                <td>89</td>
+                <td class="up">WIN</td>
+                <td class="up">+2.8R</td>
+              </tr>
+
+              <tr>
+                <td>ETH/USDT</td>
+                <td class="up">LONG</td>
+                <td>84</td>
+                <td class="up">WIN</td>
+                <td class="up">+2.1R</td>
+              </tr>
+
+              <tr>
+                <td>SOL/USDT</td>
+                <td class="down">SHORT</td>
+                <td>71</td>
+                <td class="down">LOSS</td>
+                <td class="down">-1.0R</td>
+              </tr>
+
+              <tr>
+                <td>BNB/USDT</td>
+                <td class="up">LONG</td>
+                <td>82</td>
+                <td class="up">WIN</td>
+                <td class="up">+1.9R</td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+      `
+    },
+
+    performance: {
+      title: '📈 Performance',
+      subtitle: 'Track signal accuracy, win rate and trading performance.',
+      content: `
+        <div class="analysis-grid">
+
+          <div class="panel">
+            <h3>Win Rate</h3>
+            <div class="score-circle">
+              <span>72%</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Average R</h3>
+            <div style="font-size:24px;font-weight:800;color:#19df91">
+              +1.84R
+            </div>
+            <div class="mini-row">
+              <span>Best Trade</span>
+              <b class="up">+4.2R</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Drawdown</h3>
+            <div style="font-size:24px;font-weight:800">
+              8.4%
+            </div>
+            <div class="mini-row">
+              <span>Status</span>
+              <b class="up">Healthy</b>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:8px">
+          <h3>Performance Summary</h3>
+
+          <div class="mini-row">
+            <span>Total Signals</span>
+            <b>248</b>
+          </div>
+
+          <div class="mini-row">
+            <span>Winning Signals</span>
+            <b class="up">179</b>
+          </div>
+
+          <div class="mini-row">
+            <span>Losing Signals</span>
+            <b class="down">69</b>
+          </div>
+
+          <div class="mini-row">
+            <span>Total R</span>
+            <b class="up">+142.6R</b>
+          </div>
+        </div>
+      `
+    },
+
+    watchlist: {
+      title: '☆ Watchlist',
+      subtitle: 'Monitor your preferred crypto pairs and market setups.',
+      content: `
+        <div class="panel">
+
+          <h3>My Watchlist</h3>
+
+          <div class="mini-row">
+            <span>BTC/USDT</span>
+            <b class="up">$65,248 +2.34%</b>
+          </div>
+
+          <div class="mini-row">
+            <span>ETH/USDT</span>
+            <b class="up">$2,468 +1.82%</b>
+          </div>
+
+          <div class="mini-row">
+            <span>SOL/USDT</span>
+            <b class="down">$154.20 -0.74%</b>
+          </div>
+
+          <div class="mini-row">
+            <span>BNB/USDT</span>
+            <b class="up">$612.30 +1.21%</b>
+          </div>
+
+        </div>
+      `
+    },
+
+    market: {
+      title: '⌁ Market Analysis',
+      subtitle: 'Crypto market overview, trend, dominance and momentum.',
+      content: `
+        <div class="analysis-grid">
+
+          <div class="panel">
+            <h3>Bitcoin</h3>
+            <div style="font-size:20px;font-weight:800">
+              $65,248
+            </div>
+            <div class="mini-row">
+              <span>24H</span>
+              <b class="up">+2.34%</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>BTC Dominance</h3>
+            <div style="font-size:20px;font-weight:800">
+              56.4%
+            </div>
+            <div class="mini-row">
+              <span>Trend</span>
+              <b class="up">Rising</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Fear & Greed</h3>
+            <div style="font-size:20px;font-weight:800;color:#19df91">
+              72
+            </div>
+            <div class="mini-row">
+              <span>Market Sentiment</span>
+              <b class="up">Greed</b>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:8px">
+          <h3>Market Trend</h3>
+
+          <div class="mini-row">
+            <span>Overall Trend</span>
+            <b class="up">Bullish</b>
+          </div>
+
+          <div class="mini-row">
+            <span>Momentum</span>
+            <b class="up">Positive</b>
+          </div>
+
+          <div class="mini-row">
+            <span>Volatility</span>
+            <b>Moderate</b>
+          </div>
+        </div>
+      `
+    },
+
+    tools: {
+      title: '⚒ Trading Tools',
+      subtitle: 'Risk, position sizing and trading calculation tools.',
+      content: `
+        <div class="analysis-grid">
+
+          <div class="panel">
+            <h3>Position Size Calculator</h3>
+            <p style="color:#8da1b7">
+              Calculate position size using account balance and risk percentage.
+            </p>
+            <button class="mini-action primary"
+              onclick="alert('Position Size Calculator')">
+              Open Calculator →
+            </button>
+          </div>
+
+          <div class="panel">
+            <h3>Risk / Reward</h3>
+            <p style="color:#8da1b7">
+              Calculate potential profit and risk before entering a trade.
+            </p>
+            <button class="mini-action primary"
+              onclick="alert('Risk / Reward Calculator')">
+              Calculate →
+            </button>
+          </div>
+
+          <div class="panel">
+            <h3>Profit & Loss</h3>
+            <p style="color:#8da1b7">
+              Estimate trading PnL based on entry and exit prices.
+            </p>
+            <button class="mini-action primary"
+              onclick="alert('Profit / Loss Calculator')">
+              Calculate →
+            </button>
+          </div>
+
+        </div>
+      `
+    },
+
+    alerts: {
+      title: '♧ Alerts',
+      subtitle: 'Manage your trading alerts and signal notifications.',
+      content: `
+        <div class="panel">
+
+          <h3>Active Alerts</h3>
+
+          <div class="mini-row">
+            <span>BTC above $66,000</span>
+            <button class="toggle"></button>
+          </div>
+
+          <div class="mini-row">
+            <span>BTC Signal Score > 80</span>
+            <button class="toggle"></button>
+          </div>
+
+          <div class="mini-row">
+            <span>ETH Breakout</span>
+            <button class="toggle"></button>
+          </div>
+
+          <div class="mini-row">
+            <span>Market Volatility Spike</span>
+            <button class="toggle"></button>
+          </div>
+
+        </div>
+      `
+    },
+
+    settings: {
+      title: '⚙ Settings',
+      subtitle: 'Manage your CoinGabbarSignals preferences.',
+      content: `
+        <div class="analysis-grid">
+
+          <div class="panel">
+            <h3>Account</h3>
+
+            <div class="mini-row">
+              <span>Account Status</span>
+              <b class="up">Active</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Plan</span>
+              <b>Free</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Preferences</h3>
+
+            <div class="mini-row">
+              <span>Theme</span>
+              <b>Dark</b>
+            </div>
+
+            <div class="mini-row">
+              <span>Default Timeframe</span>
+              <b>15M</b>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Notifications</h3>
+
+            <div class="mini-row">
+              <span>Signal Alerts</span>
+              <button class="toggle"></button>
+            </div>
+
+            <div class="mini-row">
+              <span>Market Alerts</span>
+              <button class="toggle"></button>
+            </div>
+          </div>
+
+        </div>
+      `
+    }
+
+  };
+
+
+  function updateNavigation(page) {
+
+    navLinks.forEach(link => {
+      link.classList.toggle(
+        'active',
+        link.dataset.page === page
+      );
+    });
+
+  }
+
+
+  function loadPage(page, pushState = false) {
+
+    if (!pages[page]) {
+      page = 'signals';
+    }
+
+    if (page === 'signals') {
+
+      main.innerHTML = originalSignalsPage;
+
+    } else {
+
+      const p = pages[page];
+
+      main.innerHTML = `
+
+        <section class="hero">
+
+          <div class="hero-title">
+            ${p.title}
+          </div>
+
+          <div class="hero-sub">
+            ${p.subtitle}
+          </div>
+
+        </section>
+
+        <div style="margin-top:8px">
+          ${p.content}
+        </div>
+
+      `;
+
+    }
+
+    updateNavigation(page);
+
+    document.title =
+      'CoinGabbarSignals — ' +
+      pages[page].title.replace(/^[^a-zA-Z]+/, '');
+
+    if (pushState) {
+
+      const url =
+        './?page=' +
+        encodeURIComponent(page);
+
+      history.pushState(
+        { page: page },
+        '',
+        url
+      );
+
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+  }
+
+
+  navLinks.forEach(link => {
+
+    link.addEventListener('click', function (event) {
+
+      event.preventDefault();
+
+      const page =
+        this.dataset.page;
+
+      loadPage(page, true);
+
+    });
+
+  });
+
+
+  window.addEventListener('popstate', function () {
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    loadPage(
+      params.get('page') || 'signals',
+      false
+    );
+
+  });
+
+
+  const initialParams =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  loadPage(
+    initialParams.get('page') || 'signals',
+    false
+  );
+
+})();
+</script>
 </body>
 </html>
