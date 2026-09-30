@@ -80,4 +80,15 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
+router.get("/auth/me", requireAuth, (req, res) => {
+  return res.json({
+    success: true,
+    user: {
+      id: req.user!.userId,
+      email: req.user!.email,
+      role: req.user!.role
+    }
+  });
+});
+
 export default router;
