@@ -8,6 +8,7 @@ import { marketRouter } from "./routes/market.js";
 import { signalRouter } from "./routes/signals.js";
 import {toolsRouter} from "./routes/tools.js";
 import {adminRouter} from "./routes/admin.js";
+import authRouter from "./routes/auth.js";
 import {securityHeaders,rateLimit} from "./middleware/security.js";
 
 export function createApp(config: ServerConfig): Express {
