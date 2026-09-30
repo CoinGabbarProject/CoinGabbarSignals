@@ -29,6 +29,43 @@
 </style>
 </head>
 <body>
+
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <div class="login-logo">CG</div>
+
+    <h1>CoinGabbarSignals</h1>
+    <p>Backend Control Center</p>
+
+    <form id="loginForm">
+
+      <label>Email</label>
+      <input
+        id="email"
+        type="email"
+        placeholder="Admin email"
+        required
+      >
+
+      <label>Password</label>
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        required
+      >
+
+      <button type="submit">
+        LOGIN TO BACKEND
+      </button>
+
+      <div id="loginError"></div>
+
+    </form>
+  </div>
+</div>
+
+<div id="backendApp" style="display:none">
 <div class="app">
 <header class="top">
 <button class="menu" id="menu">☰</button>
