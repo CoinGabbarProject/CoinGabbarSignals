@@ -33,7 +33,8 @@ export function createApp(config: ServerConfig): Express {
   app.use("/api/v1", marketRouter());
   app.use("/api/v1", signalRouter());
   app.use("/api/v1", toolsRouter());
-  app.use("/api/v1", adminRouter());
+  app.use("/api/v1", authRouter);
+app.use("/api/v1", adminRouter());
 
   app.use((_req, res) => {
     const body: ApiError = { error: { code: "not_found", message: "Route not found" } };
