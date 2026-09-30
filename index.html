@@ -1041,5 +1041,25 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
 
 })();
 </script>
+<script>
+(async function(){
+  const API="https://coingabbarsignals.onrender.com/api/v1";
+  const $=id=>document.getElementById(id);
+  const fmt=n=>"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:8});
+  try{
+    const r=await fetch(API+"/signals?status=ACTIVE&limit=1");
+    const d=await r.json();
+    const s=d.signals&&d.signals[0];
+    if(!s)return;
+    $("liveSymbol").textContent=s.symbol.replace(/USDT$/,"/USDT");
+    $("liveSide").textContent=s.side;
+    $("liveScore").textContent=s.score+" / 100";
+    $("liveTf").textContent=s.timeframe;
+    $("liveEntry").textContent=fmt(s.entry);
+    $("liveStop").textContent=fmt(s.stop);
+    $("liveStatus").textContent="● "+s.status;
+  }catch(e){console.error("Live signals failed",e);}
+})();
+</script>
 </body>
 </html>
