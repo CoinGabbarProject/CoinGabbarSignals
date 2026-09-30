@@ -42,8 +42,30 @@ router.post("/auth/login", async (req, res) => {
       });
     }
 
+        const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      console.error("JWT_SECRET is not configured");
+      return res.status(500).json({
+        error: "Authentication configuration error"
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role || "user"
+      },
+      jwtSecret,
+      {
+        expiresIn: "7d"
+      }
+    );
+
     return res.json({
       success: true,
+      token,
       user: {
         id: user._id,
         email: user.email,
