@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { getMongoDB } from "../db/mongodb.js";
-
+import { requireAuth } from "../middleware/requireAuth.js";
 const router = Router();
 
 
