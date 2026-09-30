@@ -20,7 +20,7 @@
     "tokens:build": "tsx scripts/generate-tokens-css.ts",
     "graphics:build": "tsx scripts/generate-graphics.ts"
   },
-  "dependencies": {
+  "jsonwebtoken": "^9.0.2",
     "express": "^5.2.1",
     "mongodb": "^6.20.0",
     "react": "^19.3.0",
