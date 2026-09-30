@@ -64,7 +64,7 @@ const signalSchema = z
 
 // GET /api/v1/signals  (login required)
 // Optional query: ?status=ACTIVE&symbol=BTCUSDT&limit=50
-router.get("/signals", requireAuth, async (req, res) => {
+router.get("/signals", async (req, res) => {
   try {
     const filter: Record<string, unknown> = {};
 
