@@ -146,6 +146,144 @@ export function calcVWAP(candles:Candle[]):VWAPResult {
   return { value, slope: dirOf(value, at(s, -2)), direction: dirOf(value, at(s, -2)), relationship: rel };
 }
 
+// ================= STEP 2: advanced indicators =================
+export interface ADXResult { adx:number; plusDI:number; minusDI:number; strength:"none"|"weak"|"strong"|"very-strong"; bias:"bullish"|"bearish"|"neutral"; slope:Direction; }
+export interface StochRSIResult { k:number; d:number; zone:"oversold"|"neutral"|"overbought"; crossover:"bullish"|"bearish"|"none"; }
+export interface OBVResult { value:number; slope:Direction; divergence:"bullish"|"bearish"|"none"; }
+export interface SRLevel { price:number; touches:number; }
+export interface SupportResistance { supports:SRLevel[]; resistances:SRLevel[]; nearestSupport:SRLevel|null; nearestResistance:SRLevel|null; }
+export interface AdvancedSnapshot { adx:ADXResult; stochRsi:StochRSIResult; obv:OBVResult; levels:SupportResistance; }
+
+// SMA that skips the leading NaN warm-up values
+const smaValid = (v:number[], p:number):number[] => {
+  const s = v.findIndex((x) => Number.isFinite(x));
+  return s < 0 ? blank(v.length) : [...blank(s), ...smaSeries(v.slice(s), p)];
+};
+
+// ---- ADX / +DI / -DI (Wilder, 14) ----
+export function adxSeries(candles:Candle[], period = 14) {
+  const n = candles.length;
+  const adx = blank(n), plus = blank(n), minus = blank(n), dx = blank(n);
+  if (n < 2 * period + 1) return { adx, plus, minus };
+  let sTR = 0, sP = 0, sM = 0;
+  for (let i = 1; i < n; i++) {
+    const k = candles[i], p = candles[i - 1];
+    if (!k || !p) continue;
+    const up = k.high - p.high, dn = p.low - k.low;
+    const pdm = up > dn && up > 0 ? up : 0;
+    const mdm = dn > up && dn > 0 ? dn : 0;
+    const tr = Math.max(k.high - k.low, Math.abs(k.high - p.close), Math.abs(k.low - p.close));
+    if (i <= period) { sTR += tr; sP += pdm; sM += mdm; }
+    else { sTR = sTR - sTR / period + tr; sP = sP - sP / period + pdm; sM = sM - sM / period + mdm; }
+    if (i >= period) {
+      const pdi = sTR === 0 ? 0 : (100 * sP) / sTR, mdi = sTR === 0 ? 0 : (100 * sM) / sTR;
+      plus[i] = pdi; minus[i] = mdi;
+      dx[i] = pdi + mdi === 0 ? 0 : (100 * Math.abs(pdi - mdi)) / (pdi + mdi);
+    }
+  }
+  let a = 0;
+  for (let i = period; i < 2 * period; i++) a += at(dx, i);
+  a /= period;
+  adx[2 * period - 1] = a;
+  for (let i = 2 * period; i < n; i++) { a = (a * (period - 1) + at(dx, i)) / period; adx[i] = a; }
+  return { adx, plus, minus };
+}
+
+export function calcADX(candles:Candle[], period = 14):ADXResult {
+  const { adx, plus, minus } = adxSeries(candles, period);
+  const v = at(adx, -1), p = at(plus, -1), m = at(minus, -1);
+  return {
+    adx: v, plusDI: p, minusDI: m,
+    strength: v >= 40 ? "very-strong" : v >= 25 ? "strong" : v >= 20 ? "weak" : "none",
+    bias: p > m ? "bullish" : p < m ? "bearish" : "neutral",
+    slope: dirOf(v, at(adx, -2), 0.05),
+  };
+}
+
+// ---- Stochastic RSI (14, 14, 3, 3) ----
+export function calcStochRSI(candles:Candle[], rsiP = 14, stochP = 14, kP = 3, dP = 3):StochRSIResult {
+  const r = rsiSeries(closesOf(candles), rsiP);
+  const st = blank(r.length);
+  for (let i = rsiP + stochP - 1; i < r.length; i++) {
+    const w = r.slice(i - stochP + 1, i + 1);
+    const hi = Math.max(...w), lo = Math.min(...w);
+    st[i] = hi === lo ? (at(r, i) >= 70 ? 100 : at(r, i) <= 30 ? 0 : 50) : (100 * (at(r, i) - lo)) / (hi - lo);
+  }
+  const k = smaValid(st, kP), d = smaValid(k, dP);
+  const kv = at(k, -1), dv = at(d, -1), kp = at(k, -2), dp = at(d, -2);
+  return {
+    k: kv, d: dv,
+    zone: kv >= 80 ? "overbought" : kv <= 20 ? "oversold" : "neutral",
+    crossover: kp <= dp && kv > dv ? "bullish" : kp >= dp && kv < dv ? "bearish" : "none",
+  };
+}
+
+// ---- OBV + divergence (14-bar lookback) ----
+export function obvSeries(candles:Candle[]):number[] {
+  const out = blank(candles.length);
+  let obv = 0;
+  candles.forEach((k, i) => {
+    const pc = i === 0 ? k.close : (candles[i - 1]?.close ?? k.close);
+    obv += k.close > pc ? k.volume : k.close < pc ? -k.volume : 0;
+    out[i] = obv;
+  });
+  return out;
+}
+
+export function calcOBV(candles:Candle[], lookback = 14):OBVResult {
+  const s = obvSeries(candles);
+  const c = closesOf(candles);
+  const dObv = at(s, -1) - at(s, -1 - lookback);
+  const dPx = at(c, -1) - at(c, -1 - lookback);
+  return {
+    value: at(s, -1), slope: dirOf(dObv, 0),
+    divergence: dPx > 0 && dObv < 0 ? "bearish" : dPx < 0 && dObv > 0 ? "bullish" : "none",
+  };
+}
+
+// ---- Support / Resistance (swing pivots, ATR-clustered) ----
+export function calcLevels(candles:Candle[], left = 3, right = 3, lookback = 200):SupportResistance {
+  const c = candles.slice(-lookback);
+  const empty:SupportResistance = { supports: [], resistances: [], nearestSupport: null, nearestResistance: null };
+  const last = c[c.length - 1];
+  if (!last || c.length < left + right + 1) return empty;
+  const close = last.close;
+  const atr = at(atrSeries(c), -1);
+  const tol = Number.isFinite(atr) && atr > 0 ? atr * 0.5 : close * 0.003;
+  const pivots:number[] = [];
+  for (let i = left; i < c.length - right; i++) {
+    const k = c[i];
+    if (!k) continue;
+    let isH = true, isL = true;
+    for (let j = i - left; j <= i + right; j++) {
+      const o = c[j];
+      if (j === i || !o) continue;
+      if (o.high >= k.high) isH = false;
+      if (o.low <= k.low) isL = false;
+    }
+    if (isH) pivots.push(k.high);
+    if (isL) pivots.push(k.low);
+  }
+  const levels:SRLevel[] = [];
+  let grp:number[] = [];
+  const flush = () => { if (grp.length) { levels.push({ price: grp.reduce((a, b) => a + b, 0) / grp.length, touches: grp.length }); grp = []; } };
+  for (const p of [...pivots].sort((a, b) => a - b)) {
+    const first = grp[0];
+    if (first !== undefined && p - first > tol) flush();
+    grp.push(p);
+  }
+  flush();
+  const supports = levels.filter((l) => l.price < close).sort((a, b) => b.price - a.price).slice(0, 3);
+  const resistances = levels.filter((l) => l.price > close).sort((a, b) => a.price - b.price).slice(0, 3);
+  return { supports, resistances, nearestSupport: supports[0] ?? null, nearestResistance: resistances[0] ?? null };
+}
+
+export function calcAdvanced(candles:Candle[]):AdvancedSnapshot | null {
+  if (candles.length < MIN_CANDLES) return null;
+  if (candles.some((k) => ![k.open, k.high, k.low, k.close, k.volume].every(Number.isFinite))) return null;
+  return { adx: calcADX(candles), stochRsi: calcStochRSI(candles), obv: calcOBV(candles), levels: calcLevels(candles) };
+}
+
 // ---- all-in-one (used by scoring in Step 3) ----
 export function calcIndicators(candles:Candle[]):IndicatorSnapshot | null {
   if (candles.length < MIN_CANDLES) return null;
