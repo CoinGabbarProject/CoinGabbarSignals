@@ -5,12 +5,7 @@ import { getMongoDB } from "../db/mongodb.js";
 
 const router = Router();
 
-function hashPassword(password: string) {
-  return crypto
-    .createHash("sha256")
-    .update(password)
-    .digest("hex");
-}
+
 
 router.post("/auth/login", async (req, res) => {
   try {
