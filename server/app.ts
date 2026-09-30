@@ -26,6 +26,7 @@ export function createApp(config: ServerConfig): Express {
 
   // Admin login
   app.use("/api/v1", authRouter);
+  app.use("/api/v1", signalsRouter);
 
   // 404
   app.use((_req, res) => {
