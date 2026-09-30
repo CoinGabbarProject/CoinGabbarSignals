@@ -14,6 +14,31 @@ export function createApp(config: ServerConfig): Express {
 
   app.disable("x-powered-by");
 
+  // CORS (frontend on GitHub Pages -> API on Render)
+  const allowedOrigins = config.corsOrigins.length
+    ? config.corsOrigins
+    : ["https://coingabbarproject.github.io"];
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+      );
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    }
+
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+
+    return next();
+  });
+
   app.use(express.json({ limit: "100kb" }));
 
   // Health check
