@@ -7,6 +7,7 @@ import express, {
 
 import type { ServerConfig } from "./config/env.js";
 import authRouter from "./routes/auth.js";
+import signalsRouter from "./routes/signals.js";
 
 export function createApp(config: ServerConfig): Express {
   const app = express();
