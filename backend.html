@@ -270,6 +270,63 @@
 </div>
 </div>
 <script>
+const loginPage = document.getElementById("loginPage");
+const backendApp = document.getElementById("backendApp");
+const loginForm = document.getElementById("loginForm");
+const loginError = document.getElementById("loginError");
+
+function showBackend() {
+  loginPage.style.display = "none";
+  backendApp.style.display = "block";
+}
+
+if (sessionStorage.getItem("cg_admin_logged_in") === "true") {
+  showBackend();
+}
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  loginError.textContent = "Logging in...";
+
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  try {
+    const response = await fetch("/api/v1/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+
+    sessionStorage.setItem(
+      "cg_admin_logged_in",
+      "true"
+    );
+
+    sessionStorage.setItem(
+      "cg_admin_user",
+      JSON.stringify(data.user)
+    );
+
+    showBackend();
+
+  } catch (error) {
+    loginError.textContent = error.message;
+  }
+});
+</script>
 const menu=document.getElementById('menu'),side=document.getElementById('side');
 menu.addEventListener('click',()=>side.classList.toggle('open'));
 document.querySelectorAll('.nav').forEach(a=>a.addEventListener('click',e=>{
