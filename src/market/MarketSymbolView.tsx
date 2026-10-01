@@ -8,6 +8,7 @@ import type { IndicatorKey } from "../components/MarketChart/indicatorOverlays.j
 import { TIMEFRAMES } from "./timeframes.js";
 import { displaySymbol } from "./symbol.js";
 import { useMarketCandles } from "./useMarketCandles.js";
+import { useLiveCandles } from "./useLiveCandles.js";
 
 export const EMPTY_MESSAGE = "No market data available for this symbol/timeframe.";
 
