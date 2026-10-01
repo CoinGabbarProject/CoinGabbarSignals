@@ -136,7 +136,7 @@ export function MarketChart({
       <div ref={containerRef} style={surfaceStyle} />
       {loading && <div role="status" style={noticeStyle("info")}>Loading {symbol} {timeframe} candles…</div>}
       {error && <div role="alert" style={noticeStyle("error")}>{error}</div>}
-      {showEmpty && <div role="status" style={noticeStyle("info")}>  No market data available for this symbol/timeframe.  </div>}
+      {showEmpty && <div role="status" style={noticeStyle("info")}>No market data available for this symbol/timeframe.</div></div>}
     </div>
   );
 }
