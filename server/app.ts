@@ -12,7 +12,9 @@ import { createEngineRouter } from "./routes/engine.js";
 import type { EngineService } from "./engine/scanner.js";
 import type { SignalStore } from "./engine/store.js";
 
-export function createApp(config: ServerConfig): Express {
+export interface AppDeps { engine?: EngineService; store?: SignalStore }
+
+export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   const app = express();
 
   app.disable("x-powered-by");
