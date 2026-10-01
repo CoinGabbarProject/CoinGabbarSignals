@@ -17,6 +17,8 @@ export type ServerConfig = {
   appEnv: string;
   defaultMode: string;
   corsOrigins: string[];
+  scan: ScanConfig;
+};
 };
 
 export function loadConfig(): ServerConfig {
