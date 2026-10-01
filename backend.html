@@ -344,11 +344,138 @@ loginForm.addEventListener("submit", async (e) => {
 });
 </script>
 <script>
-const menu=document.getElementById('menu'),side=document.getElementById('side');
-menu.addEventListener('click',()=>side.classList.toggle('open'));
-document.querySelectorAll('.nav').forEach(a=>a.addEventListener('click',e=>{
- document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));a.classList.add('active');
-}));
+const API = "https://coingabbarsignals.onrender.com/api/v1";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function logout() {
+  sessionStorage.clear();
+  location.reload();
+}
+
+async function api(path, opts = {}) {
+  const token = sessionStorage.getItem("cg_admin_token");
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {})
+    }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { logout(); throw new Error("Session expired"); }
+  if (!res.ok) {
+    const d = data.details ? " — " + data.details.map(x => x.message).join(", ") : "";
+    throw new Error((data.error || "Request failed") + d);
+  }
+  return data;
+}
+
+// ---------- menu + views ----------
+const side = $("side"), main = document.querySelector(".main");
+$("menu").addEventListener("click", () => side.classList.toggle("open"));
+
+const dashParts = [...main.children].filter(el => !el.classList.contains("title"));
+const host = document.createElement("div");
+host.style.display = "none";
+main.appendChild(host);
+
+function setActive(name) {
+  document.querySelectorAll(".nav").forEach(a =>
+    a.classList.toggle("active", a.textContent.replace(/\d+$/, "").trim().replace(/^\S+\s*/, "") === name || a.textContent.includes(name)));
+  document.querySelectorAll(".toplinks a").forEach(a =>
+    a.classList.toggle("active", a.textContent.trim() === name));
+}
+
+async function signalsView() {
+  host.innerHTML = '<div class="panel"><div class="ph"><b>Signals</b><span>Loading…</span></div></div>';
+  try {
+    const d = await api("/signals?limit=50");
+    const rows = d.signals.map(s => `<tr>
+      <td>${esc(s.symbol)}</td>
+      <td class="${s.side === "LONG" ? "green" : s.side === "SHORT" ? "red" : ""}">${esc(s.side)}</td>
+      <td>${esc(s.timeframe)}</td><td>${esc(s.score)}/100</td>
+      <td>${esc(s.entry)}</td><td>${esc(s.stop)}</td>
+      <td>${esc((s.targets || []).join(", "))}</td>
+      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span></td>
+      <td>${new Date(s.createdAt).toLocaleString()}</td></tr>`).join("");
+    host.innerHTML = `<div class="panel"><div class="ph"><b>Signals</b><span>${d.count} records</span></div>
+      <div class="pb" style="overflow:auto"><table class="table"><thead><tr><th>Symbol</th><th>Side</th><th>TF</th><th>Score</th><th>Entry</th><th>Stop</th><th>Targets</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="9">No signals yet</td></tr>'}</tbody></table></div></div>`;
+  } catch (e) {
+    host.innerHTML = `<div class="panel"><div class="pb red">${esc(e.message)}</div></div>`;
+  }
+}
+
+function placeholderView(name) {
+  host.innerHTML = `<div class="panel"><div class="ph"><b>${esc(name)}</b></div><div class="pb">Is section ka backend API abhi bana nahi hai.</div></div>`;
+}
+
+async function loadDashboard() {
+  try {
+    const d = await api("/signals?limit=100");
+    const active = d.signals.filter(s => s.status === "ACTIVE");
+    document.querySelector(".cards .card .value").textContent = active.length;
+    const tb = document.querySelector(".grid2 .table tbody");
+    if (d.signals.length) tb.innerHTML = d.signals.slice(0, 6).map(s => `<tr>
+      <td>${esc(s.symbol)}</td><td class="${s.side === "LONG" ? "green" : "red"}">${esc(s.side)}</td>
+      <td>${esc(s.score)}/100</td>
+      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span></td>
+      <td>${new Date(s.createdAt).toLocaleTimeString()}</td></tr>`).join("");
+  } catch (e) { console.error(e); }
+}
+
+function show(name) {
+  setActive(name);
+  side.classList.remove("open");
+  const dash = name === "Dashboard";
+  dashParts.forEach(el => el.style.display = dash ? "" : "none");
+  host.style.display = dash ? "none" : "";
+  if (dash) loadDashboard();
+  else if (["Signal Engine", "Signal Events", "Signals"].includes(name)) signalsView();
+  else placeholderView(name);
+}
+
+document.querySelectorAll(".nav, .toplinks a").forEach(a =>
+  a.addEventListener("click", e => {
+    e.preventDefault();
+    const name = a.textContent.replace(/^[^A-Za-z]+/, "").replace(/\d+$/, "").trim();
+    show(name);
+  }));
+
+$("createBtn").addEventListener("click", () => { $("sigMsg").textContent = ""; $("modal").style.display = "flex"; });
+$("cancelBtn").addEventListener("click", () => $("modal").style.display = "none");
+document.querySelector(".user").style.cursor = "pointer";
+document.querySelector(".user").title = "Click to logout";
+document.querySelector(".user").addEventListener("click", () => confirm("Logout?") && logout());
+
+$("sigForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("sigMsg");
+  msg.className = ""; msg.textContent = "Saving…";
+  try {
+    await api("/signals", {
+      method: "POST",
+      body: JSON.stringify({
+        symbol: $("f_symbol").value,
+        side: $("f_side").value,
+        timeframe: $("f_tf").value,
+        score: Number($("f_score").value),
+        entry: Number($("f_entry").value),
+        stop: Number($("f_stop").value),
+        targets: $("f_targets").value.split(",").map(Number).filter(Boolean),
+        rationale: $("f_note").value
+      })
+    });
+    $("modal").style.display = "none";
+    e.target.reset();
+    show("Dashboard");
+  } catch (err) {
+    msg.className = "red"; msg.textContent = err.message;
+  }
+});
+
+if (sessionStorage.getItem("cg_admin_logged_in") === "true") loadDashboard();
 </script>
 </body>
 </html>
