@@ -34,7 +34,7 @@ if (config.scan.enabled) {
   console.log("[engine] auto-scan disabled (set AUTO_SCAN_ENABLED=true to enable)");
 }
 
-createApp(config).listen(config.port, config.host, () => {
+const server = createApp(config, { engine, store }).listen(config.port, config.host, () => {
   console.log(
     `[coingabbarsignals] ${config.appEnv} • http://${config.host}:${config.port}`
   );
