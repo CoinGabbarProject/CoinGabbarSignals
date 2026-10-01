@@ -1089,7 +1089,7 @@ function calcPos() {
   const bal = _n('p_bal'), risk = _n('p_risk'), en = _n('p_entry'), sl = _n('p_stop');
   const lev = _n('p_lev') > 0 ? _n('p_lev') : 1;
   if (!(bal > 0 && risk > 0 && en > 0 && sl > 0) || en === sl)
-    return _set('p_out', _err('Valid balance, risk %, entry aur stop daalo (entry ≠ stop).'));
+    return _set('p_out', _err('Enter a valid balance, risk %, entry and stop loss (entry must differ from stop).'));
   const riskAmt = bal * risk / 100;
   const qty = riskAmt / Math.abs(en - sl);
   const value = qty * en;
@@ -1099,16 +1099,16 @@ function calcPos() {
   h += _row('Position size', _f(qty, 6) + ' units');
   h += _row('Position value', '$' + _f(value));
   h += _row('Margin needed (' + lev + 'x)', '$' + _f(margin));
-  if (margin > bal) h += _err('Warning: margin balance se zyada hai. Leverage badhao ya risk % kam karo.');
+  if (margin > bal) h += _err('Warning: required margin exceeds your balance. Increase leverage or reduce risk %.');
   _set('p_out', h);
 }
 
 function calcRR() {
   const side = document.getElementById('r_side').value;
   const en = _n('r_entry'), sl = _n('r_stop'), tp = _n('r_tp');
-  if (!(en > 0 && sl > 0 && tp > 0)) return _set('r_out', _err('Entry, stop aur target daalo.'));
+  if (!(en > 0 && sl > 0 && tp > 0)) return _set('r_out', _err('Enter entry, stop loss and target.'));
   const ok = side === 'LONG' ? (sl < en && tp > en) : (sl > en && tp < en);
-  if (!ok) return _set('r_out', _err(side === 'LONG' ? 'LONG: stop < entry < target hona chahiye.' : 'SHORT: target < entry < stop hona chahiye.'));
+  if (!ok) return _set('r_out', _err(side === 'LONG' ? 'LONG: stop loss must be below entry and target above entry.' : 'SHORT: target must be below entry and stop loss above entry.'));
   const risk = Math.abs(en - sl), reward = Math.abs(tp - en), rr = reward / risk;
   let h = _row('Risk', _f(risk / en * 100) + '%  (' + _f(risk, 6) + ')', 'down');
   h += _row('Reward', _f(reward / en * 100) + '%  (' + _f(reward, 6) + ')', 'up');
@@ -1122,7 +1122,7 @@ function calcPnL() {
   const en = _n('l_entry'), ex = _n('l_exit'), qty = _n('l_qty');
   const lev = _n('l_lev') > 0 ? _n('l_lev') : 1;
   const fee = _n('l_fee') > 0 ? _n('l_fee') : 0;
-  if (!(en > 0 && ex > 0 && qty > 0)) return _set('l_out', _err('Entry, exit aur quantity daalo.'));
+  if (!(en > 0 && ex > 0 && qty > 0)) return _set('l_out', _err('Enter entry, exit and quantity.'));
   const gross = (ex - en) * qty * dir;
   const fees = (en + ex) * qty * fee / 100;
   const net = gross - fees;
