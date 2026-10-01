@@ -412,7 +412,56 @@ function placeholderView(name) {
   host.innerHTML = `<div class="panel"><div class="ph"><b>${esc(name)}</b></div><div class="pb">Is section ka backend API abhi bana nahi hai.</div></div>`;
 }
 
+const LIVE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"];
+
+async function loadLive() {
+  const feed = $("liveFeed");
+  const cards = document.querySelectorAll(".cards .card");
+  const t0 = performance.now();
+  try {
+    const r = await fetch("https://data-api.binance.vision/api/v3/ticker/24hr?symbols=" + encodeURIComponent(JSON.stringify(LIVE_SYMBOLS)));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    const ms = Math.round(performance.now() - t0);
+    feed.innerHTML = rows.map(x => {
+      const ch = parseFloat(x.priceChangePercent);
+      return `<tr><td>${esc(x.symbol.replace("USDT", "/USDT"))}</td>
+        <td>$${Number(x.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+        <td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td>
+        <td>${ms}ms</td></tr>`;
+    }).join("") + `<tr><td colspan="4" class="green">● Binance LIVE · ${new Date().toLocaleTimeString()}</td></tr>`;
+    cards[1].querySelector(".value").textContent = rows.length + "/" + LIVE_SYMBOLS.length;
+    cards[1].querySelector(".sub").textContent = "Binance responding · " + ms + "ms";
+  } catch (e) {
+    feed.innerHTML = `<tr><td colspan="4" class="red">Binance feed error: ${esc(e.message)}</td></tr>`;
+    cards[1].querySelector(".value").textContent = "0/" + LIVE_SYMBOLS.length;
+    cards[1].querySelector(".sub").textContent = "Binance unreachable";
+  }
+}
+
+async function loadApiHealth() {
+  const row = document.querySelector(".health .healthrow");
+  const t0 = performance.now();
+  let ok = false;
+  try {
+    const r = await fetch(API + "/health");
+    ok = r.ok;
+  } catch (e) {}
+  const ms = Math.round(performance.now() - t0);
+  row.querySelector("small").textContent = ok ? "Latency " + ms + "ms" : "Not reachable";
+  const b = row.querySelector("b");
+  b.textContent = ok ? "ONLINE" : "OFFLINE";
+  b.className = ok ? "green" : "red";
+}
+
+// auto-refresh every 10s while the Dashboard is visible
+setInterval(() => {
+  if (host.style.display === "none" && sessionStorage.getItem("cg_admin_logged_in") === "true") loadLive();
+}, 10000);
+
 async function loadDashboard() {
+  loadLive();
+  loadApiHealth();
   try {
     const d = await api("/signals?limit=100");
     const active = d.signals.filter(s => s.status === "ACTIVE");
