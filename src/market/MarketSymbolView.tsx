@@ -67,6 +67,11 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             </button>
           ))}
         </div>
+        {liveStatus !== "off" && (
+          <span role="status" style={{ marginLeft: "auto", fontSize: 12, color: liveStatus === "live" ? c.positive.base : c.text.muted }}>
+            {liveStatus === "live" ? "● Live" : liveStatus === "connecting" ? "Connecting…" : "Reconnecting…"}
+          </span>
+        )}
         {status === "error" && (
           <button type="button" style={{ ...tfBtn(false), marginLeft: "auto" }} onClick={retry}>Retry</button>
         )}
