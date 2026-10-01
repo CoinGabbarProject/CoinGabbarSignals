@@ -3,6 +3,8 @@ import type { CSSProperties, ReactElement } from "react";
 import type { Timeframe } from "../../shared/market.js";
 import { tokens } from "../../shared/designTokens.js";
 import { MarketChart } from "../components/MarketChart/index.js";
+import { DEFAULT_INDICATORS, INDICATORS, SUB_PANE_HEIGHT, buildOverlays, subPaneCount } from "../components/MarketChart/indicatorOverlays.js";
+import type { IndicatorKey } from "../components/MarketChart/indicatorOverlays.js";
 import { TIMEFRAMES } from "./timeframes.js";
 import { displaySymbol } from "./symbol.js";
 import { useMarketCandles } from "./useMarketCandles.js";
