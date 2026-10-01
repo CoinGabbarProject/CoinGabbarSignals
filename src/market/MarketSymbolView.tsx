@@ -86,15 +86,18 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           <button key={i.key} type="button" aria-pressed={active.has(i.key)} style={tfBtn(active.has(i.key))} onClick={() => toggle(i.key)}>{i.label}</button>
         ))}
       </div>
-      <MarketChart
-        symbol={label}
-        timeframe={timeframe}
-        candles={candles}
-        loading={status === "loading"}
-        error={status === "error" ? error : null}
-        height={height}
-        overlays={overlays}
-      />
+      <ChartDrawingTools api={chartApi} symbol={label} timeframe={timeframe}>
+        <MarketChart
+          symbol={label}
+          timeframe={timeframe}
+          candles={candles}
+          loading={status === "loading"}
+          error={status === "error" ? error : null}
+          height={height}
+          overlays={overlays}
+          onReady={setChartApi}
+        />
+      </ChartDrawingTools>
     </section>
   );
 }
