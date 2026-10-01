@@ -310,10 +310,8 @@ loginForm.addEventListener("submit", async (e) => {
       throw new Error(data.error || "Login failed");
     }
 
-    sessionStorage.setItem(
-      "cg_admin_logged_in",
-      "true"
-    );
+    sessionStorage.setItem("cg_admin_logged_in", "true");
+    sessionStorage.setItem("cg_admin_token", data.token);
 
     sessionStorage.setItem(
       "cg_admin_user",
