@@ -297,3 +297,27 @@ export function calcIndicators(candles:Candle[]):IndicatorSnapshot | null {
     sma200: Number.isFinite(s200) ? s200 : null,
   };
 }
+// ---- chart series (added for the live chart overlays) ----
+export function bollingerSeries(candles:Candle[], period = 20, mult = 2):{ upper:number[]; middle:number[]; lower:number[] } {
+  const c = closesOf(candles);
+  const middle = smaSeries(c, period);
+  const upper = blank(c.length), lower = blank(c.length);
+  for (let i = period - 1; i < c.length; i++) {
+    const m = at(middle, i);
+    let s = 0;
+    for (let j = i - period + 1; j <= i; j++) s += (at(c, j) - m) ** 2;
+    const sd = Math.sqrt(s / period);
+    upper[i] = m + mult * sd;
+    lower[i] = m - mult * sd;
+  }
+  return { upper, middle, lower };
+}
+
+export function macdSeries(candles:Candle[], fast = 12, slow = 26, signalP = 9):{ macd:number[]; signal:number[]; hist:number[] } {
+  const c = closesOf(candles);
+  const f = emaSeries(c, fast), s = emaSeries(c, slow);
+  const macd = c.map((_, i) => at(f, i) - at(s, i));
+  const signal = emaSeries(macd, signalP);
+  const hist = macd.map((v, i) => v - at(signal, i));
+  return { macd, signal, hist };
+      }
