@@ -1077,6 +1077,14 @@ const _row = (k, v, cls = '') => '<div class="mini-row"><span>' + k + '</span><b
 const _err = m => '<span class="down">' + m + '</span>';
 const _set = (id, h) => { document.getElementById(id).innerHTML = h; };
 
+function clearCalc(p) {
+  document.querySelectorAll('[id^="' + p + '_"]').forEach(el => {
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else if (el.tagName === 'INPUT') el.value = '';
+    else el.innerHTML = '';
+  });
+}
+
 function calcPos() {
   const bal = _n('p_bal'), risk = _n('p_risk'), en = _n('p_entry'), sl = _n('p_stop');
   const lev = _n('p_lev') > 0 ? _n('p_lev') : 1;
