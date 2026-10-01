@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import type { Timeframe } from "../../shared/market.js";
 import { tokens } from "../../shared/designTokens.js";
