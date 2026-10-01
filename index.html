@@ -811,7 +811,8 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
             <h3>Position Size Calculator</h3>
             <div class="dw"><input class="tin" id="p_bal" type="number" step="any" placeholder="Account balance"></div>
             <input class="tin" id="p_risk" type="number" step="any" placeholder="Risk per trade (%)">
-            <div class="dw"><input class="tin" id="p_entry" type="number" step="any" placeholder="Entry price"></div>
+            <div class="inline-actions"><input class="tin" id="p_sym" placeholder="Symbol e.g. BTCUSDT" value="BTCUSDT" style="flex:1;min-width:0"><button class="mini-action" onclick="livePrice('p_sym','p_entry')">Live price</button></div>
+<div class="dw"><input class="tin" id="p_entry" type="number" step="any" placeholder="Entry price"></div>
 <div class="dw"><input class="tin" id="p_stop" type="number" step="any" placeholder="Stop loss price"></div>
             <input class="tin" id="p_lev" type="number" step="any" placeholder="Leverage (optional, default 1x)">
             <div class="inline-actions"><button class="mini-action primary" onclick="calcPos()">Calculate →</button><button class="mini-action" onclick="clearCalc('p')">Clear ✕</button></div>
