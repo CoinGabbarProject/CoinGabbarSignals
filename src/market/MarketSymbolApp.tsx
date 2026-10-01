@@ -9,7 +9,7 @@ import { MarketSymbolView } from "./MarketSymbolView.js";
 const readUrl = (): { raw: string | null; tf: Timeframe } => {
   const p = new URLSearchParams(window.location.search);
   const tf = p.get("tf");
-  return { raw: p.get("symbol") || document.getElementById("liveSymbol")?.textContent?.trim() || "BTC-USDT"", tf: isTimeframe(tf) ? tf : DEFAULT_TIMEFRAME };
+  return { raw: p.get("symbol") || document.getElementById("liveSymbol")?.textContent?.trim() || "BTC-USDT", tf: isTimeframe(tf) ? tf : DEFAULT_TIMEFRAME };
 };
 
 export function MarketSymbolApp(): ReactElement | null {
