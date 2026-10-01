@@ -814,7 +814,7 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
             <div class="dw"><input class="tin" id="p_entry" type="number" step="any" placeholder="Entry price"></div>
 <div class="dw"><input class="tin" id="p_stop" type="number" step="any" placeholder="Stop loss price"></div>
             <input class="tin" id="p_lev" type="number" step="any" placeholder="Leverage (optional, default 1x)">
-            <button class="mini-action primary" onclick="calcPos()">Calculate →</button>
+            <div class="inline-actions"><button class="mini-action primary" onclick="calcPos()">Calculate →</button><button class="mini-action" onclick="clearCalc('p')">Clear ✕</button></div>
             <div class="tres" id="p_out"></div>
           </div>
 
