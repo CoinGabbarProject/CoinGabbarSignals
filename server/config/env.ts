@@ -19,7 +19,6 @@ export type ServerConfig = {
   corsOrigins: string[];
   scan: ScanConfig;
 };
-};
 
 const TIMEFRAMES: readonly Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"];
 export const SYMBOL_RE = /^[A-Z0-9]{5,20}$/;
