@@ -1072,6 +1072,71 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
 })();
 </script>
 <script>
+// ===== LIVE BINANCE PRICES (no API key needed) =====
+(function () {
+  const $ = id => document.getElementById(id);
+  const money = (n, d) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const decimals = p => (p >= 100 ? 2 : p >= 1 ? 4 : 6);
+  const BASE = "https://data-api.binance.vision/api/v3/ticker/24hr?symbol=";
+
+  async function ticker(sym) {
+    const r = await fetch(BASE + encodeURIComponent(sym));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+  const byLabel = (sel, text) => [...document.querySelectorAll(sel)].find(e => {
+    const l = e.querySelector("label");
+    return l && l.textContent.trim().toLowerCase() === text.toLowerCase();
+  });
+
+  async function refreshLive() {
+    if (document.hidden) return;
+    try {
+      const b = await ticker("BTCUSDT");
+      const ch = parseFloat(b.priceChangePercent);
+      const chTxt = (ch >= 0 ? "+" : "") + ch.toFixed(2) + "%";
+      const cls = ch >= 0 ? "up" : "down";
+
+      // top market strip
+      const mBtc = byLabel(".market", "BTC");
+      if (mBtc) {
+        const s = mBtc.querySelector("strong"), c = mBtc.querySelector("span");
+        if (s) s.textContent = money(b.lastPrice, 2);
+        if (c) { c.textContent = chTxt; c.className = cls; }
+      }
+      const hi = byLabel(".market", "24h High"), lo = byLabel(".market", "24h Low");
+      if (hi) hi.querySelector("strong").textContent = money(b.highPrice, 2);
+      if (lo) lo.querySelector("strong").textContent = money(b.lowPrice, 2);
+
+      // watchlist rows (sidebar + My Watchlist page)
+      document.querySelectorAll(".mini-row").forEach(row => {
+        const sp = row.querySelector("span"), bb = row.querySelector("b");
+        if (!sp || !bb || sp.textContent.trim() !== "BTC/USDT") return;
+        bb.textContent = bb.textContent.includes("$") ? money(b.lastPrice, 0) + " " + chTxt : chTxt;
+        bb.className = cls;
+      });
+
+      // Market page: Bitcoin card price
+      document.querySelectorAll(".panel h3").forEach(h => {
+        if (h.textContent.trim() === "Bitcoin" && h.nextElementSibling) h.nextElementSibling.textContent = money(b.lastPrice, 0);
+      });
+
+      // Current Price follows the active signal's symbol (default BTC)
+      const cur = byLabel(".kpi", "Current Price");
+      if (cur) {
+        let sym = (($("liveSymbol") && $("liveSymbol").textContent) || "BTC/USDT").replace("/", "").trim().toUpperCase();
+        if (!/USDT$/.test(sym)) sym += "USDT";
+        const t = sym === "BTCUSDT" ? b : await ticker(sym);
+        cur.querySelector("strong").textContent = money(t.lastPrice, decimals(parseFloat(t.lastPrice)));
+      }
+    } catch (e) {
+      console.error("Live price refresh failed", e);
+    }
+  }
+  refreshLive();
+  setInterval(refreshLive, 5000);
+})();
+
 const _n = id => parseFloat(document.getElementById(id).value);
 const _f = (n, d = 2) => Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: d }) : '-';
 const _row = (k, v, cls = '') => '<div class="mini-row"><span>' + k + '</span><b class="' + cls + '">' + v + '</b></div>';
