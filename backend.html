@@ -408,8 +408,232 @@ async function signalsView() {
   }
 }
 
+// ===== SECTION VIEWS: all sidebar and top-nav items (client side, no new backend needed) =====
+const SYMS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT", "TRXUSDT"];
+const DEFAULT_WATCH = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+const BIN = "https://data-api.binance.vision/api/v3";
+const INP = "padding:8px;background:#07101d;color:#fff;border:1px solid #1d3550;border-radius:6px";
+const ls = {
+  get: (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null ? d : v; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const fmt = (n, d = 6) => Number(n).toLocaleString("en-US", { maximumFractionDigits: d });
+const opts = (a) => a.map(x => `<option>${x}</option>`).join("");
+const th = (cols) => `<thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead>`;
+const panel = (title, right, body, live) =>
+  `<div class="panel"${live ? ` data-live="${live}"` : ""}><div class="ph"><b>${esc(title)}</b><span>${right || ""}</span></div><div class="pb" style="overflow:auto">${body}</div></div>`;
+
+async function tickers(symbols) {
+  const r = await fetch(BIN + "/ticker/24hr?symbols=" + encodeURIComponent(JSON.stringify(symbols)));
+  if (!r.ok) throw new Error("Binance HTTP " + r.status);
+  return r.json();
+}
+async function klines(sym, tf, n = 300) {
+  const r = await fetch(`${BIN}/klines?symbol=${sym}&interval=${tf}&limit=${n}`);
+  if (!r.ok) throw new Error("Binance HTTP " + r.status);
+  return (await r.json()).map(k => ({ c: +k[4] }));
+}
+const ema = (a, p) => { const k = 2 / (p + 1); let e = a[0]; return a.map(v => (e = v * k + e * (1 - k))); };
+const rsi = (c, p = 14) => {
+  let g = 0, l = 0;
+  for (let i = 1; i <= p; i++) { const d = c[i] - c[i - 1]; if (d >= 0) g += d; else l -= d; }
+  g /= p; l /= p;
+  for (let i = p + 1; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * (p - 1) + Math.max(d, 0)) / p; l = (l * (p - 1) + Math.max(-d, 0)) / p; }
+  return l === 0 ? 100 : 100 - 100 / (1 + g / l);
+};
+
+// auto refresh that stops by itself when the user leaves the view
+let viewTimer = null;
+function autoRefresh(name, fn) {
+  clearInterval(viewTimer);
+  viewTimer = setInterval(() => {
+    if (host.dataset.view !== name || host.style.display === "none" || !host.querySelector(`[data-live="${name}"]`)) return clearInterval(viewTimer);
+    fn();
+  }, ls.get("cg_refresh", 10000));
+}
+const rowErr = (cols, e) => `<tr><td colspan="${cols}" class="red">${esc(e.message)}</td></tr>`;
+
+async function marketView() {
+  host.innerHTML = panel("Market Data", '<span id="vt">Loading...</span>',
+    `<table class="table">${th(["Symbol", "Price", "24h %", "High", "Low", "Volume (M USDT)"])}<tbody id="vb"></tbody></table>`, "Market Data");
+  const load = async () => {
+    try {
+      const t0 = performance.now(), rows = await tickers(SYMS), ms = Math.round(performance.now() - t0);
+      if (!$("vb")) return;
+      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmt(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td>${fmt(x.highPrice)}</td><td>${fmt(x.lowPrice)}</td><td>${(x.quoteVolume / 1e6).toFixed(1)}</td></tr>`; }).join("");
+      $("vt").textContent = `Binance LIVE · ${ms}ms · ${new Date().toLocaleTimeString()}`;
+    } catch (e) { if ($("vb")) $("vb").innerHTML = rowErr(6, e); }
+  };
+  await load(); autoRefresh("Market Data", load);
+}
+
+async function indicatorsView() {
+  host.innerHTML = panel("Indicators", `<select id="itf" class="btn">${["5m", "15m", "1h", "4h", "1d"].map(t => `<option ${t === "1h" ? "selected" : ""}>${t}</option>`).join("")}</select>`,
+    `<table class="table">${th(["Symbol", "Price", "RSI 14", "EMA 20", "EMA 50", "MACD hist", "Trend"])}<tbody id="vb"><tr><td colspan="7">Loading...</td></tr></tbody></table>`, "Indicators");
+  const load = async () => {
+    const tf = $("itf") && $("itf").value; if (!tf) return;
+    const out = await Promise.all(SYMS.slice(0, 8).map(async s => {
+      try {
+        const c = (await klines(s, tf)).map(x => x.c), e20 = ema(c, 20).at(-1), e50 = ema(c, 50).at(-1);
+        const e12 = ema(c, 12), e26 = ema(c, 26), macd = e12.map((v, i) => v - e26[i]), hist = macd.at(-1) - ema(macd, 9).at(-1);
+        const r = rsi(c), up = e20 > e50;
+        return `<tr><td>${s}</td><td>$${fmt(c.at(-1))}</td><td class="${r > 70 ? "red" : r < 30 ? "green" : ""}">${r.toFixed(1)}</td><td>${fmt(e20, 4)}</td><td>${fmt(e50, 4)}</td><td class="${hist >= 0 ? "green" : "red"}">${hist.toFixed(4)}</td><td class="${up ? "green" : "red"}">${up ? "Bullish" : "Bearish"}</td></tr>`;
+      } catch (e) { return `<tr><td>${s}</td><td colspan="6" class="red">${esc(e.message)}</td></tr>`; }
+    }));
+    if ($("vb")) $("vb").innerHTML = out.join("");
+  };
+  $("itf").onchange = load; await load();
+}
+
+function riskView() {
+  const f = (id, label, v) => `<label style="display:block;margin:6px 0">${label}<input id="${id}" type="number" step="any" value="${v}" style="width:100%;${INP}"></label>`;
+  host.innerHTML = panel("Risk Engine", "Position size calculator",
+    `<div style="max-width:420px">${f("r_bal", "Account balance (USDT)", 1000)}${f("r_pct", "Risk per trade (%)", 1)}${f("r_ent", "Entry price", 100)}${f("r_stp", "Stop loss", 95)}${f("r_tgt", "Target", 110)}<div id="r_out" style="margin-top:12px"></div></div>`);
+  const calc = () => {
+    const [b, p, e, s, t] = ["r_bal", "r_pct", "r_ent", "r_stp", "r_tgt"].map(i => +$(i).value);
+    const risk = b * p / 100, d = Math.abs(e - s);
+    if (!(d > 0)) { $("r_out").innerHTML = '<span class="red">Entry and stop cannot be equal</span>'; return; }
+    const qty = risk / d, notional = qty * e, rr = Math.abs(t - e) / d, side = s < e ? "LONG" : "SHORT", okT = side === "LONG" ? t > e : t < e;
+    $("r_out").innerHTML = `Side: <b>${side}</b><br>Risk amount: <b>$${fmt(risk, 2)}</b><br>Position size: <b>${fmt(qty, 6)}</b> units<br>Notional: <b>$${fmt(notional, 2)}</b> (${fmt(notional / b, 2)}x balance)<br>Reward:Risk: <b class="${okT && rr >= 2 ? "green" : "red"}">${okT ? rr.toFixed(2) : "target on wrong side"}</b>`;
+  };
+  host.querySelectorAll("input").forEach(i => i.oninput = calc); calc();
+}
+
+async function performanceView() {
+  host.innerHTML = panel("Performance", "Loading...", "");
+  try {
+    const s = (await api("/signals?limit=100")).signals, n = s.length;
+    const by = (k, v) => s.filter(x => x[k] === v).length;
+    const avg = n ? (s.reduce((a, x) => a + (+x.score || 0), 0) / n).toFixed(1) : "0";
+    const card = (l, v) => `<div class="card"><div class="label">${l}</div><div class="value">${v}</div></div>`;
+    host.innerHTML = panel("Performance", `${n} signals (last 100)`,
+      `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">${card("Active", by("status", "ACTIVE"))}${card("Closed", by("status", "CLOSED"))}${card("Long", by("side", "LONG"))}${card("Short", by("side", "SHORT"))}${card("Avg score", avg)}</div><p style="opacity:.7">Win rate needs an exit price or pnl field on closed signals. Add it in the backend to enable it.</p>`);
+  } catch (e) { host.innerHTML = panel("Performance", "", `<span class="red">${esc(e.message)}</span>`); }
+}
+
+function backtestView() {
+  host.innerHTML = panel("Backtesting", "EMA 20/50 crossover, long only, last 1000 candles, 0.2% fee per trade",
+    `<select id="bs" class="btn">${opts(SYMS)}</select> <select id="bt" class="btn">${opts(["15m", "1h", "4h", "1d"])}</select> <button id="bgo" class="btn p">Run</button><div id="bout" style="margin-top:12px"></div>`);
+  $("bgo").onclick = async () => {
+    $("bout").textContent = "Running...";
+    try {
+      const c = (await klines($("bs").value, $("bt").value, 1000)).map(x => x.c), a = ema(c, 20), b = ema(c, 50);
+      let pos = null, eq = 1, peak = 1, dd = 0, wins = 0, n = 0;
+      for (let i = 50; i < c.length; i++) {
+        if (!pos && a[i] > b[i] && a[i - 1] <= b[i - 1]) pos = c[i];
+        else if (pos && a[i] < b[i] && a[i - 1] >= b[i - 1]) {
+          const r = c[i] / pos - 1 - 0.002; eq *= 1 + r; n++; if (r > 0) wins++; pos = null;
+          peak = Math.max(peak, eq); dd = Math.max(dd, 1 - eq / peak);
+        }
+      }
+      const ret = (eq - 1) * 100, bh = (c.at(-1) / c[50] - 1) * 100;
+      $("bout").innerHTML = `Trades: <b>${n}</b><br>Win rate: <b>${n ? (wins / n * 100).toFixed(1) : 0}%</b><br>Strategy return: <b class="${ret >= 0 ? "green" : "red"}">${ret.toFixed(2)}%</b><br>Max drawdown: <b class="red">${(dd * 100).toFixed(2)}%</b><br>Buy and hold: <b>${bh.toFixed(2)}%</b>`;
+    } catch (e) { $("bout").innerHTML = `<span class="red">${esc(e.message)}</span>`; }
+  };
+}
+
+async function watchView() {
+  host.innerHTML = panel("Watchlists", "Saved in this browser",
+    `<input id="wi" placeholder="e.g. LINKUSDT" style="${INP}"> <button id="wa" class="btn p">Add</button> <span id="wm" class="red"></span><table class="table" style="margin-top:10px">${th(["Symbol", "Price", "24h %", ""])}<tbody id="vb"></tbody></table>`, "Watchlists");
+  const load = async () => {
+    const list = ls.get("cg_watch", DEFAULT_WATCH); if (!$("vb")) return;
+    if (!list.length) { $("vb").innerHTML = '<tr><td colspan="4">Empty. Add a symbol above.</td></tr>'; return; }
+    try {
+      const rows = await tickers(list); if (!$("vb")) return;
+      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmt(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td><button class="btn" data-rm="${esc(x.symbol)}">Remove</button></td></tr>`; }).join("");
+    } catch (e) { if ($("vb")) $("vb").innerHTML = rowErr(4, e); }
+  };
+  $("wa").onclick = async () => {
+    const s = $("wi").value.trim().toUpperCase(); if (!s) return;
+    const r = await fetch(`${BIN}/ticker/price?symbol=${encodeURIComponent(s)}`).catch(() => null);
+    if (!r || !r.ok) { $("wm").textContent = "Symbol not found on Binance"; return; }
+    const l = ls.get("cg_watch", DEFAULT_WATCH); if (!l.includes(s)) l.push(s);
+    ls.set("cg_watch", l); $("wm").textContent = ""; $("wi").value = ""; load();
+  };
+  $("vb").onclick = e => { const s = e.target.dataset.rm; if (!s) return; ls.set("cg_watch", ls.get("cg_watch", DEFAULT_WATCH).filter(x => x !== s)); load(); };
+  await load(); autoRefresh("Watchlists", load);
+}
+
+async function alertsView() {
+  host.innerHTML = panel("Alerts", "Checked while this page is open",
+    `<select id="as" class="btn">${opts(SYMS)}</select> <select id="ad" class="btn">${opts(["above", "below"])}</select> <input id="ap" type="number" step="any" placeholder="price" style="${INP};width:110px"> <button id="aa" class="btn p">Add</button><table class="table" style="margin-top:10px">${th(["Symbol", "Condition", "Now", "Status", ""])}<tbody id="vb"></tbody></table>`, "Alerts");
+  const load = async () => {
+    const list = ls.get("cg_alerts", []); if (!$("vb")) return;
+    if (!list.length) { $("vb").innerHTML = '<tr><td colspan="5">No alerts yet.</td></tr>'; return; }
+    try {
+      const px = {}; (await tickers([...new Set(list.map(a => a.sym))])).forEach(x => px[x.symbol] = +x.lastPrice);
+      list.forEach(a => { const p = px[a.sym]; if (!a.hit && ((a.dir === "above" && p >= a.price) || (a.dir === "below" && p <= a.price))) a.hit = new Date().toLocaleString(); });
+      ls.set("cg_alerts", list); if (!$("vb")) return;
+      $("vb").innerHTML = list.map((a, i) => `<tr><td>${esc(a.sym)}</td><td>${a.dir} ${fmt(a.price)}</td><td>${fmt(px[a.sym])}</td><td class="${a.hit ? "green" : ""}">${a.hit ? "Triggered " + esc(a.hit) : "Waiting"}</td><td><button class="btn" data-rm="${i}">x</button></td></tr>`).join("");
+    } catch (e) { if ($("vb")) $("vb").innerHTML = rowErr(5, e); }
+  };
+  $("aa").onclick = () => {
+    const p = +$("ap").value; if (!(p > 0)) return;
+    const l = ls.get("cg_alerts", []); l.push({ sym: $("as").value, dir: $("ad").value, price: p, hit: false });
+    ls.set("cg_alerts", l); $("ap").value = ""; load();
+  };
+  $("vb").onclick = e => { const i = e.target.dataset.rm; if (i === undefined) return; const l = ls.get("cg_alerts", []); l.splice(+i, 1); ls.set("cg_alerts", l); load(); };
+  await load(); autoRefresh("Alerts", load);
+}
+
+function usersView() {
+  let u = {}; try { u = JSON.parse(sessionStorage.getItem("cg_admin_user")) || {}; } catch {}
+  host.innerHTML = panel("Users", "Current session",
+    `<table class="table">${th(["Email", "Role"])}<tbody><tr><td>${esc(u.email || "-")}</td><td>${esc(u.role || "-")}</td></tr></tbody></table><p style="opacity:.7">Full user list needs an admin route: GET /api/v1/admin/users. Not built yet.</p>`);
+}
+
+async function databaseView() {
+  host.innerHTML = panel("Database / System", "Checking...", "");
+  const t0 = performance.now();
+  try {
+    const r = await fetch(API + "/health"), d = await r.json(), ms = Math.round(performance.now() - t0);
+    host.innerHTML = panel("Database / System", `${ms}ms`,
+      `API status: <b class="${r.ok ? "green" : "red"}">${esc(d.status)}</b><br>Database: <b>${esc(d.database)}</b><p style="opacity:.7">Note: /health currently returns a fixed "connected" text. Add a real MongoDB ping in server/app.ts for a true check.</p>`);
+  } catch (e) { host.innerHTML = panel("Database / System", "", '<span class="red">API unreachable. Render free tier may be asleep, retry in 30 seconds.</span>'); }
+}
+
+function auditView() {
+  host.innerHTML = panel("Audit Logs", "Backend needed",
+    "<p>Needs a MongoDB collection <b>audit_logs</b> and an admin route GET /api/v1/admin/audit-logs. Not built yet.</p>");
+}
+
+function apiKeysView() {
+  const eps = ["/health", "/signals?limit=1", "/engine/status", "/engine/signals?limit=1"];
+  host.innerHTML = panel("API & Keys", esc(API),
+    `<table class="table">${th(["Method", "Endpoint", "Result", ""])}<tbody>${eps.map((p, i) => `<tr><td>GET</td><td>${esc(p)}</td><td id="ep${i}">-</td><td><button class="btn" data-i="${i}">Test</button></td></tr>`).join("")}</tbody></table><p style="opacity:.7">No API keys are stored in this page. Requests use your admin login token.</p>`);
+  host.querySelectorAll("button[data-i]").forEach(b => b.onclick = async () => {
+    const i = b.dataset.i, el = $("ep" + i), t0 = performance.now(); el.textContent = "...";
+    try {
+      const token = sessionStorage.getItem("cg_admin_token");
+      const r = await fetch(API + eps[i], { headers: token ? { Authorization: "Bearer " + token } : {} });
+      el.innerHTML = `<span class="${r.ok ? "green" : "red"}">${r.status}</span> ${Math.round(performance.now() - t0)}ms`;
+    } catch (e) { el.innerHTML = '<span class="red">unreachable</span>'; }
+  });
+}
+
+function settingsView() {
+  const cur = ls.get("cg_refresh", 10000);
+  host.innerHTML = panel("Settings", "Saved in this browser",
+    `<label>Live refresh interval <select id="sr" class="btn">${[5, 10, 30, 60].map(s => `<option value="${s * 1000}" ${s * 1000 === cur ? "selected" : ""}>${s}s</option>`).join("")}</select></label><br><br><button id="sx" class="btn">Reset watchlist and alerts</button> <span id="sm" class="green"></span>`);
+  $("sr").onchange = () => { ls.set("cg_refresh", +$("sr").value); $("sm").textContent = "Saved"; };
+  $("sx").onclick = () => { if (confirm("Reset watchlist and alerts?")) { localStorage.removeItem("cg_watch"); localStorage.removeItem("cg_alerts"); $("sm").textContent = "Reset done"; } };
+}
+
+const VIEW_MAP = {
+  "Market Data": marketView, "Indicators": indicatorsView,
+  "Risk Engine": riskView, "Calculations": riskView,
+  "Performance": performanceView, "Backtesting": backtestView, "Backtests": backtestView,
+  "Watchlists": watchView, "Alerts": alertsView, "Users": usersView,
+  "Database": databaseView, "System": databaseView,
+  "Audit Logs": auditView, "API & Keys": apiKeysView, "Settings": settingsView
+};
+
 function placeholderView(name) {
-  host.innerHTML = `<div class="panel"><div class="ph"><b>${esc(name)}</b></div><div class="pb">Is section ka backend API abhi bana nahi hai.</div></div>`;
+  host.dataset.view = name;
+  clearInterval(viewTimer);
+  const fn = VIEW_MAP[name];
+  if (fn) fn();
+  else host.innerHTML = panel(name, "", "Is section ka backend API abhi bana nahi hai.");
 }
 
 const LIVE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"];
