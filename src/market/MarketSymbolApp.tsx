@@ -18,7 +18,10 @@ export function MarketSymbolApp(): ReactElement | null {
   useEffect(() => {
     const on = (): void => setUrl(readUrl());
     window.addEventListener("popstate", on);
-    return () => window.removeEventListener("popstate", on);
+    const live = document.getElementById("liveSymbol");
+    const mo = live ? new MutationObserver(on) : null;
+    if (live && mo) mo.observe(live, { childList: true, characterData: true, subtree: true });
+    return () => { window.removeEventListener("popstate", on); mo?.disconnect(); };
   }, []);
 
   const onTimeframeChange = useCallback((tf: Timeframe) => {
