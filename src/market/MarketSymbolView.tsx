@@ -69,6 +69,11 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           <button type="button" style={{ ...tfBtn(false), marginLeft: "auto" }} onClick={retry}>Retry</button>
         )}
       </div>
+      <div role="group" aria-label="Indicators" style={bar}>
+        {INDICATORS.map((i) => (
+          <button key={i.key} type="button" aria-pressed={active.has(i.key)} style={tfBtn(active.has(i.key))} onClick={() => toggle(i.key)}>{i.label}</button>
+        ))}
+      </div>
       <MarketChart
         symbol={label}
         timeframe={timeframe}
