@@ -10,6 +10,8 @@ import { displaySymbol } from "./symbol.js";
 import { useMarketCandles } from "./useMarketCandles.js";
 import { useLiveCandles } from "./useLiveCandles.js";
 import { ChartClock } from "./ChartClock.js";
+import { ChartDrawingTools } from "../components/MarketChart/drawings/ChartDrawingTools.js";
+import type { MarketChartApi } from "../components/MarketChart/index.js";
 
 export const EMPTY_MESSAGE = "No market data available for this symbol/timeframe.";
 
