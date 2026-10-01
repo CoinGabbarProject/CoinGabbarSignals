@@ -68,6 +68,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             </button>
           ))}
         </div>
+        <ChartClock timeframe={timeframe} />
         {liveStatus !== "off" && (
           <span role="status" style={{ marginLeft: "auto", fontSize: 12, color: liveStatus === "live" ? c.positive.base : c.text.muted }}>
             {liveStatus === "live" ? "● Live" : liveStatus === "connecting" ? "Connecting…" : "Reconnecting…"}
