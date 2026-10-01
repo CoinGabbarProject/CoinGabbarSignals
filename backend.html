@@ -147,7 +147,25 @@
     </form>
   </div>
 </div>
-
+<style>
+.fi{width:100%;padding:9px;border:1px solid #24425e;border-radius:5px;background:#061221;outline:none;font-size:11px}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;align-items:center;justify-content:center;padding:16px}
+</style>
+<div id="modal">
+  <form id="sigForm" class="panel" style="width:100%;max-width:420px;padding:16px;display:grid;gap:8px">
+    <b style="font-size:13px">Create Signal</b>
+    <input class="fi" id="f_symbol" placeholder="Symbol (BTCUSDT)" required>
+    <select class="fi" id="f_side"><option>LONG</option><option>SHORT</option><option>NO_TRADE</option></select>
+    <select class="fi" id="f_tf"><option>1m</option><option>5m</option><option>15m</option><option>30m</option><option selected>1H</option><option>4H</option><option>1D</option></select>
+    <input class="fi" id="f_score" type="number" min="0" max="100" placeholder="Score 0-100" required>
+    <input class="fi" id="f_entry" type="number" step="any" placeholder="Entry" required>
+    <input class="fi" id="f_stop" type="number" step="any" placeholder="Stop loss" required>
+    <input class="fi" id="f_targets" placeholder="Targets: 68000,70000" required>
+    <input class="fi" id="f_note" placeholder="Rationale (optional)">
+    <div id="sigMsg" style="font-size:10px;min-height:14px"></div>
+    <div class="actions"><button type="submit" class="btn primary">Save</button><button type="button" class="btn" id="cancelBtn">Cancel</button></div>
+  </form>
+</div>
 <div id="backendApp" style="display:none">
 <div class="app">
 <header class="top">
