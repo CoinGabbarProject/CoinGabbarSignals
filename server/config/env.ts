@@ -1,3 +1,16 @@
+import type { Timeframe } from "../../shared/market.js";
+
+export type ScanConfig = {
+  enabled: boolean;
+  intervalMs: number;
+  symbols: string[];
+  timeframe: Timeframe;
+  minScore: number;
+  concurrency: number;
+  spotUrl: string;
+  futuresUrl: string;
+};
+
 export type ServerConfig = {
   port: number;
   host: string;
