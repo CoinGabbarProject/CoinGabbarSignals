@@ -63,5 +63,6 @@ export function loadConfig(): ServerConfig {
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean),
+    scan: loadScanConfig(),
   };
 }
