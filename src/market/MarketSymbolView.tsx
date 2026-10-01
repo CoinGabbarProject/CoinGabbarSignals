@@ -81,6 +81,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
         loading={status === "loading"}
         error={status === "error" ? error : null}
         height={height}
+        overlays={overlays}
       />
     </section>
   );
