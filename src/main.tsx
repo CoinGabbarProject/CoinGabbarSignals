@@ -19,5 +19,8 @@ function sync(): void {
   }
 }
 
-new MutationObserver(sync).observe(document.querySelector(".main") ?? document.body, { childList: true, subtree: true });
+// index.html swaps <main>'s direct children wholesale, so watching direct children is enough
+// (subtree would also fire for every React/chart DOM update inside our own root).
+const host = document.querySelector(".main");
+new MutationObserver(sync).observe(host ?? document.body, host ? { childList: true } : { childList: true, subtree: true });
 sync();
