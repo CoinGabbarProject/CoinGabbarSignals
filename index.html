@@ -1078,6 +1078,23 @@ const _row = (k, v, cls = '') => '<div class="mini-row"><span>' + k + '</span><b
 const _err = m => '<span class="down">' + m + '</span>';
 const _set = (id, h) => { document.getElementById(id).innerHTML = h; };
 
+async function livePrice(symId, targetId) {
+  const sym = (document.getElementById(symId).value || 'BTCUSDT').trim().toUpperCase().replace('/', '');
+  const t = document.getElementById(targetId);
+  const old = t.placeholder;
+  t.placeholder = 'Loading...';
+  try {
+    const r = await fetch('https://data-api.binance.vision/api/v3/ticker/price?symbol=' + encodeURIComponent(sym));
+    const d = await r.json();
+    if (!d.price) throw new Error('bad symbol');
+    t.value = parseFloat(d.price);
+    t.placeholder = old;
+  } catch (e) {
+    t.placeholder = 'Invalid symbol or network error';
+    setTimeout(() => { t.placeholder = old; }, 2000);
+  }
+}
+
 function clearCalc(p) {
   document.querySelectorAll('[id^="' + p + '_"]').forEach(el => {
     if (el.tagName === 'SELECT') el.selectedIndex = 0;
