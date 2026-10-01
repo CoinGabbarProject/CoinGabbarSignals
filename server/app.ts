@@ -8,6 +8,7 @@ import express, {
 import type { ServerConfig } from "./config/env.js";
 import authRouter from "./routes/auth.js";
 import signalsRouter from "./routes/signals.js";
+import candlesRouter from "./routes/candles.js";
 import { createEngineRouter } from "./routes/engine.js";
 import type { EngineService } from "./engine/scanner.js";
 import type { SignalStore } from "./engine/store.js";
