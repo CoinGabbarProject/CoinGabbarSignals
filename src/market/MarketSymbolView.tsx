@@ -47,7 +47,8 @@ export interface MarketSymbolViewProps {
  * only its data changes. Chart height is fixed, so loading/empty/error never shift the layout.
  */
 export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChange }: MarketSymbolViewProps): ReactElement {
-  const { status, candles, error, retry } = useMarketCandles(symbol, timeframe);
+  const { status, candles: history, error, retry } = useMarketCandles(symbol, timeframe);
+  const { candles, status: liveStatus } = useLiveCandles(symbol, timeframe, history, status === "ready", retry);
   const baseHeight = useChartHeight();
   const [active, setActive] = useState<ReadonlySet<IndicatorKey>>(() => new Set(DEFAULT_INDICATORS));
   const overlays = useMemo(() => buildOverlays(active), [active]);
