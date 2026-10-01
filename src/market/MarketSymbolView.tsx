@@ -47,7 +47,11 @@ export interface MarketSymbolViewProps {
  */
 export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChange }: MarketSymbolViewProps): ReactElement {
   const { status, candles, error, retry } = useMarketCandles(symbol, timeframe);
-  const height = useChartHeight();
+  const baseHeight = useChartHeight();
+  const [active, setActive] = useState<ReadonlySet<IndicatorKey>>(() => new Set(DEFAULT_INDICATORS));
+  const overlays = useMemo(() => buildOverlays(active), [active]);
+  const height = baseHeight + subPaneCount(active) * (SUB_PANE_HEIGHT + 8);
+  const toggle = (k: IndicatorKey): void => setActive((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const label = symbol ? displaySymbol(symbol) : rawSymbol;
 
   return (
