@@ -806,35 +806,35 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
 
           <div class="panel">
             <h3>Position Size Calculator</h3>
-            <p style="color:#8da1b7">
-              Calculate position size using account balance and risk percentage.
-            </p>
-            <button class="mini-action primary"
-              onclick="alert('Position Size Calculator')">
-              Open Calculator →
-            </button>
+            <input class="tin" id="p_bal" type="number" step="any" placeholder="Account balance ($)">
+            <input class="tin" id="p_risk" type="number" step="any" placeholder="Risk per trade (%)">
+            <input class="tin" id="p_entry" type="number" step="any" placeholder="Entry price">
+            <input class="tin" id="p_stop" type="number" step="any" placeholder="Stop loss price">
+            <input class="tin" id="p_lev" type="number" step="any" placeholder="Leverage (optional, default 1x)">
+            <button class="mini-action primary" onclick="calcPos()">Calculate →</button>
+            <div class="tres" id="p_out"></div>
           </div>
 
           <div class="panel">
             <h3>Risk / Reward</h3>
-            <p style="color:#8da1b7">
-              Calculate potential profit and risk before entering a trade.
-            </p>
-            <button class="mini-action primary"
-              onclick="alert('Risk / Reward Calculator')">
-              Calculate →
-            </button>
+            <select class="tin" id="r_side"><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select>
+            <input class="tin" id="r_entry" type="number" step="any" placeholder="Entry price">
+            <input class="tin" id="r_stop" type="number" step="any" placeholder="Stop loss price">
+            <input class="tin" id="r_tp" type="number" step="any" placeholder="Target price">
+            <button class="mini-action primary" onclick="calcRR()">Calculate →</button>
+            <div class="tres" id="r_out"></div>
           </div>
 
           <div class="panel">
-            <h3>Profit & Loss</h3>
-            <p style="color:#8da1b7">
-              Estimate trading PnL based on entry and exit prices.
-            </p>
-            <button class="mini-action primary"
-              onclick="alert('Profit / Loss Calculator')">
-              Calculate →
-            </button>
+            <h3>Profit &amp; Loss</h3>
+            <select class="tin" id="l_side"><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select>
+            <input class="tin" id="l_entry" type="number" step="any" placeholder="Entry price">
+            <input class="tin" id="l_exit" type="number" step="any" placeholder="Exit price">
+            <input class="tin" id="l_qty" type="number" step="any" placeholder="Quantity (coins/units)">
+            <input class="tin" id="l_lev" type="number" step="any" placeholder="Leverage (optional, default 1x)">
+            <input class="tin" id="l_fee" type="number" step="any" placeholder="Fee per side (%, optional e.g. 0.05)">
+            <button class="mini-action primary" onclick="calcPnL()">Calculate →</button>
+            <div class="tres" id="l_out"></div>
           </div>
 
         </div>
