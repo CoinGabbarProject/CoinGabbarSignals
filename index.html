@@ -270,6 +270,8 @@ button{cursor:pointer}.app{min-height:100vh;background:radial-gradient(circle at
             <button class="tab" data-chart-tab="liq-panel">Liquidation Levels</button>
           </div>
           <div class="chart-panel active" id="chart-panel">
+            <div id="market-symbol-root"></div>
+            <style>#chart-panel>.chart-toolbar,#chart-panel>#chart{display:none!important}#chart-panel .chartbox{border:0;background:transparent;border-radius:0}</style>
             <div class="chart-toolbar"><button class="tf">1m</button><button class="tf">5m</button><button class="tf active">15m</button><button class="tf">1h</button><button class="tf">4h</button><button class="tf">1D</button><span style="margin-left:auto"><button class="mini-action chart-tool" data-toast="Crosshair enabled">⌖</button> <button class="mini-action chart-tool" data-toast="Chart expanded">⛶</button> <button class="mini-action chart-tool" data-toast="Chart settings opened">⚙</button></span></div>
           <div class="chart" id="chart">
             <div class="chart-legend">BTC/USDT · Binance &nbsp; O 64,985 H 65,248 L 64,765 C 65,248 +420.18 (+0.65%)</div>
