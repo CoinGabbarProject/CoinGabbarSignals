@@ -39,3 +39,10 @@ const server = createApp(config, { engine, store }).listen(config.port, config.h
     `[coingabbarsignals] ${config.appEnv} • http://${config.host}:${config.port}`
   );
 });
+const shutdown = (): void => {
+  engine.stop();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+};
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
