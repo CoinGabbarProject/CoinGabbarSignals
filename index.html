@@ -836,7 +836,7 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
             <input class="tin" id="l_qty" type="number" step="any" placeholder="Quantity (coins/units)">
             <input class="tin" id="l_lev" type="number" step="any" placeholder="Leverage (optional, default 1x)">
             <input class="tin" id="l_fee" type="number" step="any" placeholder="Fee per side (%, optional e.g. 0.05)">
-            <button class="mini-action primary" onclick="calcPnL()">Calculate →</button>
+            <div class="inline-actions"><button class="mini-action primary" onclick="calcPnL()">Calculate →</button><button class="mini-action" onclick="clearCalc('l')">Clear ✕</button></div>
             <div class="tres" id="l_out"></div>
           </div>
 
