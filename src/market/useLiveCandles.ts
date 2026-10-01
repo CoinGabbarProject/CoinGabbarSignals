@@ -81,7 +81,14 @@ export function useLiveCandles(
     connect();
 
     const watchdog = setInterval(() => {
-      if (!closed && ws && Date.now() - lastMsg > STALE_MS) { lastMsg = Date.now(); ws.close(); }
+      if (closed || !ws || Date.now() - lastMsg <= STALE_MS) return;
+      lastMsg = Date.now();
+      const old = ws;
+      old.onopen = null; old.onclose = null; old.onerror = null; old.onmessage = null;
+      old.close();
+      setStatus("reconnecting");
+      clearTimeout(retryTimer);
+      connect();
     }, 5000);
 
     return () => {
