@@ -57,6 +57,7 @@ export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   // Admin login
   app.use("/api/v1", authRouter);
   app.use("/api/v1", signalsRouter);
+  if (deps.engine && deps.store) app.use("/api/v1", createEngineRouter(deps.engine, deps.store));
 
   // 404
   app.use((_req, res) => {
