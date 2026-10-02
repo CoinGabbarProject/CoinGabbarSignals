@@ -20,6 +20,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
   private period = 3600;
   private drawings: readonly Drawing[] = [];
   private selectedId: string | null = null;
+  private visible = true;
   private draft: Drawing | null = null;
   private size = { w: 0, h: 0 };
   private readonly views: IPrimitivePaneView[];
@@ -38,7 +39,9 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
   updateAllViews(): void { this.loadBars(); }
   paneViews(): readonly IPrimitivePaneView[] { return this.views; }
 
-  setState(drawings: readonly Drawing[], selectedId: string | null): void { this.drawings = drawings; this.selectedId = selectedId; this.requestUpdate?.(); }
+  setState(drawings: readonly Drawing[], selectedId: string | null, visible: boolean): void {
+    this.drawings = drawings; this.selectedId = selectedId; this.visible = visible; this.requestUpdate?.();
+  }
   setDraft(d: Drawing | null): void { this.draft = d; this.requestUpdate?.(); }
   setPeriod(seconds: number): void { this.period = seconds; this.requestUpdate?.(); }
 
@@ -86,7 +89,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
     };
   }
 
-  // ---- public helpers for the interaction layer ---------------------------
+  // ---- helpers for the interaction layer ----------------------------------
   /** Pixel (inside the pane) -> anchor. With `magnet`, snaps to the nearest O/H/L/C within 14px. */
   anchorAt(x: number, y: number, magnet: boolean): Anchor | null {
     if (!this.chart || !this.series) return null;
@@ -106,10 +109,29 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
     return Number.isFinite(time) ? { time, price } : null;
   }
 
+  /** Anchor -> pixel, or null when the chart cannot map it. */
+  anchorToPixel(a: Anchor): { x: number; y: number } | null {
+    const P = this.proj();
+    if (!P) return null;
+    const x = P.x(a.time), y = P.y(a.price);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  }
+
+  /** Index of the anchor handle within `tol` px of (x, y), or -1. */
+  anchorHit(d: Drawing, x: number, y: number, tol = 14): number {
+    if (d.kind === "brush") return -1;
+    let best = -1, bestD = tol;
+    d.anchors.forEach((a, i) => {
+      const p = this.anchorToPixel(a);
+      if (p && Math.hypot(p.x - x, p.y - y) <= bestD) { bestD = Math.hypot(p.x - x, p.y - y); best = i; }
+    });
+    return best;
+  }
+
   /** Topmost drawing under the pixel, or null. */
   hitTest(x: number, y: number): string | null {
     const P = this.proj();
-    if (!P) return null;
+    if (!P || !this.visible) return null;
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i];
       if (d && hitShapes(shapesFor(d, P), x, y)) return d.id;
@@ -125,16 +147,18 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
       if (!P) return;
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, mediaSize.width, mediaSize.height); ctx.clip();
-      const all: Drawing[] = this.draft ? [...this.drawings, this.draft] : [...this.drawings];
-      for (const d of all) {
+      const list: Drawing[] = this.visible ? [...this.drawings] : [];
+      if (this.draft) list.push(this.draft);
+      for (const d of list) {
         const shapes: Shape[] = shapesFor(d, P);
         renderShapes(ctx, shapes);
-        if (d.id === this.selectedId) {
-          ctx.fillStyle = tokens.color.text.primary; ctx.strokeStyle = tokens.color.accent.primary; ctx.lineWidth = 2;
+        if (d.id === this.selectedId && d.kind !== "brush") {
+          ctx.fillStyle = tokens.color.text.primary;
+          ctx.strokeStyle = d.locked ? tokens.color.neutral.base : tokens.color.accent.primary; ctx.lineWidth = 2;
           for (const a of d.anchors) {
             const x = P.x(a.time), y = P.y(a.price);
             if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-            ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
           }
         }
       }
