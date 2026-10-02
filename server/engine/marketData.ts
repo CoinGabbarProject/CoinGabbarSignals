@@ -3,12 +3,29 @@ import type { DerivativesInput } from "../../shared/scoring.js";
 
 /** What the scanner needs from a market-data source. Swap this for another exchange or a mock. */
 export interface Ticker24h { change24hPct: number; volume24h: number }
+export interface OrderBookSnapshot {
+  bidVolume: number | null;
+  askVolume: number | null;
+  imbalance: number | null;
+  spread: number | null;
+  midpoint: number | null;
+}
+
+export interface MarketSnapshot {
+  ticker: Ticker24h;
+  derivatives: DerivativesInput;
+  orderBook: OrderBookSnapshot;
+  timestamp: number;
+}
+
 export interface MarketData {
   /** CLOSED candles only, oldest first. `now` decides which candle is still forming. */
   getCandles(symbol: string, tf: Timeframe, limit: number, now: number): Promise<Candle[]>;
   getTicker24h(symbol: string): Promise<Ticker24h>;
-  /** Each field is null when its endpoint failed or is unavailable; never throws for a partial failure. */
+  /** Each field is null when its endpoint failed or is unavailable. */
   getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput>;
+  /** Combined real-time market-analysis snapshot. */
+  getMarketSnapshot(symbol: string, tf: Timeframe): Promise<MarketSnapshot>;
 }
 
 export interface MarketDataConfig { spotUrl: string; futuresUrl: string; timeoutMs: number }
