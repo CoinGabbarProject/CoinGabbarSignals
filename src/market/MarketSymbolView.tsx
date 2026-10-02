@@ -62,7 +62,48 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
   const overlays = useMemo(() => buildOverlays(active), [active]);
   const height = baseHeight + subPaneCount(active) * (SUB_PANE_HEIGHT + 8);
   const toggle = (k: IndicatorKey): void => setActive((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
-  const label = symbol ? displaySymbol(symbol) : rawSymbol;
+    const label = symbol ? displaySymbol(symbol) : rawSymbol;
+
+  useEffect(() => {
+    if (!symbol) {
+      setSnapshot(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let activeRequest = true;
+
+    setSnapshotStatus("loading");
+
+    fetchMarketSnapshot(symbol, timeframe, controller.signal)
+      .then((data) => {
+        if (!activeRequest) return;
+        setSnapshot(data);
+        setSnapshotStatus("ready");
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted || !activeRequest) return;
+        console.error("market snapshot error:", err);
+        setSnapshotStatus("error");
+      });
+
+    return () => {
+      activeRequest = false;
+      controller.abort();
+    };
+  }, [symbol, timeframe]);
+
+  const formatNumber = (value: number | null, digits = 2): string =>
+    value === null || !Number.isFinite(value)
+      ? "Unavailable"
+      : value.toLocaleString(undefined, {
+          maximumFractionDigits: digits,
+        });
+
+  const formatPercent = (value: number | null): string =>
+    value === null || !Number.isFinite(value)
+      ? "Unavailable"
+      : `${value.toFixed(2)}%`;
 
   return (
     <section className="chartbox" aria-label={`${label} market chart`} style={{ minWidth: 0 }}>
