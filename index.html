@@ -1220,6 +1220,132 @@ function calcPnL() {
   _set('l_out', h);
 }
 </script>
+<script>
+// ===== LIVE TECHNICAL INDICATORS (Binance public klines, no API key) =====
+(function () {
+  const $ = id => document.getElementById(id);
+  const BASE = "https://data-api.binance.vision/api/v3/klines";
+  const INTERVAL = { "1m":"1m","5m":"5m","15m":"15m","30m":"30m","1h":"1h","4h":"4h","1d":"1d" };
+  const LIMIT = 500, REFRESH_MS = 10000;
+
+  const num = (n, d) => Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: d == null ? (Math.abs(n) >= 100 ? 2 : 4) : d }) : "-";
+  const last = a => a[a.length - 1];
+
+  function sma(v, p) { const o = []; let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= p) s -= v[i - p]; o.push(i >= p - 1 ? s / p : NaN); } return o; }
+  function ema(v, p) { const k = 2 / (p + 1), o = new Array(v.length).fill(NaN); if (v.length < p) return o; let e = v.slice(0, p).reduce((a, b) => a + b, 0) / p; o[p - 1] = e; for (let i = p; i < v.length; i++) { e = v[i] * k + e * (1 - k); o[i] = e; } return o; }
+  function rsi(c, p = 14) { const o = new Array(c.length).fill(NaN); if (c.length <= p) return o; let g = 0, l = 0; for (let i = 1; i <= p; i++) { const d = c[i] - c[i - 1]; d >= 0 ? g += d : l -= d; } g /= p; l /= p; o[p] = l === 0 ? 100 : 100 - 100 / (1 + g / l); for (let i = p + 1; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * (p - 1) + Math.max(d, 0)) / p; l = (l * (p - 1) + Math.max(-d, 0)) / p; o[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); } return o; }
+  function atr(k, p = 14) { const tr = k.map((x, i) => i === 0 ? x.h - x.l : Math.max(x.h - x.l, Math.abs(x.h - k[i - 1].c), Math.abs(x.l - k[i - 1].c))); const o = new Array(k.length).fill(NaN); if (k.length < p) return o; let a = tr.slice(0, p).reduce((s, v) => s + v, 0) / p; o[p - 1] = a; for (let i = p; i < k.length; i++) { a = (a * (p - 1) + tr[i]) / p; o[i] = a; } return o; }
+
+  function compute(k) {
+    const c = k.map(x => x.c), price = last(c);
+    const e20 = ema(c, 20), e50 = ema(c, 50), s200 = sma(c, 200);
+    const r = rsi(c, 14);
+    const e12 = ema(c, 12), e26 = ema(c, 26);
+    const macdLine = e12.map((v, i) => v - e26[i]);
+    const sig = ema(macdLine.map(v => Number.isFinite(v) ? v : 0).slice(25), 9);
+    const macd = last(macdLine), signal = last(sig), hist = macd - signal;
+    const m20 = last(sma(c, 20)); const w = c.slice(-20); const sd = Math.sqrt(w.reduce((s, v) => s + (v - m20) ** 2, 0) / w.length);
+    const a = last(atr(k, 14));
+    // VWAP: reset at 00:00 UTC (intraday), for 1D uses the last 20 candles
+    const day0 = new Date(last(k).t).setUTCHours(0, 0, 0, 0);
+    const vk = (last(k).t - k[k.length - 2].t) >= 86400000 ? k.slice(-20) : k.filter(x => x.t >= day0);
+    const pv = vk.reduce((s, x) => s + (x.h + x.l + x.c) / 3 * x.v, 0), vv = vk.reduce((s, x) => s + x.v, 0);
+    return { price, e20: last(e20), e50: last(e50), s200: last(s200), rsi: last(r), macd, signal, hist,
+             bbU: m20 + 2 * sd, bbM: m20, bbL: m20 - 2 * sd, atr: a, atrPct: a / price * 100, vwap: vv ? pv / vv : NaN };
+  }
+
+  const side = (p, x) => !Number.isFinite(x) ? ["n/a", "neutral"] : p >= x ? ["Bullish", "up"] : ["Bearish", "down"];
+
+  function view(i) {
+    const e20 = side(i.price, i.e20), e50 = side(i.price, i.e50), s200 = side(i.price, i.s200), vw = side(i.price, i.vwap);
+    const rz = i.rsi >= 70 ? ["Overbought", "down"] : i.rsi <= 30 ? ["Oversold", "up"] : i.rsi >= 55 ? ["Bullish", "up"] : i.rsi <= 45 ? ["Bearish", "down"] : ["Neutral", "neutral"];
+    const mc = i.hist >= 0 ? ["Bullish", "up"] : ["Bearish", "down"];
+    const vol = i.atrPct >= 2 ? ["High", "down"] : i.atrPct >= 0.8 ? ["Medium", "yellow"] : ["Low", "up"];
+    const bb = i.price > i.bbU ? "Above upper band" : i.price < i.bbL ? "Below lower band" : "Inside band";
+    const aboveAll = i.price >= i.e20 && i.price >= i.e50 && (!Number.isFinite(i.s200) || i.price >= i.s200);
+    const belowAll = i.price < i.e20 && i.price < i.e50 && (!Number.isFinite(i.s200) || i.price < i.s200);
+    const trend = aboveAll ? ["Bullish", "up", "Price above EMA 20/50/200"] : belowAll ? ["Bearish", "down", "Price below EMA 20/50/200"] : ["Mixed", "neutral", "Price between key averages"];
+    return { e20, e50, s200, vw, rz, mc, vol, bb, trend };
+  }
+
+  const setTxt = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+  const setHtml = (id, h) => { const el = $(id); if (el) el.innerHTML = h; };
+  const tag = (t, c) => `<span class="${c}">${t}</span>`;
+  const cls = (id, c) => { const el = $(id); if (el) el.className = c; };
+
+  function render(i, tf, sym) {
+    const v = view(i);
+    // --- Indicators tab (cards) ---
+    setTxt("ti_trend", v.trend[0]); cls("ti_trend", v.trend[1]); setTxt("ti_trend_s", v.trend[2]);
+    setTxt("ti_mom", num(i.rsi, 1) + " RSI"); setTxt("ti_mom_s", v.rz[0]);
+    setTxt("ti_vol", num(i.atr) + " ATR"); setTxt("ti_vol_s", v.vol[0] + " range (" + num(i.atrPct, 2) + "%)");
+    // --- Indicators tab (rows) ---
+    setTxt("ti_e20", num(i.e20) + " · " + v.e20[0]);
+    setTxt("ti_e50", num(i.e50) + " · " + v.e50[0]);
+    setTxt("ti_s200", Number.isFinite(i.s200) ? num(i.s200) + " · " + v.s200[0] : "Need 200 candles");
+    setTxt("ti_rsi", num(i.rsi, 1) + " · " + v.rz[0]);
+    setTxt("ti_macd", num(i.macd) + " · " + v.mc[0]);
+    setTxt("ti_bb", num(i.bbL) + "–" + num(i.bbU));
+    setTxt("ti_vwap", num(i.vwap) + " · " + v.vw[0]);
+    setTxt("ti_e20_d", "Price " + (i.price >= i.e20 ? "above" : "below") + " EMA 20 (" + tf + ").");
+    setTxt("ti_e50_d", "EMA 20 is " + (i.e20 >= i.e50 ? "above" : "below") + " EMA 50.");
+    setTxt("ti_s200_d", Number.isFinite(i.s200) ? "Price is " + num(Math.abs(i.price - i.s200) / i.s200 * 100, 2) + "% " + (i.price >= i.s200 ? "above" : "below") + " the 200-period average." : "Not enough candles.");
+    setTxt("ti_rsi_d", "RSI zone: " + v.rz[0] + " (30 oversold / 70 overbought).");
+    setTxt("ti_macd_d", "MACD " + num(i.macd) + " vs signal " + num(i.signal) + ", histogram " + num(i.hist) + ".");
+    setTxt("ti_bb_d", "Price is: " + v.bb + ". Middle band " + num(i.bbM) + ".");
+    setTxt("ti_vwap_d", "Price is " + (i.price >= i.vwap ? "above" : "below") + " VWAP.");
+    // --- Right panel ---
+    setHtml("tp_e20", num(i.e20) + " " + tag(v.e20[0], v.e20[1]));
+    setHtml("tp_e50", num(i.e50) + " " + tag(v.e50[0], v.e50[1]));
+    setHtml("tp_s200", Number.isFinite(i.s200) ? num(i.s200) + " " + tag(v.s200[0], v.s200[1]) : "-");
+    setHtml("tp_rsi", num(i.rsi, 1) + " " + tag(v.rz[0], v.rz[1]));
+    setHtml("tp_macd", num(i.macd) + " " + tag(v.mc[0], v.mc[1]));
+    setHtml("tp_bb", num(i.bbL) + "–" + num(i.bbU));
+    setHtml("tp_atr", num(i.atr) + " " + tag(v.vol[0], v.vol[1]));
+    setHtml("tp_vwap", num(i.vwap) + " " + tag(v.vw[0], v.vw[1]));
+    setTxt("ti_stamp", sym + " · " + tf + " · updated " + new Date().toLocaleTimeString());
+  }
+
+  function currentSymbol() {
+    const q = new URLSearchParams(location.search).get("symbol");
+    let s = (q || ($("liveSymbol") && $("liveSymbol").textContent) || "BTC/USDT").replace(/[\/\-]/g, "").trim().toUpperCase();
+    return /USDT$/.test(s) ? s : s + "USDT";
+  }
+  function currentTf() {
+    const q = (new URLSearchParams(location.search).get("tf") || "").toLowerCase();
+    if (INTERVAL[q]) return q;
+    // liveTf looks like "4H → 1H → 15M": use the last (entry) timeframe
+    const all = ($("liveTf") && $("liveTf").textContent || "").match(/\d+\s*[mhd]/gi);
+    const key = all ? last(all).replace(/\s/g, "").toLowerCase() : "15m";
+    return INTERVAL[key] ? key : "15m";
+  }
+
+  let busy = false;
+  async function refresh() {
+    if (document.hidden || busy) return;
+    if (!$("tp_e20") && !$("ti_e20")) return;           // sections not on screen
+    busy = true;
+    const sym = currentSymbol(), tf = currentTf();
+    try {
+      const r = await fetch(`${BASE}?symbol=${encodeURIComponent(sym)}&interval=${INTERVAL[tf]}&limit=${LIMIT}`);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const raw = await r.json();
+      const k = raw.map(x => ({ t: x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4], v: +x[5] }));
+      if (k.length < 60) throw new Error("not enough candles");
+      render(compute(k), tf.toUpperCase(), sym);
+    } catch (e) {
+      console.error("Live indicators failed", e);
+      setTxt("ti_stamp", "Indicators unavailable — retrying…");
+    } finally { busy = false; }
+  }
+
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+  document.addEventListener("visibilitychange", refresh);
+  document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-chart-tab],.nav-item,[data-page]")) setTimeout(refresh, 300); });
+  const lt = $("liveSymbol"); if (lt) new MutationObserver(refresh).observe(lt, { childList: true, characterData: true, subtree: true });
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
