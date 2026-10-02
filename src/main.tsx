@@ -405,99 +405,196 @@ function renderPerformanceSummary(
           Math.abs(p.maxDrawdown) * 20,
         );
 
+  
+    /*
+   * CARD 1
+   * Closed trade count.
+   */
   setPerformanceCard(
     cards[0],
     "Closed Signals",
     String(p.closed),
-    `${p.total > 0 ? closedRatio.toFixed(1) : "0.0"}% of loaded signals`,
-    closedRatio,
+    p.closed > 0
+      ? `${p.realizedCount} with realized R data`
+      : `${p.active} active · awaiting closure`,
+    p.total > 0
+      ? (p.closed / p.total) * 100
+      : 0,
     "",
   );
 
+  /*
+   * CARD 2
+   * Active exposure.
+   *
+   * This updates immediately even when there are
+   * no closed trades.
+   */
   setPerformanceCard(
     cards[1],
-    "Win Rate",
-    winRatePct === null
-      ? "N/A"
-      : `${winRatePct.toFixed(1)}%`,
-    p.realizedCount > 0
-      ? `${p.wins} wins / ${p.losses} losses · ${p.realizedCount} realized`
-      : "Requires realized exit / R data",
-    winRatePct ?? 0,
-    winRatePct !== null && winRatePct >= 50
+    "Active Signals",
+    String(p.active),
+    p.active > 0
+      ? `${p.riskExposureR.toFixed(0)}R initial risk exposure`
+      : "No active setups",
+    Math.min(
+      100,
+      p.active * 20,
+    ),
+    p.active > 0
       ? "up"
-      : winRatePct !== null
-        ? "down"
-        : "",
+      : "",
   );
 
+  /*
+   * CARD 3
+   * Planned reward/risk based on TP1.
+   */
   setPerformanceCard(
     cards[2],
-    "Average R",
-    p.averageR === null
+    "Avg Planned R",
+    p.averagePlannedR === null
       ? "N/A"
-      : `${p.averageR >= 0 ? "+" : ""}${p.averageR.toFixed(2)}R`,
-    p.expectancy === null
-      ? "No realized R available"
-      : `Expectancy · BE win ${p.breakEvenWinRate === null ? "N/A" : `${(p.breakEvenWinRate * 100).toFixed(1)}%`}`,
-    avgMeter,
-    p.averageR === null
-      ? ""
-      : p.averageR >= 0
-        ? "up"
-        : "down",
+      : `1:${p.averagePlannedR.toFixed(2)}`,
+    p.averagePlannedR === null
+      ? "No valid active setup"
+      : `Range 1:${p.minPlannedR!.toFixed(2)}–1:${p.maxPlannedR!.toFixed(2)}`,
+    p.averagePlannedR === null
+      ? 0
+      : Math.min(
+          100,
+          p.averagePlannedR * 25,
+        ),
+    p.averagePlannedR !== null
+      ? "up"
+      : "",
   );
 
-  setPerformanceCard(
-    cards[3],
-    "Total R",
-    p.realizedCount === 0
-      ? "N/A"
-      : `${p.totalR >= 0 ? "+" : ""}${p.totalR.toFixed(2)}R`,
-    p.recoveryFactor === null
-      ? "Realized closed-trade R"
-      : `Recovery factor ${p.recoveryFactor.toFixed(2)}`,
-    totalMeter,
-    p.realizedCount === 0
-      ? ""
-      : p.totalR >= 0
+  /*
+   * CARD 4
+   *
+   * Realized R when closed trades exist.
+   * Otherwise show average signal quality.
+   *
+   * This avoids inventing P&L.
+   */
+  if (p.realizedCount > 0) {
+    setPerformanceCard(
+      cards[3],
+      "Total R",
+      `${p.totalR >= 0 ? "+" : ""}${p.totalR.toFixed(2)}R`,
+      `Avg ${p.averageR === null ? "N/A" : `${p.averageR >= 0 ? "+" : ""}${p.averageR.toFixed(2)}R`} · ${p.wins}W / ${p.losses}L`,
+      Math.min(
+        100,
+        Math.abs(p.totalR) * 3,
+      ),
+      p.totalR >= 0
         ? "up"
         : "down",
-  );
+    );
+  } else {
+    setPerformanceCard(
+      cards[3],
+      "Avg Setup Score",
+      p.averageScore === null
+        ? "N/A"
+        : `${p.averageScore.toFixed(1)}/100`,
+      p.averageScore === null
+        ? "No score data"
+        : `${p.strongSetups} strong setups ≥70`,
+      p.averageScore ?? 0,
+      p.averageScore !== null &&
+      p.averageScore >= 70
+        ? "up"
+        : "",
+    );
+  }
 
-  setPerformanceCard(
-    cards[4],
-    "Profit Factor",
-    p.profitFactor === null
-      ? "N/A"
-      : Number.isFinite(p.profitFactor)
-        ? p.profitFactor.toFixed(2)
-        : "∞",
-    p.profitFactor === null
-      ? "Requires realized wins/losses"
-      : `Gross +${p.grossProfit.toFixed(2)}R / -${p.grossLoss.toFixed(2)}R`,
-    pfMeter,
-    p.profitFactor === null
-      ? ""
-      : p.profitFactor >= 1
+  /*
+   * CARD 5
+   *
+   * Realized Profit Factor if enough data exists.
+   * Otherwise show active setup quality.
+   */
+  if (p.realizedCount > 0) {
+    setPerformanceCard(
+      cards[4],
+      "Profit Factor",
+      p.profitFactor === null
+        ? "N/A"
+        : Number.isFinite(
+            p.profitFactor,
+          )
+          ? p.profitFactor.toFixed(2)
+          : "∞",
+      p.profitFactor === null
+        ? "Waiting for realized wins/losses"
+        : `Gross +${p.grossProfit.toFixed(2)}R / -${p.grossLoss.toFixed(2)}R`,
+      p.profitFactor === null
+        ? 0
+        : Number.isFinite(
+            p.profitFactor,
+          )
+          ? Math.min(
+              100,
+              p.profitFactor * 35,
+            )
+          : 100,
+      p.profitFactor !== null &&
+      p.profitFactor >= 1
         ? "up"
         : "down",
-  );
+    );
+  } else {
+    setPerformanceCard(
+      cards[4],
+      "Risk Exposure",
+      `${p.riskExposureR.toFixed(0)}R`,
+      "Initial stop-distance exposure",
+      Math.min(
+        100,
+        p.riskExposureR * 20,
+      ),
+      p.riskExposureR > 0
+        ? "down"
+        : "",
+    );
+  }
 
-  setPerformanceCard(
-    cards[5],
-    "Max Drawdown",
-    p.realizedCount === 0
-      ? "N/A"
-      : `${p.maxDrawdown.toFixed(2)}R`,
-    p.averageDuration === null
-      ? "Peak-to-trough · duration N/A"
-      : `Peak-to-trough · avg ${formatDuration(p.averageDuration)}`,
-    ddMeter,
-    p.maxDrawdown < 0
-      ? "down"
-      : "up",
-  );
+  /*
+   * CARD 6
+   *
+   * Realized drawdown when available.
+   * Otherwise explicitly show that the equity curve
+   * has not started because no trade has closed.
+   */
+  if (p.realizedCount > 0) {
+    setPerformanceCard(
+      cards[5],
+      "Max Drawdown",
+      `${p.maxDrawdown.toFixed(2)}R`,
+      p.averageDuration === null
+        ? "Realized peak-to-trough"
+        : `Peak-to-trough · avg ${formatDuration(p.averageDuration)}`,
+      Math.min(
+        100,
+        Math.abs(p.maxDrawdown) * 20,
+      ),
+      p.maxDrawdown < 0
+        ? "down"
+        : "up",
+    );
+  } else {
+    setPerformanceCard(
+      cards[5],
+      "Realized Performance",
+      "PENDING",
+      "Requires first closed signal",
+      0,
+      "",
+    );
+  }
+  
 
   const heading = section.querySelector(
     ".section-head span",
