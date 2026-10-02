@@ -1,6 +1,27 @@
 import type { Candle, ProviderResponse, Timeframe } from "../../shared/market.js";
 import type { ApiError } from "../../shared/api.js";
 
+export interface MarketSnapshotResponse {
+  ticker: {
+    change24hPct: number;
+    volume24h: number;
+  };
+  derivatives: {
+    fundingRate: number | null;
+    oiChangePct: number | null;
+    longShortRatio: number | null;
+    bookImbalance: number | null;
+  };
+  orderBook: {
+    bidVolume: number | null;
+    askVolume: number | null;
+    imbalance: number | null;
+    spread: number | null;
+    midpoint: number | null;
+  };
+  timestamp: number;
+}
+
 /** Same default the existing index.html uses; override with VITE_API_BASE. No keys or tokens live in the frontend. */
 const envBase: unknown = import.meta.env["VITE_API_BASE"];
 export const API_BASE: string = typeof envBase === "string" && envBase !== "" ? envBase : "https://coingabbarsignals.onrender.com/api/v1";
