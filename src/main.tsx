@@ -719,12 +719,35 @@ let mounted: { el: HTMLElement; root: Root } | null = null;
 
 function sync(): void {
   const el = document.getElementById(ROOT_ID);
-  if (mounted && mounted.el !== el) { mounted.root.unmount(); mounted = null; }
-  if (el && !mounted) {
-    const root = createRoot(el);
-    root.render(<MarketSymbolApp />);
-    mounted = { el, root };
+
+  if (
+    mounted &&
+    mounted.el !== el
+  ) {
+    mounted.root.unmount();
+    mounted = null;
   }
+
+  if (
+    el &&
+    !mounted
+  ) {
+    const root = createRoot(el);
+
+    root.render(
+      <MarketSymbolApp />,
+    );
+
+    mounted = {
+      el,
+      root,
+    };
+  }
+
+  // Existing index.html dashboard remains untouched.
+  // This updates Recent Signals + Performance Summary
+  // through the TypeScript application layer only.
+  startDashboardAnalytics();
 }
 
 // index.html swaps <main>'s direct children wholesale, so watching direct children is enough
