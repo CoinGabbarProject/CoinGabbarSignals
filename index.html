@@ -186,6 +186,22 @@ button{cursor:pointer}.app{min-height:100vh;background:radial-gradient(circle at
 .dw{position:relative}
 .dw:before{content:"$";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#7e94aa;font-size:13px;pointer-events:none}
 .dw .tin{padding-left:26px}
+/* ===== Coin Price Ticker ===== */
+.cg-ticker{position:sticky;top:0;z-index:21;height:32px;background:#020b18;border-bottom:1px solid #142b46;overflow:hidden;display:flex;align-items:center}
+.cg-ticker__track{display:flex;width:max-content;animation:cgTickerScroll 60s linear infinite;will-change:transform}
+.cg-ticker:hover .cg-ticker__track{animation-play-state:paused}
+.cg-ticker__item{display:inline-flex;align-items:center;gap:6px;padding:0 16px;border-right:1px solid #142b46;white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums}
+.cg-ticker__item b{color:#dce8f5;font-weight:700}
+.cg-ticker__price{color:#9db0c5}
+.cg-ticker__chg.up{color:#19df91}
+.cg-ticker__chg.down{color:#ff5266}
+.cg-ticker__item.flash-up .cg-ticker__price{color:#19df91}
+.cg-ticker__item.flash-down .cg-ticker__price{color:#ff5266}
+.cg-ticker__loading{padding:0 16px;color:#758aa3;font-size:11px}
+.topbar{top:32px!important}
+@keyframes cgTickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(max-width:760px){.cg-ticker{height:28px}.cg-ticker__item{font-size:10px;padding:0 12px}.topbar{top:28px!important}}
+@media(prefers-reduced-motion:reduce){.cg-ticker__track{animation-duration:200s}}
 </style>
 </head>
 <body>
