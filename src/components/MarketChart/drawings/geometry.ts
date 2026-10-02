@@ -20,7 +20,13 @@ const TIME_ZONES = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55] as const;
 const LVL_COLORS = [k.neutral.base, k.negative.base, k.warning.base, k.positive.base, k.accent.primary, k.accent.secondary, k.neutral.base, k.warning.base];
 const DASH: Record<DashStyle, number[] | undefined> = { solid: undefined, dashed: [6, 4], dotted: [2, 3] };
 
-export const fmtPrice = (p: number): string => (Math.abs(p) >= 100 ? p.toFixed(2) : Math.abs(p) >= 1 ? p.toFixed(4) : p.toFixed(6));
+export const fmtPrice = (p: number): string => {
+  const v = Math.abs(p);
+  if (v >= 100) return p.toFixed(2);
+  if (v >= 1) return p.toFixed(4);
+  if (v === 0) return p.toFixed(2);
+  return p.toFixed(Math.min(12, Math.ceil(-Math.log10(v)) + 3));
+};
 const pct = (a: number, b: number): string => (a === 0 ? "0.00" : (((b - a) / a) * 100).toFixed(2));
 const fmtDur = (sec: number): string => {
   const m = Math.round(sec / 60);
