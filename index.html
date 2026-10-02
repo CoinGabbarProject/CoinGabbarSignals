@@ -1068,7 +1068,7 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
     const r=await fetch(API+"/signals?status=ACTIVE&limit=1");
     const d=await r.json();
     const s=d.signals&&d.signals[0];
-    if(!s)return;
+    if(!s||window.__userPair)return;
     $("liveSymbol").textContent=s.symbol.replace(/USDT$/,"/USDT");
     $("liveSide").textContent=s.side;
     $("liveScore").textContent=s.score+" / 100";
