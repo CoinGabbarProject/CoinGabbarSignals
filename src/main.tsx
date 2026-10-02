@@ -641,10 +641,12 @@ function startDashboardAnalytics(): void {
 
   void refreshDashboardAnalytics();
 
-  dashboardAnalyticsTimer =
+    dashboardAnalyticsTimer =
     window.setInterval(() => {
-      void refreshDashboardAnalytics();
-    }, 15000);
+      if (!document.hidden) {
+        void refreshDashboardAnalytics();
+      }
+    }, 5000);
 }
 
 const dashboardNumber = (value: unknown): number | null => {
