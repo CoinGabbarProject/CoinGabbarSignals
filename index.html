@@ -1235,7 +1235,7 @@ function calcPnL() {
   const INTERVAL = { "1m":"1m","5m":"5m","15m":"15m","30m":"30m","1h":"1h","4h":"4h","1d":"1d" };
   const LIMIT = 500, REFRESH_MS = 10000;
 
-  const num = (n, d) => Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: d == null ? (Math.abs(n) >= 100 ? 2 : 4) : d }) : "-";
+  const num = (n, d) => Number.isFinite(n) ? n.toLocaleString("en-US", {maximumFractionDigits: d == null ? (Math.abs(n) >= 100 ? 2 : Math.abs(n) >= 1 ? 4 : n !== 0 ? Math.min(12, Math.ceil(-Math.log10(Math.abs(n))) + 3) : 4) : d }) : "-";
   const last = a => a[a.length - 1];
 
   function sma(v, p) { const o = []; let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= p) s -= v[i - p]; o.push(i >= p - 1 ? s / p : NaN); } return o; }
