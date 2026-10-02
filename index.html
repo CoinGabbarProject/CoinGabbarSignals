@@ -1353,6 +1353,28 @@ function calcPnL() {
   const lt = $("liveSymbol"); if (lt) new MutationObserver(refresh).observe(lt, { childList: true, characterData: true, subtree: true });
 })();
 </script>
+<script>
+(function(){
+  const inp=document.getElementById("pairSearch"); if(!inp) return;
+  const list=new Set([...document.querySelectorAll("#pairList option")].map(o=>o.value));
+  function norm(v){
+    let x=(v||"").toUpperCase().replace(/[\s\-_]/g,"").replace("/","");
+    if(!x||x==="USDT") return null;
+    if(!x.endsWith("USDT")) x+="USDT";
+    return /^[A-Z0-9]{5,20}$/.test(x)?x:null;
+  }
+  function go(){
+    const sym=norm(inp.value); if(!sym) return;
+    const live=document.getElementById("liveSymbol"); if(live) live.textContent=sym.replace(/USDT$/,"/USDT");
+    const u=new URL(location.href); u.searchParams.set("symbol",sym);
+    history.replaceState(history.state,"",u);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    inp.value=""; inp.blur();
+  }
+  inp.addEventListener("change",()=>{ if(list.has(inp.value.toUpperCase())) go(); });
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();go();} });
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
