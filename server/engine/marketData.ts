@@ -101,6 +101,95 @@ export class BinanceMarketData implements MarketData {
     return { change24hPct: toNum(o.priceChangePercent), volume24h: toNum(o.quoteVolume) };
   }
 
+    async getMarketSnapshot(symbol: string, tf: Timeframe): Promise<MarketSnapshot> {
+    const [ticker, derivatives, orderBook] = await Promise.allSettled([
+      this.getTicker24h(symbol),
+      this.getDerivatives(symbol, tf),
+      this.getOrderBook(symbol),
+    ]);
+
+    const safeTicker: Ticker24h =
+      ticker.status === "fulfilled"
+        ? ticker.value
+        : { change24hPct: 0, volume24h: 0 };
+
+    const safeDerivatives: DerivativesInput =
+      derivatives.status === "fulfilled"
+        ? derivatives.value
+        : {
+            fundingRate: null,
+            oiChangePct: null,
+            longShortRatio: null,
+            bookImbalance: null,
+          };
+
+    const safeOrderBook: OrderBookSnapshot =
+      orderBook.status === "fulfilled"
+        ? orderBook.value
+        : {
+            bidVolume: null,
+            askVolume: null,
+            imbalance: null,
+            spread: null,
+            midpoint: null,
+          };
+
+    return {
+      ticker: safeTicker,
+      derivatives: safeDerivatives,
+      orderBook: safeOrderBook,
+      timestamp: Date.now(),
+    };
+  }
+
+  private async getOrderBook(symbol: string): Promise<OrderBookSnapshot> {
+    const raw = await this.getJson(
+      this.cfg.spotUrl,
+      "/api/v3/depth",
+      { symbol, limit: 20 },
+    );
+
+    const o = asObject(raw);
+
+    const sum = (side: unknown): number =>
+      asArray(side).reduce<number>(
+        (total, level) => total + toNum(asArray(level)[1]),
+        0,
+      );
+
+    const bids = asArray(o.bids);
+    const asks = asArray(o.asks);
+
+    const bidVolume = sum(bids);
+    const askVolume = sum(asks);
+
+    const bestBid =
+      bids.length > 0 ? toNum(asArray(bids[0])[0]) : null;
+
+    const bestAsk =
+      asks.length > 0 ? toNum(asArray(asks[0])[0]) : null;
+
+    const midpoint =
+      bestBid !== null && bestAsk !== null
+        ? (bestBid + bestAsk) / 2
+        : null;
+
+    const spread =
+      bestBid !== null && bestAsk !== null
+        ? bestAsk - bestBid
+        : null;
+
+    const total = bidVolume + askVolume;
+
+    return {
+      bidVolume,
+      askVolume,
+      imbalance: total > 0 ? (bidVolume - askVolume) / total : null,
+      spread,
+      midpoint,
+    };
+  }
+
   async getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput> {
     const period = STATS_PERIOD[tf];
     const [funding, oi, ls, book] = await Promise.allSettled([
