@@ -1430,6 +1430,69 @@ function calcPnL() {
   window.addEventListener("scroll",function(e){ if(e.target!==drop) hide(); },true);
 })();
 </script>
+<script>
+(() => {
+  const COINS = ["BTC","ETH","BNB","SOL","XRP","DOGE","ADA","AVAX","LINK","DOT","TRX","LTC","SHIB","TON"];
+  const API = "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=" +
+    encodeURIComponent(JSON.stringify(COINS.map(c => c + "USDT")));
+  const track = document.getElementById("cg-ticker-track");
+  if (!track) return;
+  const last = {};
+  let built = false;
+
+  const fmt = p => {
+    const n = parseFloat(p);
+    if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    if (n >= 1) return n.toFixed(3);
+    if (n >= 0.01) return n.toFixed(4);
+    return n.toFixed(8);
+  };
+
+  function build(data) {
+    const html = data.map(d => {
+      const s = d.symbol.replace("USDT", "");
+      return '<span class="cg-ticker__item" data-sym="' + s + '"><b>' + s +
+        '</b><span class="cg-ticker__price"></span><span class="cg-ticker__chg"></span></span>';
+    }).join("");
+    track.innerHTML = html + html; // duplicate for seamless loop
+    built = true;
+  }
+
+  function update(data) {
+    data.forEach(d => {
+      const s = d.symbol.replace("USDT", "");
+      const chg = parseFloat(d.priceChangePercent);
+      const prev = last[s];
+      last[s] = parseFloat(d.lastPrice);
+      track.querySelectorAll('[data-sym="' + s + '"]').forEach(el => {
+        el.querySelector(".cg-ticker__price").textContent = "$" + fmt(d.lastPrice);
+        const c = el.querySelector(".cg-ticker__chg");
+        c.textContent = (chg >= 0 ? "▲ +" : "▼ ") + chg.toFixed(2) + "%";
+        c.className = "cg-ticker__chg " + (chg >= 0 ? "up" : "down");
+        if (prev !== undefined && prev !== last[s]) {
+          el.classList.remove("flash-up", "flash-down");
+          el.classList.add(last[s] > prev ? "flash-up" : "flash-down");
+          setTimeout(() => el.classList.remove("flash-up", "flash-down"), 600);
+        }
+      });
+    });
+  }
+
+  async function load() {
+    try {
+      const r = await fetch(API);
+      if (!r.ok) throw new Error(r.status);
+      const data = await r.json();
+      if (!built) build(data);
+      update(data);
+    } catch (e) {
+      if (!built) track.innerHTML = '<span class="cg-ticker__loading">Prices unavailable</span>';
+    }
+  }
+  load();
+  setInterval(load, 10000);
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
