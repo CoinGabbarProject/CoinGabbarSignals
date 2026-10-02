@@ -6,6 +6,15 @@ import { resolve } from "node:path";
 export default defineConfig({
 base: "./",
   plugins: [react()],
-  build: { outDir: "dist/web", sourcemap: true },
+build: {
+    outDir: "dist/web",
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        backend: resolve(__dirname, "backend.html"),
+      },
+    },
+  },
   server: { port: 5173 },
 });
