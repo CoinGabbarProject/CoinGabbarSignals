@@ -20,6 +20,52 @@ const TTL_MS = 1500;
 
 const router = Router();
 
+router.get("/market/snapshot", async (req, res) => {
+  const parsed = z.object({
+    symbol: z.string().trim().toUpperCase().regex(SYMBOL_RE),
+    timeframe: z.enum(TIMEFRAMES).default("1H"),
+  }).safeParse(req.query);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      error: {
+        code: "invalid_query",
+        message: "Invalid symbol or timeframe",
+      },
+    });
+    return;
+  }
+
+  const started = Date.now();
+
+  try {
+    const data = await market.getMarketSnapshot(
+      parsed.data.symbol,
+      parsed.data.timeframe,
+    );
+
+    res.json({
+      data,
+      meta: {
+        sourceExchange: "binance",
+        symbol: parsed.data.symbol,
+        timeframe: parsed.data.timeframe,
+        timestamp: Date.now(),
+        latencyMs: Date.now() - started,
+      },
+    });
+  } catch (err) {
+    console.error("market snapshot error:", err);
+
+    res.status(502).json({
+      error: {
+        code: "upstream_error",
+        message: "Market data provider unavailable",
+      },
+    });
+  }
+});
+
 router.get("/candles", async (req, res) => {
   const parsed = querySchema.safeParse(req.query);
   if (!parsed.success) {
