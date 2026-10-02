@@ -131,6 +131,87 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           <button key={i.key} type="button" aria-pressed={active.has(i.key)} style={tfBtn(active.has(i.key))} onClick={() => toggle(i.key)}>{i.label}</button>
         ))}
       </div>
+            {snapshot && snapshotStatus === "ready" && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: 8,
+            padding: "8px 10px",
+          }}
+          aria-label="Market analysis data"
+        >
+          <div className="data-card">
+            <label>24H Change</label>
+            <strong>{formatPercent(snapshot.ticker.change24hPct)}</strong>
+          </div>
+
+          <div className="data-card">
+            <label>Funding</label>
+            <strong>
+              {snapshot.derivatives.fundingRate === null
+                ? "Unavailable"
+                : `${(snapshot.derivatives.fundingRate * 100).toFixed(4)}%`}
+            </strong>
+          </div>
+
+          <div className="data-card">
+            <label>Open Interest</label>
+            <strong>{formatPercent(snapshot.derivatives.oiChangePct)}</strong>
+          </div>
+
+          <div className="data-card">
+            <label>Long / Short</label>
+            <strong>
+              {formatNumber(snapshot.derivatives.longShortRatio, 2)}
+            </strong>
+          </div>
+
+          <div className="data-card">
+            <label>Order Book</label>
+            <strong>
+              {snapshot.orderBook.imbalance === null
+                ? "Unavailable"
+                : `${(snapshot.orderBook.imbalance * 100).toFixed(2)}%`}
+            </strong>
+          </div>
+
+          <div className="data-card">
+            <label>Spread</label>
+            <strong>
+              {formatNumber(snapshot.orderBook.spread, 8)}
+            </strong>
+          </div>
+
+          <div className="data-card">
+            <label>Midpoint</label>
+            <strong>
+              {formatNumber(snapshot.orderBook.midpoint, 8)}
+            </strong>
+          </div>
+
+          <div className="data-card">
+            <label>Data Status</label>
+            <strong>
+              {snapshotStatus === "ready" ? "Live" : "Unavailable"}
+            </strong>
+          </div>
+        </div>
+      )}
+
+      {snapshotStatus === "error" && (
+        <div
+          role="status"
+          style={{
+            padding: "8px 10px",
+            fontSize: 12,
+            color: c.text.muted,
+          }}
+        >
+          Market-analysis data is temporarily unavailable. The chart remains available.
+        </div>
+      )}
+
       <ChartDrawingTools api={chartApi} symbol={label} timeframe={timeframe}>
         <MarketChart
           symbol={label}
