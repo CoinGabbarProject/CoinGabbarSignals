@@ -755,3 +755,12 @@ function sync(): void {
 const host = document.querySelector(".main");
 new MutationObserver(sync).observe(host ?? document.body, host ? { childList: true } : { childList: true, subtree: true });
 sync();
+
+window.addEventListener(
+  "visibilitychange",
+  () => {
+    if (!document.hidden) {
+      void refreshDashboardAnalytics();
+    }
+  },
+);
