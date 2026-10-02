@@ -29,20 +29,98 @@ type SignalsResponse = {
 const SIGNAL_API =
   "https://coingabbarsignals.onrender.com/api/v1";
 
-function calculatePerformance(signals: DashboardSignal[]) {
+function calculatePerformance(
+  signals: DashboardSignal[],
+) {
+  const active = signals.filter(
+    (s) => s.status === "ACTIVE",
+  );
+
   const closed = signals.filter(
     (s) => s.status === "CLOSED",
   );
+
+  /*
+   * Planned R is calculated from TP1.
+   *
+   * Risk  = |Entry - Stop|
+   * Reward = |TP1 - Entry|
+   * Planned R = Reward / Risk
+   */
+  const plannedRs = active
+    .map(plannedRR)
+    .filter(
+      (r): r is number =>
+        r !== null &&
+        Number.isFinite(r) &&
+        r >= 0,
+    );
+
+  const averagePlannedR =
+    plannedRs.length > 0
+      ? plannedRs.reduce(
+          (sum, r) => sum + r,
+          0,
+        ) / plannedRs.length
+      : null;
+
+  const maxPlannedR =
+    plannedRs.length > 0
+      ? Math.max(...plannedRs)
+      : null;
+
+  const minPlannedR =
+    plannedRs.length > 0
+      ? Math.min(...plannedRs)
+      : null;
+
+  /*
+   * Risk exposure:
+   *
+   * Every active setup represents one initial
+   * stop-distance unit of risk.
+   *
+   * This is NOT monetary risk because account
+   * balance/position size is not available here.
+   */
+  const riskExposureR = active.length;
+
+  const scores = signals
+    .map((s) => dashboardNumber(s.score))
+    .filter(
+      (score): score is number =>
+        score !== null &&
+        score >= 0 &&
+        score <= 100,
+    );
+
+  const averageScore =
+    scores.length > 0
+      ? scores.reduce(
+          (sum, score) => sum + score,
+          0,
+        ) / scores.length
+      : null;
+
+  const strongSetups = scores.filter(
+    (score) => score >= 70,
+  ).length;
 
   const realized = closed
     .map(realizedR)
     .filter(
       (r): r is number =>
-        r !== null && Number.isFinite(r),
+        r !== null &&
+        Number.isFinite(r),
     );
 
-  const wins = realized.filter((r) => r > 0);
-  const losses = realized.filter((r) => r < 0);
+  const wins = realized.filter(
+    (r) => r > 0,
+  );
+
+  const losses = realized.filter(
+    (r) => r < 0,
+  );
 
   const totalR = realized.reduce(
     (sum, r) => sum + r,
@@ -65,7 +143,10 @@ function calculatePerformance(signals: DashboardSignal[]) {
   );
 
   const grossLoss = Math.abs(
-    losses.reduce((sum, r) => sum + r, 0),
+    losses.reduce(
+      (sum, r) => sum + r,
+      0,
+    ),
   );
 
   const profitFactor =
@@ -74,6 +155,37 @@ function calculatePerformance(signals: DashboardSignal[]) {
       : grossProfit > 0
         ? Infinity
         : null;
+
+  /*
+   * Equity curve in R-space.
+   * No fake dollar P&L is created.
+   */
+  let equity = 0;
+  let peak = 0;
+  let maxDrawdown = 0;
+
+  for (const r of realized) {
+    equity += r;
+
+    peak = Math.max(
+      peak,
+      equity,
+    );
+
+    const drawdown =
+      equity - peak;
+
+    maxDrawdown = Math.min(
+      maxDrawdown,
+      drawdown,
+    );
+  }
+
+  const recoveryFactor =
+    maxDrawdown < 0
+      ? totalR /
+        Math.abs(maxDrawdown)
+      : null;
 
   const averageWin =
     wins.length > 0
@@ -93,50 +205,32 @@ function calculatePerformance(signals: DashboardSignal[]) {
         (averageWin + averageLoss)
       : null;
 
-  const expectancy =
-    averageR;
-
-  let equity = 0;
-  let peak = 0;
-  let maxDrawdown = 0;
-
-  for (const r of realized) {
-    equity += r;
-
-    if (equity > peak) {
-      peak = equity;
-    }
-
-    const drawdown = equity - peak;
-
-    if (drawdown < maxDrawdown) {
-      maxDrawdown = drawdown;
-    }
-  }
-
-  const recoveryFactor =
-    maxDrawdown < 0
-      ? totalR / Math.abs(maxDrawdown)
-      : null;
-
   const durations = closed
     .map((s) => {
-      const created = dashboardDate(s.createdAt);
-      const ended = dashboardDate(s.closedAt);
+      const start =
+        dashboardDate(
+          s.createdAt,
+        );
+
+      const end =
+        dashboardDate(
+          s.closedAt,
+        );
 
       if (
-        created === null ||
-        ended === null ||
-        ended < created
+        start === null ||
+        end === null ||
+        end < start
       ) {
         return null;
       }
 
-      return ended - created;
+      return end - start;
     })
     .filter(
       (d): d is number =>
-        d !== null && Number.isFinite(d),
+        d !== null &&
+        Number.isFinite(d),
     );
 
   const averageDuration =
@@ -149,26 +243,45 @@ function calculatePerformance(signals: DashboardSignal[]) {
 
   return {
     total: signals.length,
+
+    active: active.length,
     closed: closed.length,
-    active: signals.filter(
-      (s) => s.status === "ACTIVE",
-    ).length,
-    realizedCount: realized.length,
+
+    realizedCount:
+      realized.length,
+
     wins: wins.length,
     losses: losses.length,
+
+    plannedRs,
+    averagePlannedR,
+    minPlannedR,
+    maxPlannedR,
+
+    riskExposureR,
+
+    averageScore,
+    strongSetups,
+
     totalR,
     averageR,
     winRate,
+
     grossProfit,
     grossLoss,
+
     profitFactor,
-    expectancy,
     breakEvenWinRate,
+
     maxDrawdown,
     recoveryFactor,
+
     averageDuration,
   };
 }
+
+  
+  
 
 function formatDuration(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms)) {
