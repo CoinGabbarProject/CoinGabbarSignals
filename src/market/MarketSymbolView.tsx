@@ -55,6 +55,9 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
   const { candles, status: liveStatus } = useLiveCandles(symbol, timeframe, history, status === "ready", retry);
   const baseHeight = useChartHeight();
   const [chartApi, setChartApi] = useState<MarketChartApi | null>(null);
+  const [snapshot, setSnapshot] = useState<MarketSnapshotResponse | null>(null);
+  const [snapshotStatus, setSnapshotStatus] =
+    useState<"idle" | "loading" | "ready" | "error">("idle");
   const [active, setActive] = useState<ReadonlySet<IndicatorKey>>(() => new Set(DEFAULT_INDICATORS));
   const overlays = useMemo(() => buildOverlays(active), [active]);
   const height = baseHeight + subPaneCount(active) * (SUB_PANE_HEIGHT + 8);
