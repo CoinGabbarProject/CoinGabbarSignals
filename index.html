@@ -1670,6 +1670,316 @@ function calcPnL() {
 })();
 </script>
 
+<script>
+// ===== PART 2/5: SCORE BREAKDOWN, REASONING, TECHNICAL ANALYSIS TAB, MTF TREND =====
+// Depends on Part 1 (CG.state, CG.refresh, "cg:update" event, CG.scoreFn hook).
+(function () {
+  "use strict";
+  var KL = "https://data-api.binance.vision/api/v3/klines";
+  var CG = window.CG = window.CG || {};
+  CG.ext = CG.ext || {};   // later parts can set: CG.ext.deriv={score:0-15,text}, CG.ext.news={score:0-5}, CG.ext.context={score:0-15}
+  var $ = function (id) { return document.getElementById(id); };
+  var last = function (a) { return a[a.length - 1]; };
+  var clamp = function (x, lo, hi) { return Math.max(lo, Math.min(hi, x)); };
+  var TFS = [["1m", "1m"], ["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"]];
+
+  // ---------- formatting ----------
+  function dp(n) { n = Math.abs(n); return n >= 1 ? (n >= 100 ? 2 : 4) : n > 0 ? Math.min(12, Math.ceil(-Math.log10(n)) + 3) : 2; }
+  function fP(n) { return Number.isFinite(n) ? n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: dp(n) }) : "-"; }
+  function fN(n, d) { return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: d == null ? 2 : d }) : "-"; }
+  function sgn(n, d) { return (n >= 0 ? "+" : "") + fN(n, d); }
+  function grade(n) { return n >= 90 ? "Very Strong Setup" : n >= 80 ? "Strong Setup" : n >= 70 ? "Moderate Setup" : n >= 60 ? "Weak Setup" : "No Signal"; }
+
+  // ---------- indicators ----------
+  function ema(v, p) { var k = 2 / (p + 1), o = new Array(v.length).fill(NaN); if (v.length < p) return o; var e = v.slice(0, p).reduce(function (a, b) { return a + b; }, 0) / p; o[p - 1] = e; for (var i = p; i < v.length; i++) { e = v[i] * k + e * (1 - k); o[i] = e; } return o; }
+  function macdHist(c) {            // returns [hist, prevHist]
+    var e12 = ema(c, 12), e26 = ema(c, 26);
+    var ml = c.map(function (_, i) { return e12[i] - e26[i]; }).slice(25), sg = ema(ml, 9);
+    var n = ml.length; return [ml[n - 1] - sg[n - 1], ml[n - 2] - sg[n - 2]];
+  }
+  function trendOf(c) {             // +1 / -1 / 0 for one timeframe
+    if (!c || c.length < 55) return null;
+    var e = ema(c, 20), f = ema(c, 50), p = last(c), a = last(e), b = last(f);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    return p > a && a > b ? 1 : p < a && a < b ? -1 : 0;
+  }
+  function pivots(k, n) {
+    var hi = [], lo = [], start = Math.max(n, k.length - 200), end = k.length - 1 - n;
+    for (var i = start; i <= end; i++) {
+      var H = true, L = true;
+      for (var j = 1; j <= n; j++) {
+        if (!(k[i].h > k[i - j].h && k[i].h >= k[i + j].h)) H = false;
+        if (!(k[i].l < k[i - j].l && k[i].l <= k[i + j].l)) L = false;
+      }
+      if (H) hi.push(k[i].h); if (L) lo.push(k[i].l);
+    }
+    return { hi: hi, lo: lo };
+  }
+
+  // ---------- multi-timeframe data (fetched here, cached 30s) ----------
+  var mtf = { sym: null, at: 0, dir: null, ctx: null }, loading = false;
+  function closes(sym, tf) {
+    return fetch(KL + "?symbol=" + encodeURIComponent(sym) + "&interval=" + tf + "&limit=120")
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (rows) { return rows.map(function (x) { return +x[4]; }); })
+      .catch(function () { return null; });
+  }
+  async function loadMtf() {
+    var sym = CG.state && CG.state.sym;
+    if (!sym || document.hidden || loading) return;
+    if (mtf.sym === sym && Date.now() - mtf.at < 30000) return;
+    loading = true;
+    try {
+      var res = await Promise.all(TFS.map(function (t) { return closes(sym, t[0]); }));
+      var btc = null;
+      if (sym !== "BTCUSDT") btc = await Promise.all(["1h", "4h", "1d"].map(function (t) { return closes("BTCUSDT", t); }));
+      if (sym !== (CG.state && CG.state.sym)) return;           // symbol changed while loading
+      var dir = {}; TFS.forEach(function (t, i) { dir[t[0]] = trendOf(res[i]); });
+      var src = btc ? btc.map(trendOf) : [dir["1h"], dir["4h"], dir["1d"]], w = [0.2, 0.4, 0.4], sum = 0, ws = 0;
+      src.forEach(function (v, i) { if (v != null) { sum += v * w[i]; ws += w[i]; } });
+      mtf = { sym: sym, at: Date.now(), dir: dir, ctx: ws ? sum / ws : null };
+      if (typeof CG.refresh === "function") CG.refresh();
+    } catch (e) { console.error("CG part2 MTF:", e); mtf.sym = sym; mtf.at = Date.now(); }
+    finally { loading = false; }
+  }
+  function mtfSummary(sym) {
+    if (mtf.sym !== sym || !mtf.dir) return null;
+    var up = 0, down = 0, n = 0, sum = 0;
+    TFS.forEach(function (t) { var v = mtf.dir[t[0]]; if (v == null) return; n++; sum += v; if (v > 0) up++; else if (v < 0) down++; });
+    if (!n) return null;
+    return { up: up, down: down, n: n, sum: sum, overall: sum >= 3 ? ["Bullish", "up"] : sum <= -3 ? ["Bearish", "down"] : ["Mixed", "neutral"] };
+  }
+
+  // ---------- scoring: 8 categories = 100 ----------
+  function evaluate(s, a) {
+    var k = a.candles, d = s.side === "LONG" ? 1 : -1, price = a.price, atr = a.atr, sym = s.sym, cfg = CG.cfg || {};
+    var closed = k.slice(0, -1), info = { d: d };
+
+    // Trend + MTF (15)
+    var t = [price >= a.e20 ? 1 : -1, price >= a.e50 ? 1 : -1, Number.isFinite(a.s200) ? (price >= a.s200 ? 1 : -1) : null, a.e20 >= a.e50 ? 1 : -1]
+      .filter(function (x) { return x != null; });
+    t = t.reduce(function (x, y) { return x + y; }, 0) / t.length;
+    var ms = mtfSummary(sym), m = ms ? ms.sum / ms.n : t;
+    info.t = t; info.mtf = ms;
+    var cTrend = Math.round(15 * clamp(0.5 + 0.5 * d * (0.4 * t + 0.6 * m), 0, 1));
+
+    // Structure (15)
+    var pv = pivots(k, 3), st = null;
+    if (pv.hi.length >= 2 && pv.lo.length >= 2) {
+      var sh = pv.hi[pv.hi.length - 1] > pv.hi[pv.hi.length - 2] ? 1 : -1, sl = pv.lo[pv.lo.length - 1] > pv.lo[pv.lo.length - 2] ? 1 : -1;
+      st = { sh: sh, sl: sl, dir: (sh + sl) / 2 };
+    }
+    info.struct = st;
+    var cStruct = Math.round(15 * clamp(0.5 + 0.5 * d * (st ? st.dir : 0), 0, 1));
+
+    // Support / Resistance + Liquidity (10)
+    var sup = pv.lo.filter(function (x) { return x < price; }), res = pv.hi.filter(function (x) { return x > price; });
+    var rec = k.slice(-100), supL = sup.length ? Math.max.apply(null, sup) : null, resL = res.length ? Math.min.apply(null, res) : null;
+    if (supL == null) { var mn = Math.min.apply(null, rec.map(function (x) { return x.l; })); if (mn < price) supL = mn; }
+    if (resL == null) { var mx = Math.max.apply(null, rec.map(function (x) { return x.h; })); if (mx > price) resL = mx; }
+    info.sr = { sup: supL, res: resL };
+    var R = Math.abs(s.entry - s.sl) || price * 0.003, mult = (cfg.tpMult || [1.5, 2.5, 3.5])[1];
+    var opp = d > 0 ? (resL != null ? resL - price : Infinity) : (supL != null ? price - supL : Infinity);
+    var back = d > 0 ? (supL != null ? price - supL : Infinity) : (resL != null ? resL - price : Infinity);
+    var head = Number.isFinite(opp) ? clamp(opp / (R * mult), 0, 1.2) / 1.2 : 1;
+    var bk = Number.isFinite(back) ? clamp(1 - back / (3 * atr), 0, 1) : 0;
+    var cSR = Math.round(6 * head + 4 * bk);
+
+    // Volume + Momentum (15)
+    var l20 = closed.slice(-20), p20 = closed.slice(-21, -1);
+    var avgV = p20.reduce(function (x, y) { return x + y.v; }, 0) / (p20.length || 1);
+    var rel = avgV ? last(closed).v / avgV : 1, sumD = 0, sumV = 0;
+    l20.forEach(function (x) { var rg = x.h - x.l; sumD += rg ? x.v * clamp((x.c - x.o) / rg, -1, 1) : 0; sumV += x.v; });
+    var cvd = sumV ? sumD / sumV : 0, mh = macdHist(k.map(function (x) { return x.c; }));
+    var s1 = d * clamp(cvd * 4, -1, 1);
+    var s2 = d > 0 ? (a.rsi > 75 ? -0.2 : clamp((a.rsi - 50) / 20, -1, 1)) : (a.rsi < 25 ? -0.2 : clamp((50 - a.rsi) / 20, -1, 1));
+    var s3 = d * ((mh[0] >= 0 ? 1 : -1) * 0.6 + (mh[0] >= mh[1] ? 1 : -1) * 0.4);
+    var conf = rel >= 1 ? 1 : rel >= 0.7 ? 0.9 : 0.8;
+    info.vm = { rel: rel, cvd: cvd, rsi: a.rsi, hist: mh[0] };
+    var cVM = Math.round(15 * clamp(0.5 + 0.5 * (0.35 * s1 + 0.35 * s2 + 0.3 * s3) * conf, 0, 1));
+
+    // Risk / Execution (10)
+    var lev = cfg.leverage || 5, liqDist = s.entry * (1 / lev - 0.005), drift = d * (price - s.entry) / R, atrPct = atr / price * 100;
+    var slHit = d * (price - s.sl) <= 0;
+    var rrPts = s.rr >= 2 ? 3 : s.rr >= 1.5 ? 2 : 1;
+    var liqPts = liqDist >= 2 * R ? 3 : liqDist > R ? 1 : 0;
+    var chase = drift > 0.6 ? 1 : drift >= -0.5 ? 2 : 0;
+    var volPts = atrPct < 3 ? 2 : atrPct < 6 ? 1 : 0;
+    var cRisk = slHit ? 0 : rrPts + liqPts + chase + volPts;
+
+    // Market Context (15) = BTC 1H/4H/1D trend (own trend for BTC)
+    var ext = CG.ext, ctxPending = true, cCtx = 8;
+    if (ext.context && Number.isFinite(ext.context.score)) { cCtx = clamp(Math.round(ext.context.score), 0, 15); ctxPending = false; }
+    else if (mtf.sym === sym && mtf.ctx != null) { cCtx = Math.round(15 * clamp(0.5 + 0.5 * d * mtf.ctx, 0, 1)); ctxPending = false; }
+    // Derivatives / Orderbook (15) and News (5): neutral placeholder until Part 3 / Part 4 provide data
+    var dPend = !(ext.deriv && Number.isFinite(ext.deriv.score)), nPend = !(ext.news && Number.isFinite(ext.news.score));
+    var cDer = dPend ? 8 : clamp(Math.round(ext.deriv.score), 0, 15), cNews = nPend ? 3 : clamp(Math.round(ext.news.score), 0, 5);
+
+    var cats = [
+      { label: "Market Context", score: cCtx, max: 15, pending: ctxPending },
+      { label: "Trend + MTF", score: cTrend, max: 15 },
+      { label: "Structure", score: cStruct, max: 15 },
+      { label: "Liquidity / S/R", score: cSR, max: 10 },
+      { label: "Volume + Momentum", score: cVM, max: 15 },
+      { label: "Derivatives / Orderbook", score: cDer, max: 15, pending: dPend },
+      { label: "News / Fundamentals", score: cNews, max: 5, pending: nPend },
+      { label: "Risk / Execution", score: cRisk, max: 10 }
+    ];
+    var total = clamp(cats.reduce(function (x, c) { return x + c.score; }, 0), 0, 100);
+    return { sym: sym, tf: s.tf, side: s.side, d: d, cats: cats, total: total, info: info, price: price, sl: s.sl, e20: a.e20, e50: a.e50, s200: a.s200, atr: atr };
+  }
+  CG.scoreFn = function (s, a) { var ev = evaluate(s, a); CG.breakdown = ev; return ev.total; };
+
+  // ---------- DOM helpers ----------
+  function panelByTitle(title) {
+    return Array.prototype.find.call(document.querySelectorAll(".panel"), function (p) {
+      var h = p.querySelector(":scope > h3"); return h && h.textContent.trim().indexOf(title) === 0;
+    });
+  }
+  function rowIn(root, sel, label, getLabel) {
+    return Array.prototype.find.call(root.querySelectorAll(sel), function (r) { return getLabel(r) === label; });
+  }
+  function setCls(el, c) { if (el && el.className !== c) el.className = c; }
+  function setTxt(el, t) { if (el && el.textContent !== t) el.textContent = t; }
+  var catOf = function (ev, label) { return ev.cats.filter(function (c) { return c.label === label; })[0]; };
+
+  // ---------- render: score breakdown ----------
+  function renderBreakdown(ev) {
+    var sb = document.querySelector(".signal-breakdown"); if (!sb) return;
+    var circle = sb.querySelector(".score-circle"), num = circle && circle.querySelector("span");
+    if (num) setTxt(num, String(ev.total));
+    if (circle) {
+      var col = ev.total >= 70 ? "#1bdd90" : ev.total >= 60 ? "#f2c94c" : "#ff5266";
+      circle.style.background = "conic-gradient(" + col + " 0 " + ev.total + "%,#17314b " + ev.total + "%)";
+    }
+    var pending = false;
+    sb.querySelectorAll(".bars .bar").forEach(function (bar) {
+      var sp = bar.querySelectorAll(":scope > span"), c = catOf(ev, sp[0].textContent.trim());
+      if (!c) return;
+      var fill = bar.querySelector("i b");
+      if (fill) { fill.style.width = Math.round(c.score / c.max * 100) + "%"; fill.style.opacity = c.pending ? "0.45" : ""; }
+      setTxt(sp[1], c.score + "/" + c.max + (c.pending ? "*" : ""));
+      bar.title = c.pending ? "Neutral placeholder - live data for this category is added in a later part" : "";
+      if (c.pending) pending = true;
+    });
+    var note = $("cgScoreNote");
+    if (!note) {
+      note = document.createElement("div"); note.id = "cgScoreNote";
+      note.style.cssText = "margin-top:6px;font-size:7px;color:#607994";
+      sb.appendChild(note);
+    }
+    setTxt(note, pending ? "* Neutral placeholder until its live data source is connected. " + ev.sym.replace(/USDT$/, "") + " · " + ev.tf.toUpperCase() + " · " + grade(ev.total) : ev.sym.replace(/USDT$/, "") + " · " + ev.tf.toUpperCase() + " · " + grade(ev.total));
+  }
+
+  // ---------- render: reasoning ----------
+  function setReason(title, icoCls, text, mark, markCls) {
+    var rows = document.querySelectorAll("#reasoning-panel .reason");
+    var row = Array.prototype.find.call(rows, function (r) { var b = r.querySelector("b"); return b && b.textContent.trim() === title; });
+    if (!row) return;
+    var box = row.children[1], b = document.createElement("b"); b.textContent = title;
+    var nt = b.textContent + "\n" + text;
+    if (box.dataset.sig !== nt) { box.dataset.sig = nt; box.textContent = ""; box.appendChild(b); box.appendChild(document.createElement("br")); box.appendChild(document.createTextNode(text)); }
+    setCls(row.children[0], icoCls);
+    if (mark != null) { setTxt(row.children[2], mark); setCls(row.children[2], markCls); }
+  }
+  function vote(sc, max) { var r = sc / max; return r >= 0.6 ? ["up", "+", "rscore"] : r < 0.4 ? ["down", "\u2212", "down"] : ["neutral", "~", "neutral"]; }
+  function renderReasoning(ev) {
+    var i = ev.info, long = ev.d > 0, tf = ev.tf.toUpperCase(), base = ev.sym.replace(/USDT$/, "");
+    var v;
+    // primary
+    var above = ev.price >= ev.e20 && ev.price >= ev.e50;
+    var mtfTxt = i.mtf ? i.mtf[long ? "up" : "down"] + " of " + i.mtf.n + " timeframes agree" : "timeframe check loading";
+    v = ev.total >= 70 ? ["up", "+", "rscore"] : ev.total >= 60 ? ["neutral", "~", "neutral"] : ["down", "\u2212", "down"];
+    setReason("Primary Reason", v[0], (long ? "Bullish" : "Bearish") + " bias on " + tf + ": price is " + (above ? "above" : ev.price < ev.e20 && ev.price < ev.e50 ? "below" : "between") +
+      " EMA 20/50, " + mtfTxt + ". Score " + ev.total + "/100 (" + grade(ev.total) + ").", v[1], v[2]);
+    // trend + structure
+    var st = i.struct, stTxt = !st ? "swing structure still forming" : st.sh > 0 && st.sl > 0 ? "higher highs and higher lows" : st.sh < 0 && st.sl < 0 ? "lower highs and lower lows" : "mixed swings (no clean HH/HL or LH/LL)";
+    var ts = catOf(ev, "Trend + MTF").score + catOf(ev, "Structure").score;
+    v = vote(ts, 30);
+    setReason("Trend + Structure", v[0], stTxt.charAt(0).toUpperCase() + stTxt.slice(1) + " on " + tf + "; " + mtfTxt + ".", v[1], v[2]);
+    // volume
+    var vm = i.vm, relTxt = vm.rel >= 1.2 ? "Above-average" : vm.rel >= 0.8 ? "Average" : "Below-average";
+    v = vote(catOf(ev, "Volume + Momentum").score, 15);
+    setReason("Volume", v[0], relTxt + " volume (" + fN(vm.rel, 2) + "x), CVD " + sgn(vm.cvd * 100, 1) + "% (" + (vm.cvd >= 0 ? "buyers" : "sellers") + " dominate), RSI " + fN(vm.rsi, 1) + ".", v[1], v[2]);
+    // derivatives (Part 3)
+    var dv = CG.ext.deriv;
+    if (dv && Number.isFinite(dv.score)) { v = vote(dv.score, 15); setReason("Derivatives", v[0], dv.text || "Derivatives data connected.", v[1], v[2]); }
+    else setReason("Derivatives", "neutral", "Futures data (open interest, funding, long/short) is not connected yet - added in Part 3.", "\u2013", "neutral");
+    // liquidity
+    var sr = i.sr, p = ev.price;
+    var sT = sr.sup != null ? "Support " + fP(sr.sup) + " (" + fN((p - sr.sup) / p * 100, 2) + "% below)" : "No support found nearby";
+    var rT = sr.res != null ? "resistance " + fP(sr.res) + " (" + fN((sr.res - p) / p * 100, 2) + "% above)" : "no resistance above (breakout)";
+    v = vote(catOf(ev, "Liquidity / S/R").score, 10);
+    setReason("Liquidity", v[0], sT + ", " + rT + ".", v[1], v[2]);
+    // invalidation
+    setReason("Invalidating Factors", "red", (long ? "Close below stop loss " : "Close above stop loss ") + fP(ev.sl) + " or " + (long ? "loss of" : "reclaim of") + " EMA 50 (" + fP(ev.e50) + ") on " + tf + " for " + base + ".");
+  }
+
+  // ---------- render: technical analysis tab ----------
+  function renderTechnical(ev) {
+    var tp = $("technical-panel"); if (!tp) return;
+    var i = ev.info, vm = i.vm, st = i.struct, tf = ev.tf.toUpperCase(), atrPct = ev.atr / ev.price * 100;
+    function card(label, strong, cls, small) {
+      var c = Array.prototype.find.call(tp.querySelectorAll(".data-card"), function (x) { var l = x.querySelector("label"); return l && l.textContent.trim() === label; });
+      if (!c) return; setTxt(c.querySelector("strong"), strong); setCls(c.querySelector("strong"), cls); setTxt(c.querySelector("small"), small);
+    }
+    function row(label, val, cls, sub) {
+      var r = rowIn(tp, ".detail-row", label, function (x) { var s = x.querySelector("span"); return s && s.childNodes[0] ? s.childNodes[0].textContent.trim() : ""; });
+      if (!r) return;
+      var b = r.querySelector("b"); setTxt(b, val); if (cls != null) setCls(b, cls);
+      if (sub != null) setTxt(r.querySelector("span small"), sub);
+    }
+    var sName = !st ? ["Forming", "neutral"] : st.sh > 0 && st.sl > 0 ? ["HH / HL", "up"] : st.sh < 0 && st.sl < 0 ? ["LH / LL", "down"] : ["Range", "neutral"];
+    card("Market Structure", sName[0], sName[1], tf + " · last 2 swing highs/lows");
+    var mom = vm.rsi >= 55 && vm.hist > 0 ? ["Bullish", "up"] : vm.rsi <= 45 && vm.hist < 0 ? ["Bearish", "down"] : ["Neutral", "neutral"];
+    card("Momentum", mom[0], mom[1], "RSI " + fN(vm.rsi, 1) + " · MACD hist " + (vm.hist >= 0 ? "positive" : "negative"));
+    var vl = vm.rel >= 1.2 ? "Increasing" : vm.rel >= 0.8 ? "Normal" : "Low";
+    card("Volume", vl, vm.cvd > 0.02 ? "up" : vm.cvd < -0.02 ? "down" : "neutral", fN(vm.rel, 2) + "x avg · CVD " + (vm.cvd >= 0 ? "positive" : "negative"));
+    var sr = i.sr, a = ev.atr;
+    row("Support Zone", sr.sup != null ? fP(sr.sup - 0.3 * a) + "\u2013" + fP(sr.sup + 0.3 * a) : "-", null);
+    row("Resistance Zone", sr.res != null ? fP(sr.res - 0.3 * a) + "\u2013" + fP(sr.res + 0.3 * a) : "None above", null);
+    row("Structure Bias", sName[0] === "HH / HL" ? "Bullish" : sName[0] === "LH / LL" ? "Bearish" : "Mixed", sName[1]);
+    row("Momentum Bias", mom[0] === "Bullish" ? "Positive" : mom[0] === "Bearish" ? "Negative" : "Neutral", mom[1]);
+    row("Volatility", atrPct >= 2 ? "High" : atrPct >= 0.8 ? "Medium" : "Low", null, "ATR " + fP(ev.atr) + " (" + fN(atrPct, 2) + "%)");
+  }
+
+  // ---------- render: multi-timeframe trend ----------
+  function renderMtf(sym) {
+    var p = panelByTitle("Multi-Timeframe Trend"); if (!p) return;
+    var ready = mtf.sym === sym && mtf.dir;
+    p.querySelectorAll(".mini-row").forEach(function (r) {
+      var sp = r.querySelector("span"), b = r.querySelector("b"); if (!sp || !b) return;
+      var key = sp.textContent.trim().toLowerCase();
+      if (key === "overall mtf") {
+        var ms = mtfSummary(sym);
+        setTxt(b, ms ? ms.overall[0] : "\u2026"); setCls(b, ms ? ms.overall[1] : "neutral");
+        b.title = ms ? ms.up + " up · " + ms.down + " down · " + (ms.n - ms.up - ms.down) + " flat" : ""; return;
+      }
+      if (!mtf.dir && !ready) { setTxt(b, "\u2026"); setCls(b, "neutral"); return; }
+      var v = ready ? mtf.dir[key] : undefined;
+      if (v === undefined) return;
+      setTxt(b, v == null ? "n/a" : v > 0 ? "\u2191" : v < 0 ? "\u2193" : "\u2192");
+      setCls(b, v > 0 ? "up" : v < 0 ? "down" : "neutral");
+      b.title = v > 0 ? "Price > EMA 20 > EMA 50" : v < 0 ? "Price < EMA 20 < EMA 50" : "No clean alignment";
+    });
+  }
+
+  // ---------- wiring ----------
+  function renderAll() {
+    var st = CG.state || {}, ev = CG.breakdown;
+    if (!st.sym) return;
+    if (mtf.sym !== st.sym) { mtf.dir = null; mtf.ctx = null; }
+    renderMtf(st.sym);
+    if (ev && ev.sym === st.sym && ev.tf === st.tf) {
+      try { renderBreakdown(ev); renderReasoning(ev); renderTechnical(ev); } catch (e) { console.error("CG part2 render:", e); }
+    }
+    loadMtf();
+  }
+  document.addEventListener("cg:update", renderAll);
+  setInterval(function () { loadMtf(); }, 5000);
+})();
+</script>
+
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
