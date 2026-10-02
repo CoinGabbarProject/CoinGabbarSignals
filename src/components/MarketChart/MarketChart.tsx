@@ -4,7 +4,7 @@ import { CandlestickSeries, HistogramSeries, createChart } from "lightweight-cha
 import type { ISeriesApi } from "lightweight-charts";
 import { adaptCandles } from "./candleAdapter.js";
 import {
-  CANDLE_SCALE_MARGINS, VOLUME_SCALE_MARGINS, baseChartOptions, candleSeriesOptions, volumeColors, volumeSeriesOptions,
+  CANDLE_SCALE_MARGINS, VOLUME_SCALE_MARGINS, baseChartOptions, candleSeriesOptions, priceFormatFor, volumeColors, volumeSeriesOptions,
 } from "./chartTheme.js";
 import type { ChartOverlayContext, MarketChartApi, MarketChartProps } from "./types.js";
 import { tokens } from "../../../shared/designTokens.js";
