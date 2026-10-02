@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchMarketSnapshot, type MarketSnapshotResponse } from "./marketApi.js";
 import type { CSSProperties, ReactElement } from "react";
 import type { Timeframe } from "../../shared/market.js";
 import { tokens } from "../../shared/designTokens.js";
