@@ -29,6 +29,414 @@ type SignalsResponse = {
 const SIGNAL_API =
   "https://coingabbarsignals.onrender.com/api/v1";
 
+function calculatePerformance(signals: DashboardSignal[]) {
+  const closed = signals.filter(
+    (s) => s.status === "CLOSED",
+  );
+
+  const realized = closed
+    .map(realizedR)
+    .filter(
+      (r): r is number =>
+        r !== null && Number.isFinite(r),
+    );
+
+  const wins = realized.filter((r) => r > 0);
+  const losses = realized.filter((r) => r < 0);
+
+  const totalR = realized.reduce(
+    (sum, r) => sum + r,
+    0,
+  );
+
+  const averageR =
+    realized.length > 0
+      ? totalR / realized.length
+      : null;
+
+  const winRate =
+    realized.length > 0
+      ? wins.length / realized.length
+      : null;
+
+  const grossProfit = wins.reduce(
+    (sum, r) => sum + r,
+    0,
+  );
+
+  const grossLoss = Math.abs(
+    losses.reduce((sum, r) => sum + r, 0),
+  );
+
+  const profitFactor =
+    grossLoss > 0
+      ? grossProfit / grossLoss
+      : grossProfit > 0
+        ? Infinity
+        : null;
+
+  const averageWin =
+    wins.length > 0
+      ? grossProfit / wins.length
+      : null;
+
+  const averageLoss =
+    losses.length > 0
+      ? grossLoss / losses.length
+      : null;
+
+  const breakEvenWinRate =
+    averageWin !== null &&
+    averageLoss !== null &&
+    averageWin + averageLoss > 0
+      ? averageLoss /
+        (averageWin + averageLoss)
+      : null;
+
+  const expectancy =
+    averageR;
+
+  let equity = 0;
+  let peak = 0;
+  let maxDrawdown = 0;
+
+  for (const r of realized) {
+    equity += r;
+
+    if (equity > peak) {
+      peak = equity;
+    }
+
+    const drawdown = equity - peak;
+
+    if (drawdown < maxDrawdown) {
+      maxDrawdown = drawdown;
+    }
+  }
+
+  const recoveryFactor =
+    maxDrawdown < 0
+      ? totalR / Math.abs(maxDrawdown)
+      : null;
+
+  const durations = closed
+    .map((s) => {
+      const created = dashboardDate(s.createdAt);
+      const ended = dashboardDate(s.closedAt);
+
+      if (
+        created === null ||
+        ended === null ||
+        ended < created
+      ) {
+        return null;
+      }
+
+      return ended - created;
+    })
+    .filter(
+      (d): d is number =>
+        d !== null && Number.isFinite(d),
+    );
+
+  const averageDuration =
+    durations.length > 0
+      ? durations.reduce(
+          (sum, d) => sum + d,
+          0,
+        ) / durations.length
+      : null;
+
+  return {
+    total: signals.length,
+    closed: closed.length,
+    active: signals.filter(
+      (s) => s.status === "ACTIVE",
+    ).length,
+    realizedCount: realized.length,
+    wins: wins.length,
+    losses: losses.length,
+    totalR,
+    averageR,
+    winRate,
+    grossProfit,
+    grossLoss,
+    profitFactor,
+    expectancy,
+    breakEvenWinRate,
+    maxDrawdown,
+    recoveryFactor,
+    averageDuration,
+  };
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms)) {
+    return "N/A";
+  }
+
+  const minutes = Math.max(
+    0,
+    Math.round(ms / 60000),
+  );
+
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor(
+    (minutes % 1440) / 60,
+  );
+  const mins = minutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${mins}m`;
+  }
+
+  return `${mins}m`;
+}
+
+function setPerformanceCard(
+  card: Element,
+  label: string,
+  value: string,
+  detail: string,
+  meter: number,
+  className = "",
+): void {
+  const labelEl = card.querySelector("label");
+  const valueEl = card.querySelector("strong");
+  const smallEl = card.querySelector("small");
+  const meterEl = card.querySelector(
+    ".perf-meter i",
+  );
+
+  if (labelEl) {
+    labelEl.textContent = label;
+  }
+
+  if (valueEl) {
+    valueEl.textContent = value;
+    valueEl.className = className;
+  }
+
+  if (smallEl) {
+    smallEl.textContent = detail;
+  }
+
+  if (meterEl instanceof HTMLElement) {
+    meterEl.style.width =
+      `${Math.max(0, Math.min(100, meter))}%`;
+  }
+}
+
+function renderPerformanceSummary(
+  signals: DashboardSignal[],
+): void {
+  const section = document.querySelector(
+    ".performance-summary",
+  );
+
+  if (!section) return;
+
+  const cards = [
+    ...section.querySelectorAll(".perf-card"),
+  ];
+
+  if (cards.length < 6) return;
+
+  const p = calculatePerformance(signals);
+
+  const closedRatio =
+    p.total > 0
+      ? (p.closed / p.total) * 100
+      : 0;
+
+  const winRatePct =
+    p.winRate === null
+      ? null
+      : p.winRate * 100;
+
+  const avgMeter =
+    p.averageR === null
+      ? 0
+      : Math.min(
+          100,
+          Math.abs(p.averageR) * 25,
+        );
+
+  const totalMeter =
+    p.totalR === 0
+      ? 0
+      : Math.min(
+          100,
+          Math.abs(p.totalR) * 3,
+        );
+
+  const pfMeter =
+    p.profitFactor === null
+      ? 0
+      : Number.isFinite(p.profitFactor)
+        ? Math.min(
+            100,
+            p.profitFactor * 35,
+          )
+        : 100;
+
+  const ddMeter =
+    p.maxDrawdown === 0
+      ? 0
+      : Math.min(
+          100,
+          Math.abs(p.maxDrawdown) * 20,
+        );
+
+  setPerformanceCard(
+    cards[0],
+    "Closed Signals",
+    String(p.closed),
+    `${p.total > 0 ? closedRatio.toFixed(1) : "0.0"}% of loaded signals`,
+    closedRatio,
+    "",
+  );
+
+  setPerformanceCard(
+    cards[1],
+    "Win Rate",
+    winRatePct === null
+      ? "N/A"
+      : `${winRatePct.toFixed(1)}%`,
+    p.realizedCount > 0
+      ? `${p.wins} wins / ${p.losses} losses · ${p.realizedCount} realized`
+      : "Requires realized exit / R data",
+    winRatePct ?? 0,
+    winRatePct !== null && winRatePct >= 50
+      ? "up"
+      : winRatePct !== null
+        ? "down"
+        : "",
+  );
+
+  setPerformanceCard(
+    cards[2],
+    "Average R",
+    p.averageR === null
+      ? "N/A"
+      : `${p.averageR >= 0 ? "+" : ""}${p.averageR.toFixed(2)}R`,
+    p.expectancy === null
+      ? "No realized R available"
+      : `Expectancy · BE win ${p.breakEvenWinRate === null ? "N/A" : `${(p.breakEvenWinRate * 100).toFixed(1)}%`}`,
+    avgMeter,
+    p.averageR === null
+      ? ""
+      : p.averageR >= 0
+        ? "up"
+        : "down",
+  );
+
+  setPerformanceCard(
+    cards[3],
+    "Total R",
+    p.realizedCount === 0
+      ? "N/A"
+      : `${p.totalR >= 0 ? "+" : ""}${p.totalR.toFixed(2)}R`,
+    p.recoveryFactor === null
+      ? "Realized closed-trade R"
+      : `Recovery factor ${p.recoveryFactor.toFixed(2)}`,
+    totalMeter,
+    p.realizedCount === 0
+      ? ""
+      : p.totalR >= 0
+        ? "up"
+        : "down",
+  );
+
+  setPerformanceCard(
+    cards[4],
+    "Profit Factor",
+    p.profitFactor === null
+      ? "N/A"
+      : Number.isFinite(p.profitFactor)
+        ? p.profitFactor.toFixed(2)
+        : "∞",
+    p.profitFactor === null
+      ? "Requires realized wins/losses"
+      : `Gross +${p.grossProfit.toFixed(2)}R / -${p.grossLoss.toFixed(2)}R`,
+    pfMeter,
+    p.profitFactor === null
+      ? ""
+      : p.profitFactor >= 1
+        ? "up"
+        : "down",
+  );
+
+  setPerformanceCard(
+    cards[5],
+    "Max Drawdown",
+    p.realizedCount === 0
+      ? "N/A"
+      : `${p.maxDrawdown.toFixed(2)}R`,
+    p.averageDuration === null
+      ? "Peak-to-trough · duration N/A"
+      : `Peak-to-trough · avg ${formatDuration(p.averageDuration)}`,
+    ddMeter,
+    p.maxDrawdown < 0
+      ? "down"
+      : "up",
+  );
+
+  const heading = section.querySelector(
+    ".section-head span",
+  );
+
+  if (heading) {
+    heading.textContent =
+      `${p.total} signals · ${p.realizedCount} realized · LIVE DATA`;
+  }
+}
+
+async function refreshDashboardAnalytics(): Promise<void> {
+  const recent = document.querySelector(
+    ".panel.recent",
+  );
+
+  const performance = document.querySelector(
+    ".performance-summary",
+  );
+
+  if (!recent && !performance) return;
+
+  try {
+    const signals = await loadDashboardSignals();
+
+    renderRecentSignals(signals);
+    renderPerformanceSummary(signals);
+  } catch (error) {
+    console.error(
+      "CoinGabbarSignals dashboard analytics:",
+      error,
+    );
+  }
+}
+
+let dashboardAnalyticsTimer: number | null = null;
+
+function startDashboardAnalytics(): void {
+  if (dashboardAnalyticsTimer !== null) {
+    window.clearInterval(
+      dashboardAnalyticsTimer,
+    );
+  }
+
+  void refreshDashboardAnalytics();
+
+  dashboardAnalyticsTimer =
+    window.setInterval(() => {
+      void refreshDashboardAnalytics();
+    }, 15000);
+}
+
 const dashboardNumber = (value: unknown): number | null => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
