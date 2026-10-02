@@ -1493,6 +1493,183 @@ function calcPnL() {
   setInterval(load, 10000);
 })();
 </script>
+<script>
+// ===== PART 1/5: CORE ENGINE (symbol -> signal -> header, KPIs, Signal Summary, Risk Management) =====
+(function () {
+  "use strict";
+  var KL = "https://data-api.binance.vision/api/v3/klines";
+  var CG = window.CG = window.CG || {};
+  CG.cfg = Object.assign({ balance: 1000, riskPct: 1, leverage: 5, refreshMs: 5000, tpMult: [1.5, 2.5, 3.5], tpSplit: [33, 33, 34] }, CG.cfg || {});
+  CG.state = CG.state || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var last = function (a) { return a[a.length - 1]; };
+
+  // ---------- formatting ----------
+  function dp(n) { n = Math.abs(n); return n >= 1 ? (n >= 100 ? 2 : 4) : n > 0 ? Math.min(12, Math.ceil(-Math.log10(n)) + 3) : 2; }
+  function fP(n) { return Number.isFinite(n) ? n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: dp(n) }) : "-"; }
+  function fQ(n) { return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 0 : n >= 1 ? 2 : n >= 0.01 ? 4 : 6 }) : "-"; }
+  function fN(n, d) { return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: d == null ? 2 : d }) : "-"; }
+  function ist(ts) {
+    var d = new Date(ts), o = { timeZone: "Asia/Kolkata" };
+    return d.toLocaleDateString("en-GB", Object.assign({ day: "2-digit", month: "short", year: "numeric" }, o)) + ", " +
+      d.toLocaleTimeString("en-US", Object.assign({ hour: "2-digit", minute: "2-digit", hour12: true }, o)).toUpperCase();
+  }
+  function age(ms) { var m = Math.max(0, Math.floor(ms / 60000)); return Math.floor(m / 60) + "h " + (m % 60) + "m"; }
+
+  // ---------- indicators (compact) ----------
+  function sma(v, p) { var o = [], s = 0; for (var i = 0; i < v.length; i++) { s += v[i]; if (i >= p) s -= v[i - p]; o.push(i >= p - 1 ? s / p : NaN); } return o; }
+  function ema(v, p) { var k = 2 / (p + 1), o = new Array(v.length).fill(NaN); if (v.length < p) return o; var e = v.slice(0, p).reduce(function (a, b) { return a + b; }, 0) / p; o[p - 1] = e; for (var i = p; i < v.length; i++) { e = v[i] * k + e * (1 - k); o[i] = e; } return o; }
+  function rsi(c, p) { var g = 0, l = 0, i, d; if (c.length <= p) return NaN; for (i = 1; i <= p; i++) { d = c[i] - c[i - 1]; d >= 0 ? g += d : l -= d; } g /= p; l /= p; for (i = p + 1; i < c.length; i++) { d = c[i] - c[i - 1]; g = (g * (p - 1) + Math.max(d, 0)) / p; l = (l * (p - 1) + Math.max(-d, 0)) / p; } return l === 0 ? 100 : 100 - 100 / (1 + g / l); }
+  function atr(k, p) { var tr = k.map(function (x, i) { return i ? Math.max(x.h - x.l, Math.abs(x.h - k[i - 1].c), Math.abs(x.l - k[i - 1].c)) : x.h - x.l; }); var a = tr.slice(0, p).reduce(function (s, v) { return s + v; }, 0) / p; for (var i = p; i < k.length; i++) a = (a * (p - 1) + tr[i]) / p; return a; }
+  function analyze(k) {
+    var c = k.map(function (x) { return x.c; }), price = last(c);
+    var e12 = ema(c, 12), e26 = ema(c, 26);
+    var ml = c.map(function (_, i) { return e12[i] - e26[i]; }).slice(25), sg = ema(ml, 9);
+    var day0 = new Date(last(k).t).setUTCHours(0, 0, 0, 0);
+    var vk = k.filter(function (x) { return x.t >= day0; }); if (vk.length < 2) vk = k.slice(-20);
+    var pv = 0, vv = 0; vk.forEach(function (x) { pv += (x.h + x.l + x.c) / 3 * x.v; vv += x.v; });
+    return { price: price, e20: last(ema(c, 20)), e50: last(ema(c, 50)), s200: last(sma(c, 200)), rsi: rsi(c, 14),
+      hist: last(ml) - last(sg), vwap: vv ? pv / vv : price, atr: atr(k, 14), candles: k };
+  }
+
+  // ---------- signal build / persistence ----------
+  function pts(a) {
+    return [a.price >= a.e20, a.price >= a.e50, Number.isFinite(a.s200) ? a.price >= a.s200 : a.price >= a.e50, a.price >= a.vwap, a.hist >= 0, a.rsi >= 50].filter(Boolean).length;
+  }
+  function build(sym, tf, a) {
+    var p = pts(a), long = p >= 3, dir = long ? 1 : -1, price = a.price;
+    var dist = Math.max(1.5 * a.atr, price * 0.003);
+    return { sym: sym, tf: tf, side: long ? "LONG" : "SHORT", entry: price, zl: price * 0.9985, zh: price * 1.0015,
+      sl: price - dir * dist, tp: CG.cfg.tpMult.map(function (m) { return price + dir * dist * m; }), rr: CG.cfg.tpMult[1], created: Date.now() };
+  }
+  function loadSig(sym) { try { return JSON.parse(localStorage.getItem("cgs_sig_" + sym)); } catch (e) { return null; } }
+  function saveSig(s) { try { localStorage.setItem("cgs_sig_" + s.sym, JSON.stringify(s)); } catch (e) {} }
+  function status(s, price) {
+    var d = s.side === "LONG" ? 1 : -1, hit = function (lv) { return d * (price - lv) >= 0; };
+    if (d * (price - s.sl) <= 0) return ["SL Hit", "down", true];
+    if (hit(s.tp[2])) return ["TP3 Hit", "up", true];
+    if (hit(s.tp[1])) return ["TP2 Hit", "up", false];
+    if (hit(s.tp[0])) return ["TP1 Hit", "up", false];
+    return ["Active", "up", false];
+  }
+  function scoreOf(s, a) {
+    if (typeof CG.scoreFn === "function") { try { var x = CG.scoreFn(s, a); if (Number.isFinite(x)) return Math.round(x); } catch (e) {} }
+    var p = pts(a); return 40 + 9 * (s.side === "LONG" ? p : 6 - p);
+  }
+  function grade(n) { return n >= 90 ? "Very Strong Setup" : n >= 80 ? "Strong Setup" : n >= 70 ? "Moderate Setup" : n >= 60 ? "Weak Setup" : "No Signal"; }
+  function risk(s) {
+    var c = CG.cfg, amt = c.balance * c.riskPct / 100, dist = Math.abs(s.entry - s.sl), qty = dist ? amt / dist : 0;
+    var margin = qty * s.entry / c.leverage, d = s.side === "LONG" ? 1 : -1;
+    return { amt: amt, qty: qty, margin: margin, liq: s.entry * (1 - d * (1 / c.leverage - 0.005)) };
+  }
+
+  // ---------- DOM helpers (label based, survives page re-render) ----------
+  function panels(title) {
+    return Array.prototype.filter.call(document.querySelectorAll(".mini,.panel"), function (p) {
+      var h = p.querySelector(":scope > h4, :scope > h3"); return h && h.textContent.trim() === title;
+    });
+  }
+  function cell(p, label) {
+    var r = Array.prototype.find.call(p.querySelectorAll(".mini-row"), function (r) { var s = r.querySelector("span"); return s && s.textContent.trim() === label; });
+    return r && r.querySelector("b");
+  }
+  function put(p, label, text, cls) {
+    var b = cell(p, label); if (!b) return;
+    var sfx = (b.textContent.match(/\s\(\d+%\)$/) || [""])[0];
+    if (/^Take Profit/.test(label) && sfx) text += sfx;
+    b.textContent = text; if (cls != null) b.className = cls;
+  }
+  function txt(id, t, cls) { var e = $(id); if (!e) return; if (e.textContent !== t) e.textContent = t; if (cls != null) e.className = cls; }
+
+  // ---------- render ----------
+  function render(s, a, sym) {
+    var st = status(s, a.price), score = scoreOf(s, a), r = risk(s), base = sym.replace(/USDT$/, "");
+    var long = s.side === "LONG", dirCls = long ? "up" : "down", c = CG.cfg, now = Date.now();
+    var best = Object.assign({}, CG.state, { sym: sym, base: base, tf: s.tf, price: a.price, analysis: a, signal: s, status: st[0], score: score, risk: r });
+    CG.state = best;
+
+    // header
+    var coin = $("liveCoin"); if (coin && coin.textContent !== base[0]) coin.textContent = base[0];
+    txt("liveSymbol", base + "/USDT");
+    var pill = $("liveSide"); if (pill) { pill.textContent = s.side; pill.style.cssText = long ? "" : "background:#3a0d16;color:#ff6b7d;border-color:#7a2230"; }
+    var sb = $("sigBox"); if (sb) sb.innerHTML = "Signal ID: CGS-" + new Date(s.created).toISOString().slice(0, 10).replace(/-/g, "") + "-" + base +
+      "<br>Created: " + ist(s.created) + " (IST)<br>Updated: " + ist(now) + " (IST) &middot; Age: " + age(now - s.created);
+    txt("liveScore", score + " / 100"); txt("liveScoreNote", grade(score));
+    txt("liveTf", s.tf.toUpperCase());
+    txt("liveEntry", "$" + fP(s.zl) + " \u2013 $" + fP(s.zh));
+    txt("livePrice", "$" + fP(a.price));
+    txt("liveStop", "$" + fP(s.sl));
+    txt("liveStatus", "\u25CF " + st[0], st[1]);
+
+    // Signal Summary (center card + right panel)
+    panels("Signal Summary").forEach(function (p) {
+      var btn = p.querySelector(".btnrow button"); if (btn) { btn.textContent = s.side; btn.className = long ? "buy" : "sell"; }
+      put(p, "Direction", s.side, dirCls);
+      put(p, "Setup Score", score + " / 100", dirCls);
+      var bar = p.querySelector(".scoreline i"); if (bar) bar.style.width = Math.min(100, score) + "%";
+      put(p, "Entry Zone", fP(s.zl) + "\u2013" + fP(s.zh));
+      put(p, "Stop Loss", fP(s.sl), "down");
+      put(p, "Take Profit 1", fP(s.tp[0])); put(p, "Take Profit 2", fP(s.tp[1])); put(p, "Take Profit 3", fP(s.tp[2]));
+      put(p, "Risk / Reward", "1:" + fN(s.rr, 1));
+      put(p, "Position Status", "\u25CF " + st[0], st[1]);
+    });
+
+    // Risk Management (center card + right panel)
+    panels("Risk Management").forEach(function (p) {
+      put(p, "Account Balance", fN(c.balance, 2) + " USDT"); put(p, "Risk %", fN(c.riskPct, 2) + "%");
+      put(p, "Risk Amount", fN(r.amt, 2) + " USDT"); put(p, "Position Size", fQ(r.qty) + " " + base);
+      put(p, "Leverage", c.leverage + "x"); put(p, "Margin Required", fN(r.margin, 2) + " USDT");
+      put(p, "Max Loss", fN(r.amt, 2) + " USDT"); put(p, "Liquidation Price", fP(r.liq) + " (approx)");
+    });
+
+    // Reasoning "invalidating" + pill text (small, safe)
+    document.querySelectorAll("#reasoning-panel h3 .pill").forEach(function (e) { e.textContent = s.side; });
+
+    // Position size calculator modal (only when closed so typing is never overwritten)
+    var bd = document.querySelector(".modal-backdrop");
+    if (bd && !bd.classList.contains("open") && $("calcEntry")) {
+      $("calcBalance").value = c.balance; $("calcRisk").value = c.riskPct; $("calcEntry").value = a.price; $("calcStop").value = s.sl;
+      $("calcRiskAmount").textContent = fN(r.amt, 2) + " USDT"; $("calcPosition").textContent = fQ(r.qty) + " " + base;
+    }
+    document.dispatchEvent(new CustomEvent("cg:update", { detail: CG.state }));
+  }
+
+  // ---------- data loop ----------
+  var seq = 0, busy = false;
+  function curSym() {
+    var q = new URLSearchParams(location.search).get("symbol");
+    var t = q || ($("liveSymbol") && $("liveSymbol").textContent) || "BTC/USDT";
+    t = t.replace(/[\/\-\s]/g, "").toUpperCase(); return /USDT$/.test(t) ? t : t + "USDT";
+  }
+  function curTf() {
+    var q = (new URLSearchParams(location.search).get("tf") || "").toLowerCase();
+    return /^(1m|5m|15m|30m|1h|4h|1d)$/.test(q) ? q : "15m";
+  }
+  async function refresh() {
+    if (document.hidden || busy || !$("liveSymbol")) return;
+    busy = true; var my = ++seq, sym = curSym(), tf = curTf();
+    try {
+      var res = await fetch(KL + "?symbol=" + encodeURIComponent(sym) + "&interval=" + tf + "&limit=300");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var k = (await res.json()).map(function (x) { return { t: x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4], v: +x[5] }; });
+      if (k.length < 60) throw new Error("not enough candles");
+      if (my !== seq || sym !== curSym()) return;           // symbol changed while loading
+      var a = analyze(k), s = loadSig(sym);
+      var final = s && status(s, a.price)[2];
+      if (!s || s.tf !== tf || final || Date.now() - s.created > 12 * 3600e3) { s = build(sym, tf, a); saveSig(s); }
+      window.__userPair = sym;                              // stops the old backend script overwriting our values
+      render(s, a, sym);
+    } catch (e) { console.error("CG engine:", e); } finally { busy = false; }
+  }
+  window.CG.refresh = refresh;
+  window.__userPair = curSym();
+  refresh(); setInterval(refresh, CG.cfg.refreshMs);
+  document.addEventListener("visibilitychange", refresh);
+  document.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-page],.nav-item")) setTimeout(refresh, 300); });
+  var lt = $("liveSymbol"); if (lt) new MutationObserver(function () { if (curSym() !== (CG.state.sym || "")) refresh(); }).observe(lt, { childList: true, characterData: true, subtree: true });
+})();
+</script>
+
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
