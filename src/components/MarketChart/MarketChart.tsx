@@ -48,6 +48,8 @@ export function MarketChart({
   // --- data -------------------------------------------------------------
   useEffect(() => {
     if (!api) return;
+    const lastCandle = adapted.candles[adapted.candles.length - 1];
+    if (lastCandle) api.candleSeries.applyOptions({ priceFormat: priceFormatFor(lastCandle.close) });
     api.candleSeries.setData(adapted.candles);
 
     const wantVolume = showVolume && adapted.hasVolume;
