@@ -1084,7 +1084,7 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
 (function () {
   const $ = id => document.getElementById(id);
   const money = (n, d) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-  const decimals = p => (p >= 100 ? 2 : p >= 1 ? 4 : 6);
+  const decimals = p => (p >= 100 ? 2 : p >= 1 ? 4 : p > 0 ? Math.min(12, Math.ceil(-Math.log10(p)) + 3) : 2);
   const BASE = "https://data-api.binance.vision/api/v3/ticker/24hr?symbol=";
 
   async function ticker(sym) {
