@@ -600,9 +600,9 @@ function renderPerformanceSummary(
     ".section-head span",
   );
 
-  if (heading) {
+    if (heading) {
     heading.textContent =
-      `${p.total} signals · ${p.realizedCount} realized · LIVE DATA`;
+      `${p.total} total · ${p.active} active · ${p.closed} closed · LIVE DATA`;
   }
 }
 
