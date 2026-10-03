@@ -926,7 +926,7 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   if (!winPanel) return;
 
   const avgPanel = byTitle(/^Average (R|Risk Reward)/i);
-  const ddPanel = byTitle(/^Drawdown$/i);
+  const ddPanel = byTitle(/^Drawdown/i);
   const sumPanel = panels.find(
     (p) =>
       p.querySelector(":scope > h3")?.textContent?.trim() ===
