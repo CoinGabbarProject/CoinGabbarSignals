@@ -33,9 +33,12 @@ export class MongoSignalStore implements SignalStore {
   async setStatus(id: string, status: SignalFilterStatus, atIso: string): Promise<void> {
     await this.signals().updateOne({ _id: id }, { $set: { status, "timestamps.updatedAt": atIso, "timestamps.closedAt": atIso } });
   }
-  async listTrackable(sinceIso: string): Promise<FinalSignal[]> {
+  async markEntered(id: string, atIso: string): Promise<void> {
+    await this.signals().updateOne({ _id: id }, { $set: { entered: true, "timestamps.updatedAt": atIso } });
+  }
+  async listTrackable(): Promise<FinalSignal[]> {
     const docs = await this.signals()
-      .find({ status: { $in: [...TRACKABLE_STATUSES] }, "timestamps.createdAt": { $gte: sinceIso } })
+      .find({ status: { $in: [...TRACKABLE_STATUSES] } })
       .toArray();
     return docs.map((d) => strip<FinalSignal>(d));
   }
