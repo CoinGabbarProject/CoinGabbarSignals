@@ -161,7 +161,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             <strong>{formatPercent(snapshot.derivatives.oiChangePct)}</strong>
           </div>
 
-          <div className="data-card">
+          <div className="data-card" style={snapshot.derivatives.longShortRatio === null ? { display: "none" } : undefined}>
             <label>Long / Short</label>
             <strong>
               {formatNumber(snapshot.derivatives.longShortRatio, 2)}
