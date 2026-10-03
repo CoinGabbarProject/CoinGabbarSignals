@@ -6,8 +6,8 @@ import { tokens } from "../../../../shared/designTokens.js";
 import { PERIOD_MS } from "../../../market/useLiveCandles.js";
 import type { MarketChartApi } from "../types.js";
 import { DrawingsPrimitive } from "./DrawingsPrimitive.js";
-import { CATEGORIES, TOOLS, completeAnchors, loadDrawings, newId, saveDrawings, toolOf } from "./model.js";
-import type { Anchor, Category, DashStyle, DrawStyle, Drawing, DrawingKind } from "./model.js";
+import { completeAnchors, loadDrawings, newId, saveDrawings, toolOf } from "./model.js";
+import type { Anchor, DashStyle, DrawStyle, Drawing, DrawingKind } from "./model.js";
 
 const c = tokens.color;
 type Tool = DrawingKind | "cursor";
