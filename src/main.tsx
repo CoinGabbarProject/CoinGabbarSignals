@@ -888,10 +888,18 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   const rows: [string, number | undefined, string][] = [
     ["TP1", h.tp1, "up"], ["TP2", h.tp2, "up"], ["TP3", h.tp3, "up"], ["SL", h.sl, "down"],
   ];
+  const mainKey = String(signal.status ?? "").replace("_HIT", "").toLowerCase();
   const lines = rows
     .filter(([, t]) => typeof t === "number")
+    .sort(
+      (a, b) =>
+        (b[0].toLowerCase() === mainKey ? 1 : 0) - (a[0].toLowerCase() === mainKey ? 1 : 0) ||
+        (a[1] as number) - (b[1] as number),
+    )
     .map(([k, t, cls]) =>
-      `<small class="${cls}" style="display:block;font-weight:500;opacity:.9">${k} ${k === "SL" ? "❌" : "✅"} · ${dashboardEscape(formatCreated(t))}</small>`);
+      k.toLowerCase() === mainKey
+        ? `<small class="${cls}" style="display:block;font-weight:500;opacity:.9">${dashboardEscape(formatCreated(t))}</small>`
+        : `<small class="${cls}" style="display:block;font-weight:500;opacity:.9">${k} ${k === "SL" ? "❌" : "✅"} · ${dashboardEscape(formatCreated(t))}</small>`);
   if (lines.length === 0 && signal.outcomeAt && /_HIT$/.test(String(signal.status))) {
     lines.push(`<small style="display:block;opacity:.8">${dashboardEscape(formatCreated(signal.outcomeAt))}</small>`);
   }
