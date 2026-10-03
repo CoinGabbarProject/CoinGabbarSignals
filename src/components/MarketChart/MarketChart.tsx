@@ -83,6 +83,13 @@ export function MarketChart({
   useEffect(() => {
     if (api && chartOptions) api.chart.applyOptions(chartOptions);
   }, [api, chartOptions]);
+  // Follow the page theme (dispatched by the Settings page as "cgs:theme").
+  useEffect(() => {
+    if (!api) return;
+    const on = (): void => { api.chart.applyOptions(themedChartOptions()); };
+    document.addEventListener("cgs:theme", on);
+    return () => document.removeEventListener("cgs:theme", on);
+  }, [api]);
 
   // --- overlays (extension point; none implemented in Part 1) -------------
   const ctx = useMemo<ChartOverlayContext | null>(
