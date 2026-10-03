@@ -109,6 +109,9 @@ export class EngineService {
       const symbols = opts.symbols ?? this.settings.symbols;
       const tf = opts.timeframe ?? this.settings.timeframe;
       const startedAt = new Date(this.now).toISOString();
+      try {
+        await trackOutcomes({ market: this.deps.market, store: this.deps.store, now: this.deps.now, log: this.log });
+      } catch (e) { this.log.error(`[scan] outcome tracking failed: ${errMsg(e)}`); }
       const results = await pool(symbols, this.settings.concurrency, async (symbol): Promise<SymbolResult> => {
         const now = this.now;
         try {
