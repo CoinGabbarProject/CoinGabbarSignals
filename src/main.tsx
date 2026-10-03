@@ -1042,7 +1042,8 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
     };
 
     setText(rowVal(/^Total Signals$/i), String(p.total));
-    setText(rowVal(/^Winning Signals$/i), String(p.wins));
+    setText(rowVal(/^Winning Signals$/i), String(winCount));
+    setText(rowVal(/^Losing Signals$/i), String(lossCount));
     setText(rowVal(/^Losing Signals$/i), String(p.losses));
     setText(
       rowVal(/^Total (R|Risk Reward)$/i),
