@@ -85,7 +85,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
       const key = `${s.symbol}:${exec}`;
       let candles = cache.get(key);
       if (!candles) {
-        candles = await deps.market.getCandles(s.symbol, exec, CANDLE_LIMIT, now);
+        candles = await deps.market.getCandles(s.symbol, exec, CANDLE_LIMIT, now, true);
         cache.set(key, candles);
       }
       const ev = evaluateOutcome(s, candles, now, TF_MS[exec] ?? 0);
