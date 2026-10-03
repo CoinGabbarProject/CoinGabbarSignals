@@ -33,6 +33,25 @@ export class MongoSignalStore implements SignalStore {
   async setStatus(id: string, status: SignalFilterStatus, atIso: string): Promise<void> {
     await this.signals().updateOne({ _id: id }, { $set: { status, "timestamps.updatedAt": atIso, "timestamps.closedAt": atIso } });
   }
+  async listTrackable(sinceIso: string): Promise<FinalSignal[]> {
+    const docs = await this.signals()
+      .find({ status: { $in: [...TRACKABLE_STATUSES] }, "timestamps.createdAt": { $gte: sinceIso } })
+      .toArray();
+    return docs.map((d) => strip<FinalSignal>(d));
+  }
+  async setOutcome(id: string, o: SignalOutcome, atIso: string): Promise<void> {
+    await this.signals().updateOne(
+      { _id: id },
+      {
+        $set: {
+          status: o.status,
+          outcome: { status: o.status, exit: o.exit, closed: o.closed, at: atIso },
+          "timestamps.updatedAt": atIso,
+          "timestamps.closedAt": o.closed ? atIso : null,
+        },
+      },
+    );
+  }
   async recordRun(run: ScanSummary): Promise<void> { await this.runs().insertOne({ ...run }); }
   async lastRun(): Promise<ScanSummary | null> {
     const d = await this.runs().find().sort({ finishedAt: -1 }).limit(1).next();
