@@ -214,6 +214,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
         </div>
       )}
 
+      <div style={{ order: 1, minWidth: 0 }}>
       <ChartDrawingTools api={chartApi} symbol={label} timeframe={timeframe}>
         <MarketChart
           symbol={label}
