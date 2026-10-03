@@ -418,26 +418,55 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
   return (
     <div style={{ minWidth: 0 }}>
       <div role="toolbar" aria-label="Drawing tools" style={barStyle}>
-        <button type="button" style={btn(tool === "cursor")} aria-pressed={tool === "cursor"} title="Cursor / select" onClick={() => { cancelDraft(); setTool("cursor"); }}>Cursor</button>
-        <span style={sep} />
-        {CATEGORIES.map((k) => (
-          <button key={k.id} type="button" style={btn(cat === k.id)} aria-pressed={cat === k.id} onClick={() => setCat(k.id)}>{k.label}</button>
-        ))}
-        <span style={sep} />
-        <button type="button" style={btn(magnet)} aria-pressed={magnet} title="Magnet: snap to candle open/high/low/close" onClick={() => setMagnet((m) => !m)}>Magnet</button>
-        <button type="button" style={btn(false, !canUndo)} disabled={!canUndo} title="Undo (Ctrl+Z)" onClick={undo}>Undo</button>
-        <button type="button" style={btn(false, !canRedo)} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onClick={redo}>Redo</button>
-        <button type="button" style={btn(!visible)} aria-pressed={!visible} title="Hide / show all drawings" onClick={() => setVisible((v) => !v)}>{visible ? "Hide" : "Show"}</button>
-        <button type="button" style={btn(false, !api)} disabled={!api} title="Fit all candles in view" onClick={() => api?.fitContent()}>Fit</button>
-        <button type="button" style={btn(false, !api)} disabled={!api} title="Download chart as PNG" onClick={shot}>Shot</button>
-        <button type="button" style={btn(false, drawings.length === 0)} disabled={drawings.length === 0} title="Clear all drawings" onClick={clearAll}>Clear</button>
-      </div>
-      <div role="toolbar" aria-label="Tools" style={barStyle}>
-        {catTools.map((t) => (
-          <button key={t.kind} type="button" style={btn(tool === t.kind)} aria-pressed={tool === t.kind} title={t.title} onClick={() => pickTool(t.kind)}>{t.label}</button>
-        ))}
+        <button type="button" aria-haspopup="dialog" aria-expanded={menuOpen} style={menuBtn(menuOpen)} title="Drawing tools and chart actions" onClick={() => setMenuOpen(true)}>
+          <Ico d={ICON.pencil} />
+          <span>Drawings</span>
+        </button>
         {status && <span role="status" style={hint}>{status}</span>}
+        {tool !== "cursor" && (
+          <button type="button" style={btn(false)} title="Cancel drawing (Esc)" onClick={() => { cancelDraft(); setTool("cursor"); }}>✕ Cancel</button>
+        )}
       </div>
+      {menuOpen && createPortal(
+        <div role="presentation" onClick={() => setMenuOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: c.bg.overlay, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div role="dialog" aria-modal="true" aria-label="Drawings" onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(560px, 100%)", maxHeight: "84vh", display: "flex", flexDirection: "column", color: c.text.primary, background: c.bg.elevated,
+              borderRadius: "18px 18px 0 0", border: `1px solid ${c.border.default}`, borderBottom: 0, boxShadow: "0 -12px 40px rgba(0, 0, 0, 0.45)" }}>
+            <div aria-hidden="true" style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, background: c.border.strong, margin: "8px 0 2px" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 8px" }}>
+              <strong style={{ fontSize: 20 }}>Drawings</strong>
+              <button type="button" aria-label="Close" style={{ ...btn(false), minHeight: 32, width: 32, padding: 0, display: "grid", placeItems: "center", borderRadius: 999 }} onClick={() => setMenuOpen(false)}>
+                <Ico d={ICON.close} />
+              </button>
+            </div>
+            <div role="tablist" aria-label="Drawing groups" style={{ ...barStyle, padding: "0 12px 8px", borderBottom: `1px solid ${c.border.subtle}` }}>
+              {SHEET_TABS.map((t) => (
+                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} style={tabBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>
+              ))}
+            </div>
+            <div role="tabpanel" style={{ overflowY: "auto", padding: 12, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+              {tab === "tools" ? (
+                <>
+                  <Tile label="Cursor" title="Cursor / select" icon={<Ico d={ICON.cursor} />} active={tool === "cursor"} onClick={() => { cancelDraft(); setTool("cursor"); setMenuOpen(false); }} />
+                  <Tile label="Magnet" title="Snap to candle open/high/low/close" icon={<Ico d={ICON.magnet} />} active={magnet} onClick={() => setMagnet((m) => !m)} />
+                  <Tile label="Undo" title="Undo (Ctrl+Z)" icon={<Ico d={ICON.undo} />} disabled={!canUndo} onClick={undo} />
+                  <Tile label="Redo" title="Redo (Ctrl+Shift+Z)" icon={<Ico d={ICON.redo} />} disabled={!canRedo} onClick={redo} />
+                  <Tile label={visible ? "Hide all" : "Show all"} title="Hide / show all drawings" icon={<Ico d={visible ? ICON.eye : ICON.eyeOff} />} active={!visible} onClick={() => setVisible((v) => !v)} />
+                  <Tile label="Fit chart" title="Fit all candles in view" icon={<Ico d={ICON.fit} />} disabled={!api} onClick={() => { api?.fitContent(); setMenuOpen(false); }} />
+                  <Tile label="Screenshot" title="Download chart as PNG" icon={<Ico d={ICON.camera} />} disabled={!api} onClick={() => { shot(); setMenuOpen(false); }} />
+                  <Tile label="Clear all" title="Delete all drawings on this symbol" icon={<Ico d={ICON.trash} />} disabled={drawings.length === 0} onClick={() => { clearAll(); setMenuOpen(false); }} />
+                </>
+              ) : (
+                catTools.map((t) => (
+                  <Tile key={t.kind} label={t.label} title={t.title} active={tool === t.kind} onClick={() => { pickTool(t.kind); setMenuOpen(false); }} />
+                ))
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
       {selected && (
         <div role="toolbar" aria-label="Drawing properties" style={barStyle}>
           <span style={hint}>{toolOf(selected.kind)?.label ?? selected.kind}</span>
