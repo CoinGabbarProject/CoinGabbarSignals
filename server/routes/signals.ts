@@ -131,7 +131,12 @@ router.get("/signals", async (req, res) => {
           source: "engine",
           symbol: d.symbol,
           side: d.direction,
-          status: d.status,
+          status:
+            d.status === "ACTIVE" &&
+            Number.isFinite(Date.parse(d?.entry?.expiry ?? "")) &&
+            Date.parse(d.entry.expiry) <= Date.now()
+              ? "EXPIRED"
+              : d.status,
           timeframe: d?.timeframe?.primary ?? "",
           score: d?.score?.total ?? 0,
           entry: d?.entry?.ideal ?? null,
