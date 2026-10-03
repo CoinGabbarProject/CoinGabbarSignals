@@ -136,6 +136,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            order: 2,
             gap: 8,
             padding: "8px 10px",
           }}
