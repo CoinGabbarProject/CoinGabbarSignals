@@ -883,6 +883,21 @@ const changePct = (signal: DashboardSignal): number | null => {
   return signal.side === "SHORT" ? -raw : raw;
 };
 
+const hitTimeLines = (signal: DashboardSignal): string => {
+  const h = signal.hits ?? {};
+  const rows: [string, number | undefined, string][] = [
+    ["TP1", h.tp1, "up"], ["TP2", h.tp2, "up"], ["TP3", h.tp3, "up"], ["SL", h.sl, "down"],
+  ];
+  const lines = rows
+    .filter(([, t]) => typeof t === "number")
+    .map(([k, t, cls]) =>
+      `<small class="${cls}" style="display:block;font-weight:500;opacity:.9">${k} ${k === "SL" ? "❌" : "✅"} · ${dashboardEscape(formatCreated(t))}</small>`);
+  if (lines.length === 0 && signal.outcomeAt && /_HIT$/.test(String(signal.status))) {
+    lines.push(`<small style="display:block;opacity:.8">${dashboardEscape(formatCreated(signal.outcomeAt))}</small>`);
+  }
+  return lines.join("");
+};
+
 function renderRecentSignals(signals: DashboardSignal[]): void {
   const section = document.querySelector(".panel.recent");
 
