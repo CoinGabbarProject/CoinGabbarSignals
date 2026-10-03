@@ -157,6 +157,12 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
   useEffect(() => { primRef.current?.setState(drawings, selectedId, visible); }, [api, drawings, selectedId, visible]);
   useEffect(() => { primRef.current?.setPeriod(PERIOD_MS[timeframe] / 1000); }, [api, timeframe]);
   useEffect(() => { setHover("none"); }, [tool]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   // ---- history ----------------------------------------------------------
   /** Persist a new list and record `before` (default: the current list) as an undo step. */
