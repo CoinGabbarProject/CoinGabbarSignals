@@ -98,7 +98,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
         changed++;
       } else if (ev?.kind === "entered") {
         if (!s.entered) { await deps.store.markEntered(s.id, atIso); changed++; }
-        if (now - Date.parse(s.timestamps.createdAt) > trackHorizonMs(exec)) {
+     if (now - Date.parse(s.timestamps.createdAt) > (TF_MS[s.timeframe.primary] ?? 900_000) * 96) {
           await deps.store.setStatus(s.id, "EXPIRED", atIso);
         }
       }
