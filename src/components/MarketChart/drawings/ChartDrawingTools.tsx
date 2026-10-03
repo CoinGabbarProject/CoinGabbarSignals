@@ -498,7 +498,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
           <Ico d={ICON.pencil} />
           <span>Drawings</span>
         </button>
-        {status && <span role="status" style={hint}>{status}</span>}
+        {status ? <span role="status" style={hint}>{status}</span> : activeLabels !== "" && <span style={hint} title="Active indicators">{activeLabels}</span>}
         {tool !== "cursor" && (
           <button type="button" style={btn(false)} title="Cancel drawing (Esc)" onClick={() => { cancelDraft(); setTool("cursor"); }}>✕ Cancel</button>
         )}
