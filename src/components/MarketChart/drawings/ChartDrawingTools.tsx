@@ -550,6 +550,16 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
           <button type="button" style={btn(false)} title="Cancel drawing (Esc)" onClick={() => { cancelDraft(); setTool("cursor"); }}>✕ Cancel</button>
         )}
       </div>
+      {showFavBar && favs.length > 0 && (
+        <div role="toolbar" aria-label="Favorite drawing tools" style={{ ...barStyle, paddingTop: 0 }}>
+          {favs.map((k) => (
+            <button key={k} type="button" aria-label={TILE_LABEL[k]} aria-pressed={tool === k} title={TILE_LABEL[k]}
+              style={{ ...btn(tool === k), minHeight: 36, width: 40, padding: 0, display: "grid", placeItems: "center" }} onClick={() => pickTool(k)}>
+              <Ico d={TOOL_ICON[k]} />
+            </button>
+          ))}
+        </div>
+      )}
       {menuOpen && createPortal(
         <div role="presentation" onClick={() => setMenuOpen(false)}
           style={{ position: "fixed", inset: 0, zIndex: 1000, background: c.bg.overlay, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
