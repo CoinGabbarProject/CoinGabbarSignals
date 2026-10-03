@@ -6,7 +6,16 @@ type DashboardSignal = {
   id?: string;
   symbol?: string;
   side?: "LONG" | "SHORT" | "NO_TRADE";
-  status?: "ACTIVE" | "CLOSED" | "CANCELLED" | "EXPIRED";
+  status?:
+    | "ACTIVE"
+    | "CLOSED"
+    | "CANCELLED"
+    | "EXPIRED"
+    | "TP1_HIT"
+    | "TP2_HIT"
+    | "TP3_HIT"
+    | "SL_HIT";
+  outcomeClosed?: boolean;
   timeframe?: string;
   score?: number;
   entry?: number;
