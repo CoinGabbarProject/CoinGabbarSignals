@@ -1034,7 +1034,7 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
   document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
   $('calcClose').addEventListener('click',close);
   $('calcApply').addEventListener('click',function(){
-    if(!last){showToast('Pehle sahi values daalein');return}
+    if(!last){showToast('Enter valid values first');return}
     if(window.CG){CG.cfg=CG.cfg||{};CG.cfg.balance=last.bal;CG.cfg.riskPct=last.rp;CG.cfg.leverage=last.lev}
     document.querySelectorAll('.mini,.panel').forEach(function(p){
       var h=p.querySelector(':scope > h4, :scope > h3'); if(!h||h.textContent.trim()!=='Risk Management')return;
