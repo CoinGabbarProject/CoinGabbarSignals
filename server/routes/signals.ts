@@ -70,7 +70,7 @@ router.get("/signals", async (req, res) => {
     const filter: Record<string, unknown> = {};
 
     const status = String(req.query.status || "").toUpperCase();
-    if ((STATUSES as readonly string[]).includes(status)) {
+    if ((FILTER_STATUSES as readonly string[]).includes(status)) {
       filter.status = status;
     }
 
