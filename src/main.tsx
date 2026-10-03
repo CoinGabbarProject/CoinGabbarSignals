@@ -993,7 +993,7 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   if (avgPanel) {
     const big = avgPanel.querySelector<HTMLElement>("div[style*='font-size']");
     if (big) {
-      setText(big, fmt(p.averageR));
+      setText(big, num(p.averageR));
       big.style.color =
         p.averageR === null ? "" : p.averageR >= 0 ? "#19df91" : "#ff5266";
     }
