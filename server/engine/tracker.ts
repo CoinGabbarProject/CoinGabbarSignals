@@ -86,7 +86,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
         candles = await deps.market.getCandles(s.symbol, exec, CANDLE_LIMIT, now);
         cache.set(key, candles);
       }
-      const ev = evaluateOutcome(s, candles, now);
+      const ev = evaluateOutcome(s, candles, now, TF_MS[exec] ?? 0);
 
       if (ev?.kind === "expired") {
         await deps.store.setStatus(s.id, "EXPIRED", atIso);
