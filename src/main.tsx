@@ -971,6 +971,10 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             </small>
           </td>
 
+          <td>
+            <strong>${dashboardEscape(dashboardPrice(livePrices[binanceSymbol(signal.symbol)]))}</strong>
+          </td>
+
           <td class="${sideClass}">
             ${dashboardEscape(side)}
           </td>
