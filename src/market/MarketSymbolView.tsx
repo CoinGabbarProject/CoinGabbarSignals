@@ -206,6 +206,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           style={{
             padding: "8px 10px",
             fontSize: 12,
+            order: 2,
             color: c.text.muted,
           }}
         >
