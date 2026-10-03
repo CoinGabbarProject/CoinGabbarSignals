@@ -214,35 +214,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             </strong>
           </div>
 
-          <div className="data-card">
-            <label>Order Book</label>
-            <strong>
-              {snapshot.orderBook.imbalance === null
-                ? "Unavailable"
-                : `${(snapshot.orderBook.imbalance * 100).toFixed(2)}%`}
-            </strong>
-          </div>
-
-          <div className="data-card">
-            <label>Spread</label>
-            <strong>
-              {formatNumber(snapshot.orderBook.spread, 8)}
-            </strong>
-          </div>
-
-          <div className="data-card">
-            <label>Midpoint</label>
-            <strong>
-              {formatNumber(snapshot.orderBook.midpoint, 8)}
-            </strong>
-          </div>
-
-          <div className="data-card">
-            <label>Data Status</label>
-            <strong>
-              {snapshotStatus === "ready" ? "Live" : "Unavailable"}
-            </strong>
-          </div>
+          
         </div>
       )}
 
