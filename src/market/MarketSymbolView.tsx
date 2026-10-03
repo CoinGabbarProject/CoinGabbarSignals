@@ -191,10 +191,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           }}
           aria-label="Market analysis data"
         >
-          <div className="data-card">
-            <label>24H Change</label>
-            <strong>{formatPercent(snapshot.ticker.change24hPct)}</strong>
-          </div>
+          
 
           <div className="data-card" style={snapshot.derivatives.fundingRate === null ? { display: "none" } : undefined}>
             <label>Funding</label>
