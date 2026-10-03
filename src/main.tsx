@@ -1155,6 +1155,8 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
     meta.textContent =
       `LIVE · ${signals.length} loaded · ${active} active · ${closed} closed`;
   }
+
+  renderAccuracy(section, signals);
 }
 
 /**
