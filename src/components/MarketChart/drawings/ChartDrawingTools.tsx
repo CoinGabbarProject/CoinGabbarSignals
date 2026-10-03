@@ -533,6 +533,17 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
                   <Tile label="Screenshot" title="Download chart as PNG" icon={<Ico d={ICON.camera} />} disabled={!api} onClick={() => { shot(); setMenuOpen(false); }} />
                   <Tile label="Clear all" title="Delete all drawings on this symbol" icon={<Ico d={ICON.trash} />} disabled={drawings.length === 0} onClick={() => { clearAll(); setMenuOpen(false); }} />
                 </>
+              ) : tab === "indicators" && indicators ? (
+                <>
+                  <div style={sectionLabel}>ON PRICE CHART</div>
+                  {indicators.items.filter((i) => !PANE_INDICATORS.has(i.key)).map((i) => (
+                    <Tile key={i.key} label={i.label} icon={<Ico d={indicatorIcon(i.key)} />} active={i.active} onClick={() => indicators.onToggle(i.key)} />
+                  ))}
+                  <div style={sectionLabel}>SEPARATE PANE BELOW CHART</div>
+                  {indicators.items.filter((i) => PANE_INDICATORS.has(i.key)).map((i) => (
+                    <Tile key={i.key} label={i.label} icon={<Ico d={indicatorIcon(i.key)} />} active={i.active} onClick={() => indicators.onToggle(i.key)} />
+                  ))}
+                </>
               ) : (
                 catTools.map((t) => (
                   <Tile key={t.kind} label={TILE_LABEL[t.kind]} title={t.title} icon={<Ico d={TOOL_ICON[t.kind]} />} active={tool === t.kind}
