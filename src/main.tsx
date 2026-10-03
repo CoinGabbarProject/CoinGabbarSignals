@@ -1007,7 +1007,7 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   // 3) Drawdown (peak-to-trough in Risk Reward) + status
   if (ddPanel) {
     const big = ddPanel.querySelector<HTMLElement>("div[style*='font-size']");
-    setText(big, p.realizedCount ? `${p.maxDrawdown.toFixed(2)} Risk Reward` : "—");
+    setText(big, p.realizedCount ? p.maxDrawdown.toFixed(2) : "—");
 
     const dd = Math.abs(p.maxDrawdown);
     const label = !p.realizedCount
