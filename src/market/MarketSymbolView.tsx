@@ -25,6 +25,37 @@ const tfBtn = (active: boolean): CSSProperties => ({
   border: `1px solid ${active ? c.accent.primary : c.border.default}`,
 });
 
+/** Price text: 2 decimals from 100 up, up to 4 decimals from 1 up, up to 6 decimals below 1. */
+const fmtPx = (n: number): string =>
+  n.toLocaleString("en-US", { minimumFractionDigits: n >= 100 ? 2 : 0, maximumFractionDigits: n >= 100 ? 2 : n >= 1 ? 4 : 6 });
+
+/**
+ * 24h open price from the public Binance ticker (no key), refreshed every 15s.
+ * The header uses it with the live candle close, so the change follows the live price.
+ */
+function useOpen24h(symbol: string | null): number | null {
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    setOpen(null);
+    if (!symbol) return;
+    const ctrl = new AbortController();
+    const load = (): void => {
+      fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? (r.json() as Promise<unknown>) : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((j) => {
+          const o = typeof j === "object" && j !== null ? (j as Record<string, unknown>) : {};
+          const v = Number(o["openPrice"]);
+          if (Number.isFinite(v) && v > 0) setOpen(v);
+        })
+        .catch(() => { /* keep the last value; the header just hides the change until the next refresh */ });
+    };
+    load();
+    const id = window.setInterval(load, 15_000);
+    return () => { ctrl.abort(); window.clearInterval(id); };
+  }, [symbol]);
+  return open;
+}
+
 /** Chart height follows the viewport class without hardcoding a width; the chart itself resizes to its container. */
 function useChartHeight(): number {
   const query = "(max-width: 640px)";
