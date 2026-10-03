@@ -37,12 +37,16 @@ export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number, 
   };
 
   for (const c of candles) {
-    if (c.timestamp < createdMs) continue;
+   if (c.timestamp + execMs <= createdMs) continue; // fully before the signal
+    // The candle already running when the signal was created can only fill the entry.
+    // Its wicks may be from before the signal existed, so it never counts for SL / TP.
+    const beforeSignal = c.timestamp < createdMs;
     if (!entered) {
       if (Number.isFinite(expiryMs) && c.timestamp >= expiryMs) break;
       if (c.low <= s.entry.max && c.high >= s.entry.min) entered = true;
       else continue;
     }
+    if (beforeSignal) continue;
     const slHit = long ? c.low <= sl : c.high >= sl;
     if (slHit) return done(true);
     while (best < 3) {
