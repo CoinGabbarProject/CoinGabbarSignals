@@ -28,8 +28,9 @@ export interface SignalStore {
   findActive(symbol: string, primaryTf: string): Promise<FinalSignal[]>;
   insertSignal(s: FinalSignal): Promise<void>;
   setStatus(id: string, status: SignalFilterStatus, atIso: string): Promise<void>;
-  listTrackable(sinceIso: string): Promise<FinalSignal[]>;
+  listTrackable(): Promise<FinalSignal[]>;
   setOutcome(id: string, outcome: SignalOutcome, atIso: string): Promise<void>;
+  markEntered(id: string, atIso: string): Promise<void>;
   recordRun(run: ScanSummary): Promise<void>;
   lastRun(): Promise<ScanSummary | null>;
   listLatest(f: { symbol?: string; direction?: FinalSignal["direction"]; limit: number }): Promise<FinalSignal[]>;
