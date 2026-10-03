@@ -78,14 +78,11 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
  */
 export async function persistSignal(signal: FinalSignal, store: SignalStore, now: number): Promise<ScanOutcome> {
   await store.saveLatest(signal);
-  const atIso = new Date(now).toISOString();
-  const active = await store.findActive(signal.symbol, signal.timeframe.primary);
   if (signal.direction !== "LONG" && signal.direction !== "SHORT") return "not_emitted";
-  for (const a of active) {
-    // a running trade is never cancelled: it ends only by TP or SL
-    if (a.direction !== signal.direction && !a.entered) await store.setStatus(a.id, "CANCELLED", atIso);
-  }
-  if (active.some((a) => a.direction === signal.direction)) return "duplicate";
+  // One signal at a time per pair + timeframe: nothing new until the open one is complete
+  // (TP3 hit, SL hit, or entry window missed = EXPIRED).
+  const open = await store.findActive(signal.symbol, signal.timeframe.primary);
+  if (open.length > 0) return "duplicate";
   await store.insertSignal(signal);
   return "emitted";
 }
