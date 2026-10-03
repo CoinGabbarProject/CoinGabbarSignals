@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from "react";
 import type { Timeframe } from "../../../../shared/market.js";
 import { tokens } from "../../../../shared/designTokens.js";
