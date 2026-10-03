@@ -343,7 +343,7 @@ html,body{max-width:100%;overflow-x:hidden}
   applyLook();syncCfg();
   if(window.matchMedia)try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){if(S.theme==='auto')applyLook();});}catch(e){}
   document.addEventListener('DOMContentLoaded',applyLook);
-  document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('#cgs-theme-btn');if(t)CGS.toggleTheme();});
+
 
   var TFS=['1m','5m','15m','1h','4h','1d'];
   var TZ=[['Asia/Kolkata','India (IST)'],['UTC','UTC'],['America/New_York','New York'],['Europe/London','London'],['Asia/Dubai','Dubai'],['Asia/Singapore','Singapore'],['local','Device time']];
