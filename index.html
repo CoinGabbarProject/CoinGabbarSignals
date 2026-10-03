@@ -2112,10 +2112,10 @@ function calcPnL() {
     document.querySelectorAll("#reasoning-panel h3 .pill").forEach(function (e) { e.textContent = s.side; });
 
     // Position size calculator modal (only when closed so typing is never overwritten)
-    var bd = document.querySelector(".modal-backdrop");
+var bd = $("posCalcBackdrop");
     if (bd && !bd.classList.contains("open") && $("calcEntry")) {
-      $("calcBalance").value = c.balance; $("calcRisk").value = c.riskPct; $("calcEntry").value = a.price; $("calcStop").value = s.sl;
-      $("calcRiskAmount").textContent = fN(r.amt, 2) + " USDT"; $("calcPosition").textContent = fQ(r.qty) + " " + base;
+      $("calcBalance").value = c.balance; $("calcRisk").value = c.riskPct; $("calcLev").value = c.leverage;
+      $("calcEntry").value = a.price; $("calcStop").value = s.sl; $("calcTp").value = s.tp[0]; $("calcSym").value = base;
     }
     document.dispatchEvent(new CustomEvent("cg:update", { detail: CG.state }));
   }
