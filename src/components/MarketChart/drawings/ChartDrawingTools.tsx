@@ -277,7 +277,9 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") setMenuOpen(false); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden"; // page does not scroll behind the sheet
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prevOverflow; };
   }, [menuOpen]);
 
   // ---- history ----------------------------------------------------------
