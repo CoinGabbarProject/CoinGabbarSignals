@@ -952,6 +952,10 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             ${rr === null ? "—" : `1:${rr.toFixed(2)}`}
           </td>
 
+          <td class="${chgClass}">
+            ${chg === null ? "—" : dashboardPercent(chg)}
+          </td>
+
           <td>
             ${dashboardEscape(formatCreated(signal.createdAt))}
           </td>
