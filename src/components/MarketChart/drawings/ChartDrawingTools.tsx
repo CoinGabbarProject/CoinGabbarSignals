@@ -566,6 +566,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
           <div role="dialog" aria-modal="true" aria-label="Drawings" data-cg-sheet="" onClick={(e) => e.stopPropagation()}
             style={{ width: "min(560px, 100%)", maxHeight: "84vh", animation: "cgSheetUp 0.18s ease-out", display: "flex", flexDirection: "column", color: c.text.primary, background: c.bg.elevated,
               borderRadius: "18px 18px 0 0", border: `1px solid ${c.border.default}`, borderBottom: 0, boxShadow: "0 -12px 40px rgba(0, 0, 0, 0.45)" }}>
+            <style>{"@keyframes cgSheetUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){[data-cg-sheet]{animation:none!important}}"}</style>
             <div aria-hidden="true" style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, background: c.border.strong, margin: "8px 0 2px" }} />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 8px" }}>
               <strong style={{ fontSize: 20 }}>Drawings</strong>
