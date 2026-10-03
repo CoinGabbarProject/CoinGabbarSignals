@@ -1,6 +1,7 @@
 import type { Candle, Timeframe } from "../../shared/market.js";
 import type { NewsInput } from "../../shared/scoring.js";
-import type { FinalSignal } from "../models/signal.js";
+import { buildSignal } from "./signalBuilder.js";
+import { trackOutcomes } from "./tracker.js";
 import { buildSignal } from "./signalBuilder.js";
 import { CONFIRMATION_TF, EXECUTION_TF } from "./marketData.js";
 import type { MarketData } from "./marketData.js";
