@@ -96,6 +96,40 @@ const ICON = {
   close: "M6 6l12 12M18 6L6 18",
 } as const;
 
+/** Small circle (anchor point) as SVG path data. */
+const dot = (x: number, y: number): string => `M${x - 2} ${y}a2 2 0 1 0 4 0a2 2 0 1 0 -4 0`;
+const TOOL_ICON: Record<DrawingKind, string> = {
+  trend: `M7.5 16.5L16.5 7.5${dot(5, 19)}${dot(19, 5)}`,
+  ray: `M7.5 16.5L21 3${dot(5, 19)}`,
+  info: `M7.5 16.5L14.5 9.5${dot(5, 19)}${dot(16, 8)}M15 14h6v6h-6z`,
+  extended: `M9.5 14.5L14.5 9.5M3 21l2-2M19 5l2-2${dot(8, 16)}${dot(16, 8)}`,
+  angle: `M6 19h14M7 17.5L17 8${dot(5, 19)}${dot(18, 7)}M11 19a6 6 0 0 0-1-3`,
+  hline: `M3 12h7M14 12h7${dot(12, 12)}`,
+  hray: `M7 12h14${dot(5, 12)}`,
+  vline: `M12 3v7M12 14v7${dot(12, 12)}`,
+  cross: `M3 12h7M14 12h7M12 3v7M12 14v7${dot(12, 12)}`,
+  arrow: "M5 19L18 6M10 6h8v8",
+  channel: "M5 15L15 5M9 19L19 9",
+  pitchfork: `M5 19L20 4M9 21L21 9M3 15L15 3${dot(4, 20)}`,
+  fib: `M8 5h13M8 9.7h13M8 14.3h13M8 19h13${dot(5, 5)}${dot(5, 19)}`,
+  fibext: `M10 7h11M10 12h11M10 17h11M10 21h11M6.5 10.5L10 7${dot(5, 12)}${dot(8, 5)}`,
+  fibtime: `M9 4v16M13 4v16M17 4v16M21 4v16${dot(5, 8)}`,
+  rect: "M5 5h14v14H5z",
+  ellipse: "M12 5c4.4 0 8 3.1 8 7s-3.6 7-8 7-8-3.1-8-7 3.6-7 8-7z",
+  triangle: "M12 5L20 19H4z",
+  brush: "M4 16c3-8 5 4 8-2s4-6 8-4",
+  long: "M4 12h16M4 5h16v7M4 18h16",
+  short: "M4 12h16M4 19h16v-7M4 6h16",
+  measure: "M4 16l12-12 4 4L8 20zM8 12l2 2M11 9l2 2M14 6l2 2",
+  pricerange: "M5 5h14M5 19h14M12 8v8M9.5 10.5L12 8l2.5 2.5M9.5 13.5L12 16l2.5-2.5",
+  daterange: "M5 5v14M19 5v14M8 12h8M13.5 9.5L16 12l-2.5 2.5",
+  text: "M6 6h12M12 6v13M9 19h6",
+  label: "M3 12l5-5h13v10H8z",
+  flag: "M6 21V4M6 5h12l-3 4 3 4H6",
+  arrowup: "M12 20V6M6 12l6-6 6 6",
+  arrowdown: "M12 4v14M6 12l6 6 6-6",
+};
+
 interface TileProps { label: string; title?: string; icon?: ReactNode; active?: boolean; disabled?: boolean; onClick(): void }
 function Tile({ label, title, icon, active, disabled = false, onClick }: TileProps): ReactElement {
   return (
