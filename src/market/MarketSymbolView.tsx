@@ -227,6 +227,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           onReady={setChartApi}
         />
       </ChartDrawingTools>
+      </div>
     </section>
   );
 }
