@@ -203,6 +203,104 @@ button{cursor:pointer}.app{min-height:100vh;background:radial-gradient(circle at
 @media(max-width:760px){.cg-ticker{height:28px}.cg-ticker__item{font-size:10px;padding:0 12px}.topbar{top:28px!important}}
 @media(prefers-reduced-motion:reduce){.cg-ticker__track{animation-duration:200s}}
 </style>
+<style id="cg-responsive-fix">
+/* ===== CoinGabbar responsive layout fix (mobile + tablet + desktop) ===== */
+html,body{max-width:100%;overflow-x:hidden}
+.app{overflow-x:hidden}
+.main,.layout>*,.content-grid>*,.analysis-grid>*,.chartbox,.panel,.chart-panel,.tab-panel,#market-symbol-root{min-width:0;max-width:100%}
+.bars .bar{grid-template-columns:minmax(88px,36%) minmax(0,1fr) auto}
+.bars .bar i{display:block;min-width:0}
+.bars .bar span:last-child{text-align:right;white-space:nowrap}
+.panel.recent{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.recent table{border-collapse:collapse}
+.recent th,.recent td{white-space:nowrap}
+.recent td:nth-child(8).up{color:var(--green);font-weight:600}
+.recent td:nth-child(8).down{color:var(--red);font-weight:600}
+
+/* ---- Desktop (1051px and up) ---- */
+@media(min-width:1051px){
+  .layout{max-width:1440px;grid-template-columns:minmax(0,1fr) 270px}
+  .main{padding:20px 18px 32px}
+  .content-grid{grid-template-columns:minmax(0,1fr) 210px;gap:12px;padding:12px 0}
+  .analysis{padding:0 0 12px}
+  .analysis-grid{gap:12px}
+  .analysis .panel,.panel.recent,.signal-breakdown{padding:14px}
+  .panel h3{font-size:12px;margin-bottom:12px}
+  .reason{font-size:9.5px;padding:9px 0}.reason b{font-size:11px}
+  .mini h4{font-size:10px}.mini-row{font-size:9px}.mini-row b{font-size:10.5px}
+  .bars .bar{font-size:9px;margin:8px 0}
+  .recent table{font-size:10px;width:100%}
+  .recent th{padding:10px 12px;font-size:9.5px}.recent td{padding:11px 12px}
+  .perf-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+  .perf-card label{font-size:8.5px}.perf-card strong{font-size:14px}.perf-card small{font-size:7.5px}
+  .data-card label{font-size:8px}.data-card strong{font-size:11px}
+  .footer{max-width:1440px}
+}
+
+/* ---- Tablet (761px to 1050px) ---- */
+@media(min-width:761px) and (max-width:1050px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .main{padding:14px 12px 26px}
+  .content-grid{grid-template-columns:minmax(0,1fr) 190px}
+  .analysis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analysis-grid>:first-child{grid-column:1/-1}
+  .recent table{font-size:9px;min-width:760px}
+  .recent th,.recent td{padding:9px 10px}
+  .perf-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* ---- Mobile (760px and below) ---- */
+@media(max-width:760px){
+  .layout{display:block}
+  .main{padding:10px 8px 24px}
+  .content-grid{grid-template-columns:minmax(0,1fr);padding:8px 0}
+  .analysis{padding:0 0 8px}
+  .analysis-grid{grid-template-columns:minmax(0,1fr)}
+  .market-strip,.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .side-summary{grid-template-columns:minmax(0,1fr)}
+  .topbar{flex-wrap:wrap;align-items:center}
+  .brand{flex:0 1 auto;width:auto;min-width:0}
+  .login{margin-left:auto;flex:0 0 auto}
+  .topnav{order:3;flex:1 1 100%;width:100%;display:flex;grid-template-columns:none;justify-content:flex-start;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .topnav::-webkit-scrollbar{display:none}
+  .topnav a{flex:0 0 auto;width:auto;padding:7px 10px;font-size:9px;white-space:nowrap;overflow:visible;text-overflow:clip}
+  .topnav a span{font-size:9px}
+  .perf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .panel h3{font-size:11px;line-height:1.4}
+  .panel h3>span{float:none!important;display:block;margin-top:4px;font-size:8px;line-height:1.5}
+  .reason{font-size:8.5px}.reason b{font-size:10px}
+  .bars .bar{font-size:9px}
+  .data-grid,.context-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chart{height:260px}
+
+  /* Recent Signals: table becomes one card per signal */
+  .panel.recent{overflow-x:hidden;padding:10px}
+  .recent table,.recent tbody{display:block;width:100%}
+  .recent thead{display:none}
+  .recent tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px 8px;margin:8px 0;padding:10px;border:1px solid #18314e;border-radius:6px;background:#07182b}
+  .recent td{display:block;min-width:0;padding:0;border:0;font-size:10px;white-space:normal;overflow-wrap:anywhere}
+  .recent td::before{display:block;margin-bottom:2px;color:#71869d;font-size:7.5px;font-weight:500}
+  .recent td:nth-child(1){grid-column:span 2;font-size:11px}
+  .recent td:nth-child(1)::before{content:"Pair"}
+  .recent td:nth-child(2)::before{content:"Direction"}
+  .recent td:nth-child(3)::before{content:"Entry"}
+  .recent td:nth-child(4)::before{content:"Stop Loss"}
+  .recent td:nth-child(5)::before{content:"TP1"}
+  .recent td:nth-child(6)::before{content:"TP2"}
+  .recent td:nth-child(7)::before{content:"TP3"}
+  .recent td:nth-child(8)::before{content:"Status"}
+  .recent td:nth-child(9)::before{content:"R:R"}
+  .recent td:nth-child(10)::before{content:"Change %"}
+  .recent td:nth-child(11)::before{content:"Created"}
+  .recent td:nth-child(8){grid-column:span 2}
+  .recent td:nth-child(11){grid-column:1/-1}
+  .recent td:nth-child(1){order:1}.recent td:nth-child(2){order:2}
+  .recent td:nth-child(8){order:3}.recent td:nth-child(10){order:4}
+  .recent td:nth-child(3){order:5}.recent td:nth-child(4){order:6}.recent td:nth-child(5){order:7}
+  .recent td:nth-child(6){order:8}.recent td:nth-child(7){order:9}.recent td:nth-child(9){order:10}
+  .recent td:nth-child(11){order:11}
+}
+</style>
 </head>
 <body>
 <div class="app">
