@@ -911,13 +911,17 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
       const status = signal.status ?? "UNKNOWN";
 
       const statusClass =
-        status === "ACTIVE"
+        status === "ACTIVE" ||
+        status === "CLOSED" ||
+        status === "TP1_HIT" ||
+        status === "TP2_HIT" ||
+        status === "TP3_HIT"
           ? "up"
-          : status === "CLOSED"
-            ? "up"
-            : status === "CANCELLED" || status === "EXPIRED"
-              ? "down"
-              : "";
+          : status === "CANCELLED" ||
+              status === "EXPIRED" ||
+              status === "SL_HIT"
+            ? "down"
+            : "";
 
       const symbol = (signal.symbol ?? "")
         .replace(/USDT$/i, "/USDT")
