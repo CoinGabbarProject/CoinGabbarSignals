@@ -79,11 +79,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
 export async function persistSignal(signal: FinalSignal, store: SignalStore, now: number): Promise<ScanOutcome> {
   await store.saveLatest(signal);
   const atIso = new Date(now).toISOString();
-  let active = await store.findActive(signal.symbol, signal.timeframe.primary);
-  for (const a of active) {
-    if (new Date(a.entry.expiry).getTime() <= now) await store.setStatus(a.id, "EXPIRED", atIso);
-  }
-  active = active.filter((a) => new Date(a.entry.expiry).getTime() > now);
+  const active = await store.findActive(signal.symbol, signal.timeframe.primary);
   if (signal.direction !== "LONG" && signal.direction !== "SHORT") return "not_emitted";
   for (const a of active) {
     if (a.direction !== signal.direction) await store.setStatus(a.id, "CANCELLED", atIso);
