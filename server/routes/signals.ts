@@ -147,7 +147,12 @@ router.get("/signals", async (req, res) => {
           createdAt: Number.isFinite(created) ? created : Date.now(),
           ...(closed !== undefined && Number.isFinite(closed) ? { closedAt: closed } : {}),
           ...(d?.outcome
-            ? { exit: d.outcome.exit, outcomeClosed: Boolean(d.outcome.closed) }
+            ? {
+                exit: d.outcome.exit,
+                outcomeClosed: Boolean(d.outcome.closed),
+                outcomeAt: Date.parse(d.outcome.at ?? ""),
+                hits: d.outcome.hits ?? {},
+              }
             : {}),
         };
       });
