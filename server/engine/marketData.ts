@@ -20,7 +20,7 @@ export interface MarketSnapshot {
 
 export interface MarketData {
   /** CLOSED candles only, oldest first. `now` decides which candle is still forming. */
-  getCandles(symbol: string, tf: Timeframe, limit: number, now: number): Promise<Candle[]>;
+  getCandles(symbol: string, tf: Timeframe, limit: number, now: number, includeForming?: boolean): Promise<Candle[]>;
   getTicker24h(symbol: string): Promise<Ticker24h>;
   /** Each field is null when its endpoint failed or is unavailable. */
   getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput>;
