@@ -177,7 +177,7 @@ export interface ChartDrawingToolsProps {
  * Drawing toolbar + interaction layer. Drawings are saved per symbol in localStorage.
  * Cursor mode: click selects, drag a handle edits one anchor, drag a body moves the whole drawing.
  */
-export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDrawingToolsProps): ReactElement {
+export function ChartDrawingTools({ api, symbol, timeframe, indicators, children }: ChartDrawingToolsProps): ReactElement {
   const primRef = useRef<DrawingsPrimitive | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const placedRef = useRef<Anchor[]>([]);
