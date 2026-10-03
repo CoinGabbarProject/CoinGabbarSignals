@@ -106,7 +106,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
       : `${value.toFixed(2)}%`;
 
   return (
-    <section className="chartbox" aria-label={`${label} market chart`} style={{ minWidth: 0 }}>
+    <section className="chartbox" aria-label={`${label} market chart`} style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
       <div style={bar}>
         <strong style={{ marginRight: 8 }}>{label}</strong>
         <div role="group" aria-label="Timeframe" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
