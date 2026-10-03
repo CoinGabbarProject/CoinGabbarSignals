@@ -652,6 +652,7 @@ async function refreshDashboardAnalytics(): Promise<void> {
 
     renderRecentSignals(signals);
     renderPerformanceSummary(signals);
+    renderPerformancePage(signals);
   } catch (error) {
     console.error(
       "CoinGabbarSignals dashboard analytics:",
