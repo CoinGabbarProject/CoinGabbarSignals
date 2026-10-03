@@ -95,7 +95,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
         changed++;
       } else if (ev?.kind === "outcome") {
         const o = ev.outcome;
-        if (s.status === o.status && Boolean(s.outcome?.closed) === o.closed) continue;
+        if (s.status === o.status && Boolean(s.outcome?.closed) === o.closed && s.outcome?.hits) continue;
         await deps.store.setOutcome(s.id, o, atIso);
         changed++;
       } else if (ev?.kind === "entered") {
