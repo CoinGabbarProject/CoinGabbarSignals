@@ -7,6 +7,7 @@ const router = Router();
 
 const SIDES = ["LONG", "SHORT", "NO_TRADE"] as const;
 const STATUSES = ["ACTIVE", "CLOSED", "CANCELLED", "EXPIRED"] as const;
+const FILTER_STATUSES = [...STATUSES, "TP1_HIT", "TP2_HIT", "TP3_HIT", "SL_HIT"] as const;
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as const;
 
 const signalSchema = z
