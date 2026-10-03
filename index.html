@@ -329,8 +329,7 @@ html,body{max-width:100%;overflow-x:hidden}
   function applyLook(){
     var r=document.documentElement;
     r.setAttribute('data-theme',effTheme());r.setAttribute('data-fs',S.fs);
-    var b=document.getElementById('cgs-theme-btn');
-    if(b){b.textContent=effTheme()==='dark'?'☀':'☾';b.title=effTheme()==='dark'?'Switch to light theme':'Switch to dark theme';}
+    
   }
   function syncCfg(){
     var C=(window.CG=window.CG||{});C.cfg=Object.assign(C.cfg||{},{balance:+S.balance,riskPct:+S.riskPct,leverage:+S.leverage,refreshMs:+S.refreshMs});
