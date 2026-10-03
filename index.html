@@ -934,9 +934,119 @@ watchBtn?.addEventListener('click',()=>{ const added=watchBtn.classList.toggle('
 document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{t.classList.toggle('off');showToast(t.classList.contains('off')?'Alert disabled':'Alert enabled')}));
 
 // Position size calculator
-const backdrop=document.createElement('div'); backdrop.className='modal-backdrop'; backdrop.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>Position Size Calculator</h3><div class="modal-grid"><div><label>Account Balance</label><input id="calcBalance" type="number" value="1000"></div><div><label>Risk %</label><input id="calcRisk" type="number" step="0.1" value="1"></div><div><label>Entry Price</label><input id="calcEntry" type="number" value="65248.32"></div><div><label>Stop Loss</label><input id="calcStop" type="number" value="64500"></div></div><div class="detail-row" style="margin-top:8px"><span>Risk Amount</span><b id="calcRiskAmount">10.00 USDT</b></div><div class="detail-row"><span>Position Size</span><b id="calcPosition">0.0130 BTC</b></div><div class="modal-footer"><button class="mini-action" id="calcClose">Close</button><button class="mini-action primary" id="calcApply">Use Calculation</button></div></div>`; document.body.appendChild(backdrop);
-function recalc(){const bal=+document.getElementById('calcBalance').value||0,risk=+document.getElementById('calcRisk').value||0,e=+document.getElementById('calcEntry').value||0,sl=+document.getElementById('calcStop').value||0;const amt=bal*risk/100,size=Math.abs(e-sl)>0?amt/Math.abs(e-sl):0;document.getElementById('calcRiskAmount').textContent=amt.toFixed(2)+' USDT';document.getElementById('calcPosition').textContent=size.toFixed(size>=1?2:size>=0.01?4:6)+' '+((window.CG&&CG.state&&CG.state.base)||'BTC')}
-document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdrop.classList.add('open');recalc()}); backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('open')}); backdrop.querySelectorAll('input').forEach(i=>i.addEventListener('input',recalc)); backdrop.querySelector('#calcClose').addEventListener('click',()=>backdrop.classList.remove('open')); backdrop.querySelector('#calcApply').addEventListener('click',()=>{showToast('Position size calculation applied');backdrop.classList.remove('open')});
+(function(){
+  /* ===== POSITION SIZE CALCULATOR (v2) ===== */
+  var st=document.createElement('style');
+  st.textContent='.pc-modal{width:min(440px,100%);max-height:92vh;overflow:auto}.pc-modal h3{font-size:15px!important}.pc-modal label{font-size:11px!important}.pc-modal input,.pc-modal select{font-size:16px!important;height:38px!important;width:100%;border:1px solid #1b3b5d;border-radius:4px;background:#07182b;color:inherit;padding:0 8px}.pc-modal .detail-row{font-size:12px!important}.pc-modal .detail-row b{font-size:13px!important}.pc-modal .mini-action{font-size:12px;padding:9px 14px}.pc-warn{margin-top:8px;padding:7px 9px;border-radius:4px;background:#3a0d16;color:#ff8a99;font-size:11px;line-height:1.4}.pc-side{display:inline-block;padding:2px 8px;border-radius:3px;font-weight:700}.pc-side.up{background:#0c3a2a;color:#4beaa9}.pc-side.down{background:#3a0d16;color:#ff6b7d}html[data-theme=light] .pc-modal input,html[data-theme=light] .pc-modal select{background:#fff;color:#142235;border-color:#c3d2e3}';
+  document.head.appendChild(st);
+
+  var bd=document.createElement('div'); bd.className='modal-backdrop'; bd.id='posCalcBackdrop';
+  bd.innerHTML='<div class="modal pc-modal" role="dialog" aria-modal="true"><h3>Position Size Calculator</h3>'
+  +'<div class="modal-grid">'
+  +'<div><label>Account Balance (USDT)</label><input id="calcBalance" type="number" inputmode="decimal" step="any" value="1000"></div>'
+  +'<div><label>Risk %</label><input id="calcRisk" type="number" inputmode="decimal" step="0.1" value="1"></div>'
+  +'<div><label>Entry Price</label><input id="calcEntry" type="number" inputmode="decimal" step="any" value="65248.32"></div>'
+  +'<div><label>Stop Loss</label><input id="calcStop" type="number" inputmode="decimal" step="any" value="64500"></div>'
+  +'<div><label>Take Profit (optional)</label><input id="calcTp" type="number" inputmode="decimal" step="any" value=""></div>'
+  +'<div><label>Leverage (x)</label><input id="calcLev" type="number" inputmode="decimal" step="1" min="1" value="5"></div>'
+  +'<div><label>Fee % (per side)</label><input id="calcFee" type="number" inputmode="decimal" step="0.01" value="0.05"></div>'
+  +'<div><label>Symbol</label><input id="calcSym" type="text" value="BTC" maxlength="12" style="text-transform:uppercase"></div>'
+  +'</div>'
+  +'<div style="margin-top:10px">'
+  +'<div class="detail-row"><span>Direction (auto)</span><b id="calcSide">-</b></div>'
+  +'<div class="detail-row"><span>Risk Amount</span><b id="calcRiskAmount">-</b></div>'
+  +'<div class="detail-row"><span>SL Distance</span><b id="calcDist">-</b></div>'
+  +'<div class="detail-row"><span>Position Size</span><b id="calcPosition">-</b></div>'
+  +'<div class="detail-row"><span>Position Value (Notional)</span><b id="calcNotional">-</b></div>'
+  +'<div class="detail-row"><span>Margin Required</span><b id="calcMargin">-</b></div>'
+  +'<div class="detail-row"><span>Est. Fees (entry + exit)</span><b id="calcFees">-</b></div>'
+  +'<div class="detail-row"><span>Liquidation (approx)</span><b id="calcLiq">-</b></div>'
+  +'<div class="detail-row"><span>Max Loss at SL</span><b id="calcMaxLoss">-</b></div>'
+  +'<div class="detail-row"><span>Profit at TP</span><b id="calcProfit">-</b></div>'
+  +'<div class="detail-row"><span>Risk / Reward</span><b id="calcRR">-</b></div>'
+  +'</div><div id="calcWarn"></div>'
+  +'<div class="modal-footer"><button class="mini-action" id="calcClose">Close</button><button class="mini-action primary" id="calcApply">Use Calculation</button></div></div>';
+  document.body.appendChild(bd);
+
+  var $=function(id){return document.getElementById(id)};
+  var num=function(id){var v=parseFloat($(id).value);return isFinite(v)?v:0};
+  var money=function(n){return isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' USDT':'-'};
+  var qtyF=function(n){return isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:n>=100?0:n>=1?2:n>=0.01?4:6}):'-'};
+  var priceF=function(n){return isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:n>=100?2:n>=1?4:8}):'-'};
+  var last=null;
+
+  function recalc(){
+    var bal=num('calcBalance'),rp=num('calcRisk'),e=num('calcEntry'),sl=num('calcStop'),tp=num('calcTp'),lev=Math.max(1,num('calcLev')||1),fee=num('calcFee')/100;
+    var sym=($('calcSym').value||'BTC').toUpperCase().replace(/USDT$/,'');
+    var warn=[],ids=['calcSide','calcRiskAmount','calcDist','calcPosition','calcNotional','calcMargin','calcFees','calcLiq','calcMaxLoss','calcProfit','calcRR'];
+    var riskAmt=bal*rp/100,dist=Math.abs(e-sl);
+    if(!(bal>0&&rp>0&&e>0&&sl>0)||dist===0){
+      ids.forEach(function(i){$(i).textContent='-'}); last=null;
+      $('calcWarn').innerHTML='<div class="pc-warn">Balance, Risk %, Entry aur Stop Loss sahi daalein (Entry aur SL alag hone chahiye).</div>'; return;
+    }
+    var long=sl<e;                                  // SL niche = LONG, SL upar = SHORT
+    var perUnitLoss=dist+(e+sl)*fee;                // SL loss + entry/exit fees per 1 unit
+    var qty=riskAmt/perUnitLoss;
+    var notional=qty*e,margin=notional/lev,fees=qty*(e+sl)*fee;
+    var liq=long?e*(1-1/lev+0.005):e*(1+1/lev-0.005);
+    var maxLoss=qty*dist+fees;
+    $('calcSide').innerHTML='<span class="pc-side '+(long?'up':'down')+'">'+(long?'LONG':'SHORT')+'</span>';
+    $('calcRiskAmount').textContent=money(riskAmt);
+    $('calcDist').textContent=priceF(dist)+' ('+(dist/e*100).toFixed(2)+'%)';
+    $('calcPosition').textContent=qtyF(qty)+' '+sym;
+    $('calcNotional').textContent=money(notional);
+    $('calcMargin').textContent=money(margin);
+    $('calcFees').textContent=money(fees);
+    $('calcLiq').textContent=priceF(liq);
+    $('calcMaxLoss').textContent=money(maxLoss);
+    if(tp>0&&((long&&tp>e)||(!long&&tp<e))){
+      var gain=qty*Math.abs(tp-e)-qty*(e+tp)*fee;
+      $('calcProfit').textContent=money(gain);
+      $('calcRR').textContent='1 : '+(Math.abs(tp-e)/dist).toFixed(2);
+    }else{
+      $('calcProfit').textContent='-'; $('calcRR').textContent='-';
+      if(tp>0) warn.push('Take Profit '+(long?'Entry se upar':'Entry se niche')+' hona chahiye.');
+    }
+    if(margin>bal) warn.push('Margin ('+money(margin)+') balance se zyada hai. Leverage badhayein ya Risk % kam karein.');
+    if(long?sl<=liq:sl>=liq) warn.push('Stop Loss liquidation price se pehle hit nahi hoga - leverage kam karein.');
+    if(rp>3) warn.push('Risk 3% se zyada hai - high risk.');
+    $('calcWarn').innerHTML=warn.map(function(w){return '<div class="pc-warn">'+w+'</div>'}).join('');
+    last={bal:bal,rp:rp,lev:lev,riskAmt:riskAmt,qty:qty,margin:margin,liq:liq,sym:sym};
+  }
+  function open(){
+    var C=(window.CG&&CG.cfg)||{},S=(window.CG&&CG.state)||{};
+    if(S.signal){ $('calcEntry').value=S.price||S.signal.entry; $('calcStop').value=S.signal.sl; $('calcTp').value=(S.signal.tp&&S.signal.tp[0])||''; }
+    if(C.balance) $('calcBalance').value=C.balance;
+    if(C.riskPct) $('calcRisk').value=C.riskPct;
+    if(C.leverage) $('calcLev').value=C.leverage;
+    if(S.base) $('calcSym').value=S.base;
+    bd.classList.add('open'); recalc();
+  }
+  function close(){bd.classList.remove('open')}
+
+  // Delegated click: har "Position Size Calculator" button par chalega (re-render ke baad bhi)
+  document.addEventListener('click',function(ev){
+    var b=ev.target.closest&&ev.target.closest('button,.calculator-btn,[data-open-calc]');
+    if(b&&(b.classList.contains('calculator-btn')||b.hasAttribute('data-open-calc')||/Position Size Calculator/i.test(b.textContent||''))&&!bd.contains(b)){ev.preventDefault();open()}
+  });
+  bd.addEventListener('click',function(e){if(e.target===bd)close()});
+  bd.querySelectorAll('input').forEach(function(i){i.addEventListener('input',recalc)});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+  $('calcClose').addEventListener('click',close);
+  $('calcApply').addEventListener('click',function(){
+    if(!last){showToast('Pehle sahi values daalein');return}
+    if(window.CG){CG.cfg=CG.cfg||{};CG.cfg.balance=last.bal;CG.cfg.riskPct=last.rp;CG.cfg.leverage=last.lev}
+    document.querySelectorAll('.mini,.panel').forEach(function(p){
+      var h=p.querySelector(':scope > h4, :scope > h3'); if(!h||h.textContent.trim()!=='Risk Management')return;
+      var set=function(l,v){p.querySelectorAll('.mini-row').forEach(function(r){var s=r.querySelector('span'),b=r.querySelector('b');if(s&&b&&s.textContent.trim()===l)b.textContent=v})};
+      set('Account Balance',money(last.bal)); set('Risk %',last.rp+'%'); set('Risk Amount',money(last.riskAmt));
+      set('Position Size',qtyF(last.qty)+' '+last.sym); set('Leverage',last.lev+'x'); set('Margin Required',money(last.margin));
+      set('Max Loss',money(last.riskAmt)); set('Liquidation Price',priceF(last.liq)+' (approx)');
+    });
+    showToast('Position size calculation applied'); close();
+  });
+  window.openPositionCalculator=open;
+})();
 </script>
   <script>
 (function () {
