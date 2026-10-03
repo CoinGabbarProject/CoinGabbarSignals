@@ -16,6 +16,8 @@ type DashboardSignal = {
     | "TP3_HIT"
     | "SL_HIT";
   outcomeClosed?: boolean;
+  outcomeAt?: number;
+  hits?: { tp1?: number; tp2?: number; tp3?: number; sl?: number };
   timeframe?: string;
   score?: number;
   entry?: number;
