@@ -464,7 +464,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
   };
 
   const status = def ? (def.points === 0 ? `${def.title}` : `${def.title}: point ${Math.min(placedCount + 1, def.points)}/${def.points}`) : null;
-  const catTools = tab === "tools" ? [] : TOOLS.filter((t) => t.cat === tab);
+  const catTools = (SHEET_GROUPS.find((g) => g.id === tab)?.kinds ?? []).flatMap((k) => { const d = toolOf(k); return d ? [d] : []; });
   const showOverlay = tool === "cursor" && (hover !== "none" || dragging);
 
   return (
