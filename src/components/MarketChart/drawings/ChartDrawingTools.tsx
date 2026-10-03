@@ -563,7 +563,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
       {menuOpen && createPortal(
         <div role="presentation" onClick={() => setMenuOpen(false)}
           style={{ position: "fixed", inset: 0, zIndex: 1000, background: c.bg.overlay, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div role="dialog" aria-modal="true" aria-label="Drawings" onClick={(e) => e.stopPropagation()}
+          <div role="dialog" aria-modal="true" aria-label="Drawings" data-cg-sheet="" onClick={(e) => e.stopPropagation()}
             style={{ width: "min(560px, 100%)", maxHeight: "84vh", display: "flex", flexDirection: "column", color: c.text.primary, background: c.bg.elevated,
               borderRadius: "18px 18px 0 0", border: `1px solid ${c.border.default}`, borderBottom: 0, boxShadow: "0 -12px 40px rgba(0, 0, 0, 0.45)" }}>
             <div aria-hidden="true" style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, background: c.border.strong, margin: "8px 0 2px" }} />
