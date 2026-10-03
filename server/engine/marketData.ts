@@ -85,7 +85,7 @@ export class BinanceMarketData implements MarketData {
     }
   }
 
-  async getCandles(symbol: string, tf: Timeframe, limit: number, now: number): Promise<Candle[]> {
+  async getCandles(symbol: string, tf: Timeframe, limit: number, now: number, includeForming = false): Promise<Candle[]> {
     const raw = await this.getJson(this.cfg.spotUrl, "/api/v3/klines", { symbol, interval: BINANCE_INTERVAL[tf], limit: Math.min(limit + 1, 1000) });
     const out: Candle[] = [];
     for (const row of asArray(raw)) {
