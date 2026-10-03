@@ -19,7 +19,7 @@ export interface SignalOutcome {
   exit: number;
   closed: boolean;
 }
-export const TRACKABLE_STATUSES = ["ACTIVE", "EXPIRED", "TP1_HIT", "TP2_HIT"] as const;
+export const TRACKABLE_STATUSES = ["ACTIVE", "TP1_HIT", "TP2_HIT"] as const;
 
 /** Persistence used by the scanner. Mongo in production, memory in tests/dev. */
 export interface SignalStore {
