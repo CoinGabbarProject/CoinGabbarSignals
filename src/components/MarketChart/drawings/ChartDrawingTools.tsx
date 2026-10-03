@@ -47,7 +47,7 @@ const SHEET_GROUPS: ReadonlyArray<{ id: GroupId; label: string; kinds: readonly 
   { id: "forecast", label: "Forecasting and measurement", kinds: ["long", "short", "measure", "pricerange", "daterange"] },
   { id: "notes", label: "Annotation", kinds: ["text", "label", "flag", "arrowup", "arrowdown"] },
 ];
-const SHEET_TABS: ReadonlyArray<{ id: SheetTab; label: string }> = [{ id: "tools", label: "Tools" }, { id: "indicators", label: "Indicators" }, ...SHEET_GROUPS.map((g) => ({ id: g.id, label: g.label }))];
+const SHEET_TABS: ReadonlyArray<{ id: SheetTab; label: string }> = [{ id: "favorites", label: "Favorites" }, { id: "tools", label: "Tools" }, { id: "indicators", label: "Indicators" }, ...SHEET_GROUPS.map((g) => ({ id: g.id, label: g.label }))];
 
 const TILE_LABEL: Record<DrawingKind, string> = {
   trend: "Trend Line", ray: "Ray", info: "Info Line", extended: "Extended Line", angle: "Trend Angle", hline: "Horizontal Line", hray: "Horizontal Ray",
