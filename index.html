@@ -1878,7 +1878,7 @@ drop.style.cssText="position:fixed;display:none;z-index:99999;max-height:260px;o
     var m=COINS.filter(function(c){return !q||c.indexOf(q)===0;});
     if(!m.length){ hide(); return; }
     drop.innerHTML=m.map(function(c){
-      return '<div class="pd-item" data-c="'+c+'" style="padding:8px 12px;font-size:12px;color:#cfe0f1;cursor:pointer;border-bottom:1px solid #12283f">'+c+'<span style="color:#66809d">/USDT</span></div>';
+      return '<div class="pd-item" data-c="'+c+'" style="padding:11px 14px;font-size:14px;font-weight:600;color:#ffffff;cursor:pointer;border-bottom:1px solid #1c3552;forced-color-adjust:none">'+c+'<span style="color:#9fb6cf;font-weight:400">/USDT</span></div>';
     }).join("");
     var r=inp.getBoundingClientRect();
     drop.style.top=(r.bottom+4)+"px";
