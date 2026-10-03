@@ -82,7 +82,8 @@ export async function persistSignal(signal: FinalSignal, store: SignalStore, now
   const active = await store.findActive(signal.symbol, signal.timeframe.primary);
   if (signal.direction !== "LONG" && signal.direction !== "SHORT") return "not_emitted";
   for (const a of active) {
-    if (a.direction !== signal.direction) await store.setStatus(a.id, "CANCELLED", atIso);
+    // a running trade is never cancelled: it ends only by TP or SL
+    if (a.direction !== signal.direction && !a.entered) await store.setStatus(a.id, "CANCELLED", atIso);
   }
   if (active.some((a) => a.direction === signal.direction)) return "duplicate";
   await store.insertSignal(signal);
