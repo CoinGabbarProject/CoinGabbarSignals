@@ -2,7 +2,7 @@ import type { Candle, Timeframe } from "../../shared/market.js";
 import type { FinalSignal } from "../models/signal.js";
 import { EXECUTION_TF } from "./marketData.js";
 import type { MarketData } from "./marketData.js";
-import type { SignalOutcome, SignalStore } from "./store.js";
+import type { SignalHits, SignalOutcome, SignalStore } from "./store.js";
 
 const TF_MS: Record<string, number> = {
   "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000,
