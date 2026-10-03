@@ -794,7 +794,7 @@ function tick(){var z=(window.CGS&&CGS.get().tz)||'Asia/Kolkata',o=z==='local'?{
     t=new Intl.DateTimeFormat('en-US',Object.assign({hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true},o)).format(n);
     var lab=z==='Asia/Kolkata'?'IST':z==='local'?'Local':z==='UTC'?'UTC':z.split('/').pop().replace('_',' ');
     el.textContent=d+', '+t+' ('+lab+')';}
-  function tick(){var n=new Date();el.textContent=fmtD.format(n)+', '+fmtT.format(n)+' (IST)';}
+  
   tick(); setInterval(tick,1000);
 })();
 </script>
