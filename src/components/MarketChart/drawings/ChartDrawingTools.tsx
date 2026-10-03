@@ -627,6 +627,16 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
                 ))
               )}
             </div>
+            {tab === "favorites" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderTop: `1px solid ${c.border.subtle}` }}>
+                <Ico d={ICON.pencil} />
+                <span style={{ flex: 1, fontSize: 15 }}>Show favorites on Chart</span>
+                <button type="button" role="switch" aria-checked={showFavBar} aria-label="Show favorites on Chart" onClick={toggleFavBar}
+                  style={{ width: 46, height: 26, borderRadius: 999, padding: 2, border: 0, cursor: "pointer", display: "flex", justifyContent: showFavBar ? "flex-end" : "flex-start", background: showFavBar ? c.accent.primary : c.border.strong }}>
+                  <span style={{ width: 22, height: 22, borderRadius: "50%", background: c.text.primary }} />
+                </button>
+              </div>
+            )}
           </div>
         </div>,
         document.body,
