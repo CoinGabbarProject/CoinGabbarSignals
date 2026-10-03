@@ -982,7 +982,7 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
     var riskAmt=bal*rp/100,dist=Math.abs(e-sl);
     if(!(bal>0&&rp>0&&e>0&&sl>0)||dist===0){
       ids.forEach(function(i){$(i).textContent='-'}); last=null;
-      $('calcWarn').innerHTML='<div class="pc-warn">Balance, Risk %, Entry aur Stop Loss sahi daalein (Entry aur SL alag hone chahiye).</div>'; return;
+      $('calcWarn').innerHTML='<div class="pc-warn">Enter a valid Balance, Risk %, Entry and Stop Loss (Entry and Stop Loss must be different).</div>'; return;
     }
     var long=sl<e;                                  // SL niche = LONG, SL upar = SHORT
     var perUnitLoss=dist+(e+sl)*fee;                // SL loss + entry/exit fees per 1 unit
@@ -1005,11 +1005,11 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
       $('calcRR').textContent='1 : '+(Math.abs(tp-e)/dist).toFixed(2);
     }else{
       $('calcProfit').textContent='-'; $('calcRR').textContent='-';
-      if(tp>0) warn.push('Take Profit '+(long?'Entry se upar':'Entry se niche')+' hona chahiye.');
+      if(tp>0) warn.push('Take Profit must be '+(long?'above':'below')+' the Entry price.');
     }
-    if(margin>bal) warn.push('Margin ('+money(margin)+') balance se zyada hai. Leverage badhayein ya Risk % kam karein.');
-    if(long?sl<=liq:sl>=liq) warn.push('Stop Loss liquidation price se pehle hit nahi hoga - leverage kam karein.');
-    if(rp>3) warn.push('Risk 3% se zyada hai - high risk.');
+    if(margin>bal) warn.push('Required margin ('+money(margin)+') exceeds your balance. Increase leverage or reduce Risk %.');
+    if(long?sl<=liq:sl>=liq) warn.push('Liquidation price is reached before your Stop Loss - reduce leverage.');
+    if(rp>3) warn.push('Risk is above 3% - high risk.');
     $('calcWarn').innerHTML=warn.map(function(w){return '<div class="pc-warn">'+w+'</div>'}).join('');
     last={bal:bal,rp:rp,lev:lev,riskAmt:riskAmt,qty:qty,margin:margin,liq:liq,sym:sym};
   }
