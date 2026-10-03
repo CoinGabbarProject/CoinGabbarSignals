@@ -125,6 +125,9 @@ export class EngineService {
           return { symbol, direction: "NO_TRADE", score: 0, outcome: "error", error: errMsg(e) };
         }
       });
+      try {
+        await trackOutcomes({ market: this.deps.market, store: this.deps.store, now: this.deps.now, log: this.log });
+      } catch (e) { this.log.error(`[scan] outcome tracking failed: ${errMsg(e)}`); }
       const summary: ScanSummary = {
         startedAt, finishedAt: new Date(this.now).toISOString(), timeframe: tf,
         scanned: symbols.length, emitted: results.filter((r) => r.outcome === "emitted").length,
