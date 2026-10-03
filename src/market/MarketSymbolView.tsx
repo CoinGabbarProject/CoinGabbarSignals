@@ -264,7 +264,15 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
       )}
 
       <div style={{ order: 1, minWidth: 0 }}>
-      <ChartDrawingTools api={chartApi} symbol={label} timeframe={timeframe}>
+      <ChartDrawingTools
+        api={chartApi}
+        symbol={label}
+        timeframe={timeframe}
+        indicators={{
+          items: INDICATORS.map((i) => ({ key: i.key, label: i.label, active: active.has(i.key) })),
+          onToggle: (k) => { const hit = INDICATORS.find((i) => i.key === k); if (hit) toggle(hit.key); },
+        }}
+      >
         <MarketChart
           symbol={label}
           timeframe={timeframe}
