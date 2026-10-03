@@ -511,7 +511,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
                 </>
               ) : (
                 catTools.map((t) => (
-                  <Tile key={t.kind} label={t.label} title={t.title} active={tool === t.kind} onClick={() => { pickTool(t.kind); setMenuOpen(false); }} />
+                  <Tile key={t.kind} label={TILE_LABEL[t.kind]} title={t.title} icon={<Ico d={TOOL_ICON[t.kind]} />} active={tool === t.kind}
                 ))
               )}
             </div>
