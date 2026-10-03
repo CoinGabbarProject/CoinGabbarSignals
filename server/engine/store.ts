@@ -14,8 +14,10 @@ export interface ScanSummary {
   scanned: number; emitted: number; errors: number; results: SymbolResult[];
 }
 export type SignalFilterStatus = "ACTIVE" | "CANCELLED" | "EXPIRED";
+export interface SignalHits { tp1?: number; tp2?: number; tp3?: number; sl?: number }
 export interface SignalOutcome {
-  status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT";
+  hits?: SignalHits;
+  status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT",
   exit: number;
   closed: boolean;
 }
