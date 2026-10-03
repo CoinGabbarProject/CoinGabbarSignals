@@ -46,6 +46,7 @@ const isClosedSignal = (s: DashboardSignal): boolean =>
     s.outcomeClosed === true);
 
 const STATUS_LABEL: Record<string, string> = {
+  EXPIRED: "EXPIRED · NO ENTRY",
   TP1_HIT: "TP1 HIT ✅",
   TP2_HIT: "TP2 HIT ✅",
   TP3_HIT: "TP3 HIT ✅",
