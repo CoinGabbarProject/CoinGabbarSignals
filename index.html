@@ -550,6 +550,35 @@ html[data-theme=light] [style*="color:#71869d"],html[data-theme=light] [style*="
 html[data-theme=light] [style*="border-bottom:1px solid #12283f"],html[data-theme=light] [style*="border-top:1px solid #18314e"]{border-color:#d9e2ec!important}
 html[data-theme=light] [style*="color:#19df91"]{color:#0a9b62!important}
 </style>
+<style id="cg-recent-compact">
+@media(max-width:760px){
+.analysis .panel.recent{padding:10px}
+.panel.recent h3{margin-bottom:6px}
+.panel.recent tr{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"pair pair dir status" "price chg entry sl" "tp1 tp2 tp3 rr" "created created created created";gap:6px 6px;margin:6px 0;padding:8px}
+.panel.recent td:nth-child(n){order:0;font-size:9.5px;line-height:1.25}
+.panel.recent td:nth-child(n)::before{margin-bottom:1px;font-size:7px}
+.panel.recent td:nth-child(1){grid-area:pair;font-size:11px}
+.panel.recent td:nth-child(1) small{display:inline!important;margin-left:4px}
+.panel.recent td:nth-child(3){grid-area:dir}
+.panel.recent td:nth-child(9){grid-area:status}
+.panel.recent td:nth-child(2){grid-area:price}
+.panel.recent td:nth-child(11){grid-area:chg}
+.panel.recent td:nth-child(4){grid-area:entry}
+.panel.recent td:nth-child(5){grid-area:sl}
+.panel.recent td:nth-child(6){grid-area:tp1}
+.panel.recent td:nth-child(7){grid-area:tp2}
+.panel.recent td:nth-child(8){grid-area:tp3}
+.panel.recent td:nth-child(10){grid-area:rr}
+.panel.recent td:nth-child(12){grid-area:created;display:flex;gap:6px;align-items:baseline;padding-top:5px;border-top:1px dashed rgba(128,150,175,.3)}
+.panel.recent td:nth-child(12)::before{margin:0}
+.panel.recent .acc-card{gap:10px;margin:2px 0 6px;padding:8px}
+.panel.recent .acc-circle{width:54px;height:54px}
+.panel.recent .acc-circle:after{inset:6px}
+.panel.recent .acc-circle span{font-size:13px}
+.panel.recent .acc-info{font-size:9px;line-height:1.5}
+.panel.recent .acc-info b{font-size:11px}
+}
+</style>
 <style id="cg-page-body-fix">
 .page-body .panel{padding:14px 16px!important;box-sizing:border-box;margin:0!important}
 .page-body .analysis-grid+.panel{margin-top:10px!important}
