@@ -154,10 +154,35 @@ export class EngineService {
     this.timer.unref();
   }
 
+  private tracking = false;
+  private trackTimer: ReturnType<typeof setInterval> | null = null;
+
+  async track(): Promise<number> {
+    if (this.tracking) return 0;
+    this.tracking = true;
+    try {
+      return await trackOutcomes({ market: this.deps.market, store: this.deps.store, now: this.deps.now, log: this.log });
+    } catch (e) {
+      this.log.error(`[tracker] failed: ${errMsg(e)}`);
+      return 0;
+    } finally {
+      this.tracking = false;
+    }
+  }
+
+  /** TP/SL tracking runs on its own timer, independent of the scan. */
+  startTracker(intervalMs = 60_000): void {
+    if (this.trackTimer) return;
+    void this.track();
+    this.trackTimer = setInterval(() => { void this.track(); }, intervalMs);
+    this.trackTimer.unref();
+  }
+
   stop(): void {
     this.intervalMs = 0;
     this.nextRunAt = null;
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (this.trackTimer) { clearInterval(this.trackTimer); this.trackTimer = null; }
   }
 
   async status(): Promise<{ autoScan: boolean; scanning: boolean; intervalMs: number; nextRunAt: string | null; symbols: string[]; timeframe: Timeframe; lastRun: ScanSummary | null }> {
