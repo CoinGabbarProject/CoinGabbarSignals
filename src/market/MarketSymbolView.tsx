@@ -179,11 +179,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
         </div>
         <ChartClock timeframe={timeframe} />
       </div>
-      <div role="group" aria-label="Indicators" style={bar}>
-        {INDICATORS.map((i) => (
-          <button key={i.key} type="button" aria-pressed={active.has(i.key)} style={tfBtn(active.has(i.key))} onClick={() => toggle(i.key)}>{i.label}</button>
-        ))}
-      </div>
+      
             {snapshot && snapshotStatus === "ready" && (
         <div
           style={{
