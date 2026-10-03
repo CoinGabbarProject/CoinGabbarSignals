@@ -1,6 +1,7 @@
 import type { Db, Document } from "mongodb";
 import type { FinalSignal } from "../models/signal.js";
-import type { ScanSummary, SignalFilterStatus, SignalStore } from "./store.js";
+import { TRACKABLE_STATUSES } from "./store.js";
+import type { ScanSummary, SignalFilterStatus, SignalOutcome, SignalStore } from "./store.js";
 
 // Separate collections from the legacy `signals` collection (its schema differs from FinalSignal).
 type StrDoc = Document & { _id: string };
