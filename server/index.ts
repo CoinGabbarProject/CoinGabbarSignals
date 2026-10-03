@@ -29,6 +29,13 @@ const engine = new EngineService(
 
 engine.startTracker(60_000);
 
+const selfUrl = process.env.RENDER_EXTERNAL_URL;
+if (selfUrl) {
+  setInterval(() => {
+    fetch(`${selfUrl}/api/v1/health`).catch(() => {});
+  }, 4 * 60 * 1000).unref();
+}
+
 if (config.scan.enabled) {
   engine.start(config.scan.intervalMs);
   console.log(`[engine] auto-scan every ${Math.round(config.scan.intervalMs / 1000)}s: ${config.scan.symbols.join(",")} ${config.scan.timeframe}`);
