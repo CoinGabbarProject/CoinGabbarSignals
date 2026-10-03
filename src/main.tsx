@@ -875,7 +875,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
         (dashboardDate(b.createdAt) ?? 0) -
         (dashboardDate(a.createdAt) ?? 0),
     )
-    .slice(0, 8)
+    .slice(0, 20)
     .map((signal) => {
       const side = signal.side ?? "NO_TRADE";
       const sideClass =
