@@ -150,8 +150,18 @@ router.get("/signals", async (req, res) => {
       console.error("engine_signals read error:", e);
     }
 
+    // Newest first, then keep only the latest signal per pair + timeframe,
+    // so an EXPIRED signal and its re-issued ACTIVE copy do not show twice.
+    const seen = new Set<string>();
+
     const signals = [...legacy, ...engine]
       .sort((a: any, b: any) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
+      .filter((s: any) => {
+        const key = `${String(s.symbol).toUpperCase()}|${s.timeframe}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
       .slice(0, limit);
 
     return res.json({ success: true, count: signals.length, signals });
