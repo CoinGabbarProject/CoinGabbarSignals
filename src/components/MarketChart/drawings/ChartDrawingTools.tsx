@@ -38,7 +38,7 @@ const hint: CSSProperties = { fontSize: 12, color: c.text.muted, whiteSpace: "no
 
 // ---- Drawings menu (bottom sheet) -----------------------------------------
 type GroupId = "lines" | "fib" | "shapes" | "forecast" | "notes";
-type SheetTab = "tools" | "indicators" | GroupId;
+type SheetTab = "favorites" | "tools" | "indicators" | GroupId;
 /** Sheet groups. Every drawing kind appears in exactly one group, in the order shown. */
 const SHEET_GROUPS: ReadonlyArray<{ id: GroupId; label: string; kinds: readonly DrawingKind[] }> = [
   { id: "lines", label: "Trend lines", kinds: ["trend", "ray", "info", "extended", "angle", "hline", "hray", "vline", "cross", "arrow", "channel", "pitchfork"] },
