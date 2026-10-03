@@ -144,9 +144,33 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
 
   return (
     <section className="chartbox" aria-label={`${label} market chart`} style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-      <div style={bar}>
-        <strong style={{ marginRight: 8 }}>{label}</strong>
-        <div role="group" aria-label="Timeframe" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 10px", padding: "8px 10px 2px", minWidth: 0 }}>
+        <strong style={{ fontSize: 15, letterSpacing: 0.2 }}>{label}</strong>
+        <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: chgColor }}>
+          {lastPrice === null ? "—" : fmtPx(lastPrice)}
+        </span>
+        {chgPts !== null && chgPct !== null && (
+          <span
+            title="Change over the last 24 hours"
+            style={{
+              fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: chgColor,
+              background: up ? c.positive.subtle : c.negative.subtle, borderRadius: 999, padding: "2px 8px",
+            }}
+          >
+            {up ? "▲ +" : "▼ −"}{fmtPx(Math.abs(chgPts))} ({up ? "+" : "−"}{Math.abs(chgPct).toFixed(2)}%)
+          </span>
+        )}
+        {liveStatus !== "off" && (
+          <span role="status" style={{ marginLeft: "auto", fontSize: 11, color: liveStatus === "live" ? c.positive.base : c.text.muted }}>
+            {liveStatus === "live" ? "● Live" : liveStatus === "connecting" ? "Connecting…" : "Reconnecting…"}
+          </span>
+        )}
+        {status === "error" && (
+          <button type="button" style={{ ...tfBtn(false), marginLeft: "auto" }} onClick={retry}>Retry</button>
+        )}
+      </div>
+      <div style={{ ...bar, gap: 4, padding: "4px 10px 6px" }}>
+        <div role="group" aria-label="Timeframe" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {TIMEFRAMES.map((tf) => (
             <button key={tf} type="button" aria-pressed={tf === timeframe} style={tfBtn(tf === timeframe)} onClick={() => tf !== timeframe && onTimeframeChange(tf)}>
               {tf}
@@ -154,14 +178,6 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
           ))}
         </div>
         <ChartClock timeframe={timeframe} />
-        {liveStatus !== "off" && (
-          <span role="status" style={{ marginLeft: "auto", fontSize: 12, color: liveStatus === "live" ? c.positive.base : c.text.muted }}>
-            {liveStatus === "live" ? "● Live" : liveStatus === "connecting" ? "Connecting…" : "Reconnecting…"}
-          </span>
-        )}
-        {status === "error" && (
-          <button type="button" style={{ ...tfBtn(false), marginLeft: "auto" }} onClick={retry}>Retry</button>
-        )}
       </div>
       <div role="group" aria-label="Indicators" style={bar}>
         {INDICATORS.map((i) => (
