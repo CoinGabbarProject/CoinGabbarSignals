@@ -156,7 +156,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             </strong>
           </div>
 
-          <div className="data-card">
+          <div className="data-card" style={snapshot.derivatives.oiChangePct === null ? { display: "none" } : undefined}>
             <label>Open Interest</label>
             <strong>{formatPercent(snapshot.derivatives.oiChangePct)}</strong>
           </div>
