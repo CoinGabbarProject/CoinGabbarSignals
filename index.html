@@ -790,8 +790,11 @@ html[data-theme=light] .cgs-seg button.on{color:#fff}
 (function(){
   var el=document.getElementById('footTime');
   if(!el) return;
-  var fmtD=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric'});
-  var fmtT=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+function tick(){var z=(window.CGS&&CGS.get().tz)||'Asia/Kolkata',o=z==='local'?{}:{timeZone:z};
+    var n=new Date(),d=new Intl.DateTimeFormat('en-GB',Object.assign({day:'2-digit',month:'short',year:'numeric'},o)).format(n),
+    t=new Intl.DateTimeFormat('en-US',Object.assign({hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true},o)).format(n);
+    var lab=z==='Asia/Kolkata'?'IST':z==='local'?'Local':z==='UTC'?'UTC':z.split('/').pop().replace('_',' ');
+    el.textContent=d+', '+t+' ('+lab+')';}
   function tick(){var n=new Date();el.textContent=fmtD.format(n)+', '+fmtT.format(n)+' (IST)';}
   tick(); setInterval(tick,1000);
 })();
