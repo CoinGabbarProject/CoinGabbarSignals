@@ -787,6 +787,78 @@ async function loadDashboardSignals(): Promise<DashboardSignal[]> {
   }
 }
 
+/* ---------- Live price + Change % (vs entry) ---------- */
+const livePrices: Record<string, number> = {};
+
+const binanceSymbol = (raw: unknown): string => {
+  const s = String(raw ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+  if (!s) return "";
+
+  return /(USDT|USDC|BUSD|FDUSD)$/.test(s) ? s : `${s}USDT`;
+};
+
+async function loadLivePrices(
+  signals: DashboardSignal[],
+): Promise<void> {
+  const symbols = [
+    ...new Set(
+      signals
+        .map((s) => binanceSymbol(s.symbol))
+        .filter(Boolean),
+    ),
+  ];
+
+  if (symbols.length === 0) return;
+
+  const base = "https://data-api.binance.vision/api/v3/ticker/price";
+
+  const apply = (rows: unknown): void => {
+    if (!Array.isArray(rows)) return;
+
+    for (const row of rows as { symbol?: string; price?: string }[]) {
+      const p = Number(row?.price);
+
+      if (row?.symbol && Number.isFinite(p)) {
+        livePrices[row.symbol] = p;
+      }
+    }
+  };
+
+  try {
+    let res = await fetch(
+      `${base}?symbols=${encodeURIComponent(JSON.stringify(symbols))}`,
+      { headers: { Accept: "application/json" } },
+    );
+
+    if (!res.ok) {
+      res = await fetch(base, {
+        headers: { Accept: "application/json" },
+      });
+    }
+
+    if (res.ok) apply(await res.json());
+  } catch {
+    // keep the last known prices
+  }
+}
+
+/** % move from entry. LONG: price up = +. SHORT: price down = +. */
+const changePct = (signal: DashboardSignal): number | null => {
+  const entry = dashboardNumber(signal.entry);
+  const price = livePrices[binanceSymbol(signal.symbol)];
+
+  if (entry === null || entry <= 0 || price === undefined) {
+    return null;
+  }
+
+  const raw = ((price - entry) / entry) * 100;
+
+  return signal.side === "SHORT" ? -raw : raw;
+};
+
 function renderRecentSignals(signals: DashboardSignal[]): void {
   const section = document.querySelector(".panel.recent");
 
