@@ -58,9 +58,13 @@ button{cursor:pointer}.app{min-height:100vh;background:radial-gradient(circle at
 .footer .foot-live{display:inline-flex;align-items:center;gap:6px;margin-top:4px}
 .footer .live-dot{width:6px;height:6px;border-radius:50%;background:#19df91;animation:footPulse 1.6s infinite}
 @keyframes footPulse{0%{box-shadow:0 0 0 0 rgba(25,223,145,.6)}70%{box-shadow:0 0 0 6px rgba(25,223,145,0)}100%{box-shadow:0 0 0 0 rgba(25,223,145,0)}}
-@media(max-width:760px){
+.footer{gap:24px}
+.footer>div{min-width:0}
+.footer>div+div{text-align:right;flex:0 0 auto;max-width:42%}
+.footer .foot-live{white-space:nowrap}
+@media(max-width:1050px){
   .footer{flex-direction:column;gap:12px;font-size:10px!important;line-height:1.6;padding:14px 16px}
-  .footer>div+div{border-top:1px solid #12293f;padding-top:10px}
+  .footer>div+div{text-align:left;max-width:none;border-top:1px solid #12293f;padding-top:10px}
 }
 
 /* Interactive signal detail controls */
