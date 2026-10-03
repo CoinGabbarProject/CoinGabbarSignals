@@ -580,7 +580,26 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
               ))}
             </div>
             <div role="tabpanel" style={{ overflowY: "auto", padding: "12px 12px calc(12px + env(safe-area-inset-bottom, 0px))", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-              {tab === "tools" ? (
+              {tab === "favorites" ? (
+                <>
+                  {favs.length === 0 && (
+                    <div style={{ gridColumn: "1 / -1", color: c.text.muted, fontSize: 13, padding: "12px 4px" }}>No favorites yet. Open any group and tap ☆ on a tool to add it here.</div>
+                  )}
+                  {SHEET_GROUPS.map((g) => {
+                    const list = g.kinds.filter((k) => favs.includes(k));
+                    if (list.length === 0) return null;
+                    return (
+                      <div key={g.id} style={{ display: "contents" }}>
+                        <div style={sectionLabel}>{g.label.toUpperCase()}</div>
+                        {list.map((k) => (
+                          <Tile key={k} label={TILE_LABEL[k]} title={toolOf(k)?.title} icon={<Ico d={TOOL_ICON[k]} />} active={tool === k}
+                            star={{ on: true, onToggle: () => toggleFav(k) }} onClick={() => { pickTool(k); setMenuOpen(false); }} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : tab === "tools" ? (
                 <>
                   <Tile label="Cursor" title="Cursor / select" icon={<Ico d={ICON.cursor} />} active={tool === "cursor"} onClick={() => { cancelDraft(); setTool("cursor"); setMenuOpen(false); }} />
                   <Tile label="Magnet" title="Snap to candle open/high/low/close" icon={<Ico d={ICON.magnet} />} active={magnet} onClick={() => setMagnet((m) => !m)} />
