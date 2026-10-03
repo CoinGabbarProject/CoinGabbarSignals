@@ -228,7 +228,9 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
   symbolRef.current = symbol;
 
   const [tool, setTool] = useState<Tool>("cursor");
-  const [tab, setTab] = useState<SheetTab>("tools");
+  const [tab, setTab] = useState<SheetTab>("favorites");
+  const [favs, setFavs] = useState<DrawingKind[]>(loadFavs);
+  const [showFavBar, setShowFavBar] = useState<boolean>(loadFavBar);
   const [menuOpen, setMenuOpen] = useState(false);
   const [magnet, setMagnet] = useState(true);
   const [visible, setVisible] = useState(true);
