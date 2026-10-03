@@ -43,7 +43,7 @@ export const CONFIRMATION_TF: Record<Timeframe, Timeframe | null> = {
   "1m": "5m", "5m": "15m", "15m": "1H", "30m": "4H", "1H": "4H", "4H": "1D", "1D": null,
 };
 export const EXECUTION_TF: Record<Timeframe, Timeframe> = {
-  "1m": "1m", "5m": "1m", "15m": "5m", "30m": "5m", "1H": "15m", "4H": "1H", "1D": "4H",
+  "1m": "1m", "5m": "1m", "15m": "1m", "30m": "1m", "1H": "5m", "4H": "15m", "1D": "1H",
 };
 // openInterestHist / long-short ratio only support these periods (no 1m)
 const STATS_PERIOD: Record<Timeframe, string> = {
