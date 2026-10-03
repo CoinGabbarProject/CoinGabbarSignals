@@ -989,6 +989,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
 
           <td class="${statusClass}">
             ${dashboardEscape(STATUS_LABEL[status] ?? status)}
+            ${hitTimeLines(signal)}
           </td>
 
           <td>
