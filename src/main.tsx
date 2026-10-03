@@ -1017,9 +1017,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
       (s) => s.status === "ACTIVE",
     ).length;
 
-    const closed = signals.filter(
-      (s) => s.status === "CLOSED",
-    ).length;
+    const closed = signals.filter(isClosedSignal).length;
 
     meta.textContent =
       `LIVE · ${signals.length} loaded · ${active} active · ${closed} closed`;
