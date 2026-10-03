@@ -970,7 +970,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
           </td>
 
           <td class="${statusClass}">
-            ${dashboardEscape(status)}
+            ${dashboardEscape(STATUS_LABEL[status] ?? status)}
           </td>
 
           <td>
