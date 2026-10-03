@@ -1219,51 +1219,12 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
       title: '⚙ Settings',
       subtitle: 'Manage your CoinGabbarSignals preferences.',
       content: `
-        <div class="analysis-grid">
-
-          <div class="panel">
-            <h3>Account</h3>
-
-            <div class="mini-row">
-              <span>Account Status</span>
-              <b class="up">Active</b>
-            </div>
-
-            <div class="mini-row">
-              <span>Plan</span>
-              <b>Free</b>
-            </div>
-          </div>
-
-          <div class="panel">
-            <h3>Preferences</h3>
-
-            <div class="mini-row">
-              <span>Theme</span>
-              <b>Dark</b>
-            </div>
-
-            <div class="mini-row">
-              <span>Default Timeframe</span>
-              <b>15M</b>
-            </div>
-          </div>
-
-          <div class="panel">
-            <h3>Notifications</h3>
-
-            <div class="mini-row">
-              <span>Signal Alerts</span>
-              <button class="toggle"></button>
-            </div>
-
-            <div class="mini-row">
-              <span>Market Alerts</span>
-              <button class="toggle"></button>
-            </div>
-          </div>
-
+        <div class="cgs-card" style="margin-bottom:10px">
+          <h3>Account</h3>
+          <div class="mini-row"><span>Account Status</span><b class="up">Active</b></div>
+          <div class="mini-row"><span>Plan</span><b>Free</b></div>
         </div>
+        <div class="cgs-grid" id="cgs-root"></div>
       `
     }
 
