@@ -86,12 +86,20 @@ router.get("/signals", async (req, res) => {
     const db = getMongoDB();
 
     // 1) Manual / admin signals (legacy "signals" collection)
-    const legacyDocs = await db
-      .collection("signals")
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .toArray();
+    // Old/manual signals are static test data, so they are hidden by default.
+    // Set INCLUDE_MANUAL_SIGNALS=true on Render to show them again.
+    const includeManual = ["1", "true", "yes"].includes(
+      (process.env.INCLUDE_MANUAL_SIGNALS || "").toLowerCase(),
+    );
+
+    const legacyDocs = includeManual
+      ? await db
+          .collection("signals")
+          .find(filter)
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .toArray()
+      : [];
 
     const legacy = legacyDocs.map(({ _id, ...rest }) => ({
       id: _id.toString(),
