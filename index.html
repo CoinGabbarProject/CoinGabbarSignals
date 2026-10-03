@@ -1619,7 +1619,7 @@ function calcPnL() {
     // liveTf looks like "4H → 1H → 15M": use the last (entry) timeframe
     const all = ($("liveTf") && $("liveTf").textContent || "").match(/\d+\s*[mhd]/gi);
     const key = all ? last(all).replace(/\s/g, "").toLowerCase() : "15m";
-    return INTERVAL[key] ? key : "15m";
+    return INTERVAL[key] ? key : ((window.CGS && INTERVAL[CGS.get().tf]) ? CGS.get().tf : "15m");
   }
 
   let busy = false;
