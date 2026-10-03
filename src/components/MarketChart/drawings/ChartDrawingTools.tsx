@@ -157,6 +157,12 @@ function Tile({ label, title, icon, active, disabled = false, onClick }: TilePro
 
 interface DragState { id: string; handle: number; start: { x: number; y: number }; orig: Drawing[]; moved: boolean }
 
+/** Indicator list owned by the parent; the Drawings sheet only shows it and reports toggles. */
+export interface IndicatorMenu {
+  items: ReadonlyArray<{ key: string; label: string; active: boolean }>;
+  onToggle(key: string): void;
+}
+
 export interface ChartDrawingToolsProps {
   api: MarketChartApi | null;
   symbol: string;
