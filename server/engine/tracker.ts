@@ -49,7 +49,7 @@ let best = 0;
     }
     if (beforeSignal) continue;
     const slHit = long ? c.low <= sl : c.high >= sl;
-    if (slHit) return done(true);
+ if (slHit) { hits.sl = c.timestamp; return done(true); }
     while (best < 3) {
       const tp = tps[best];
       if (tp === null || tp === undefined) break;
