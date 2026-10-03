@@ -1,7 +1,7 @@
 
 export interface FinalSignal {
  id:string; symbol:string; exchange:string; marketType:string; direction:"LONG"|"SHORT"|"WAIT"|"NO_TRADE"; status:string;
- entered?:boolean; outcome?:{status:string;exit:number;closed:boolean;at:string};
+ entered?:boolean; outcome?:{status:string;exit:number;closed:boolean;at:string;hits?:{tp1?:number;tp2?:number;tp3?:number;sl?:number}};
  timeframe:{primary:string;confirmation:string;execution:string};
  market:{currentPrice:number;["24hChange"]:number;volume:number;volatility:number};
  entry:{min:number;max:number;ideal:number;trigger:string;expiry:string};
