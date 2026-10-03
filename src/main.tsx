@@ -945,6 +945,14 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
 
   const p = calculatePerformance(signals);
 
+  // Same definition as the Accuracy card: any TP hit = win, SL hit = loss
+  const winCount = signals.filter((s) =>
+    ["TP1_HIT", "TP2_HIT", "TP3_HIT"].includes(s.status ?? ""),
+  ).length;
+  const lossCount = signals.filter((s) => s.status === "SL_HIT").length;
+  const winRateByStatus =
+    winCount + lossCount > 0 ? winCount / (winCount + lossCount) : null;
+
   const realizedList = signals
     .filter(isClosedSignal)
     .map(realizedR)
