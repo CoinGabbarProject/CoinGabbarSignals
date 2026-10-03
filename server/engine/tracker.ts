@@ -33,8 +33,8 @@ let best = 0;
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
   const done = (closed: boolean): Evaluation => {
-    if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true } } : { kind: "entered" };
-    return { kind: "outcome", outcome: { status: label(best), exit: tps[best - 1] as number, closed } };
+ if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true, hits } } : { kind: "entered" };
+    return { kind: "outcome", outcome: { status: label(best), exit: tps[best - 1] as number, closed, hits } };
   };
 
   for (const c of candles) {
