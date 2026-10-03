@@ -38,6 +38,20 @@ type SignalsResponse = {
 const SIGNAL_API =
   "https://coingabbarsignals.onrender.com/api/v1";
 
+const isClosedSignal = (s: DashboardSignal): boolean =>
+  s.status === "CLOSED" ||
+  s.status === "TP3_HIT" ||
+  s.status === "SL_HIT" ||
+  ((s.status === "TP1_HIT" || s.status === "TP2_HIT") &&
+    s.outcomeClosed === true);
+
+const STATUS_LABEL: Record<string, string> = {
+  TP1_HIT: "TP1 HIT ✅",
+  TP2_HIT: "TP2 HIT ✅",
+  TP3_HIT: "TP3 HIT ✅",
+  SL_HIT: "SL HIT ❌",
+};
+
 function calculatePerformance(
   signals: DashboardSignal[],
 ) {
