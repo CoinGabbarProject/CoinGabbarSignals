@@ -130,6 +130,29 @@ const TOOL_ICON: Record<DrawingKind, string> = {
   arrowdown: "M12 4v14M6 12l6 6 6-6",
 };
 
+// ---- Favorites (saved in this browser) -------------------------------------
+const FAV_KEY = "cg:drawing-favorites";
+const FAVBAR_KEY = "cg:drawing-favorites-bar";
+const DEFAULT_FAVS: readonly DrawingKind[] = ["trend", "hray", "hline", "channel", "fib", "fibext", "pricerange", "long", "short", "rect", "text", "label"];
+function loadFavs(): DrawingKind[] {
+  try {
+    const raw = window.localStorage.getItem(FAV_KEY);
+    if (raw === null) return [...DEFAULT_FAVS];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...DEFAULT_FAVS];
+    return parsed.filter((k): k is DrawingKind => typeof k === "string" && toolOf(k as DrawingKind) !== undefined);
+  } catch { return [...DEFAULT_FAVS]; }
+}
+function saveFavs(list: readonly DrawingKind[]): void {
+  try { window.localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch { /* storage blocked: favorites last until reload */ }
+}
+function loadFavBar(): boolean {
+  try { return window.localStorage.getItem(FAVBAR_KEY) === "1"; } catch { return false; }
+}
+function saveFavBar(on: boolean): void {
+  try { window.localStorage.setItem(FAVBAR_KEY, on ? "1" : "0"); } catch { /* storage blocked */ }
+}
+
 /** Indicators with their own pane under the price chart; the rest are drawn on the price chart. */
 const PANE_INDICATORS: ReadonlySet<string> = new Set(["rsi", "macd"]);
 const EMA_ICON = "M3 16c3-8 5 2 9-4s6-4 9-6";
