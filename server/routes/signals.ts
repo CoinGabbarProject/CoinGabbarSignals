@@ -133,6 +133,7 @@ router.get("/signals", async (req, res) => {
           symbol: d.symbol,
           side: d.direction,
           status: d.status,
+          entered: Boolean(d.entered),
           timeframe: d?.timeframe?.primary ?? "",
           score: d?.score?.total ?? 0,
           entry: d?.entry?.ideal ?? null,
