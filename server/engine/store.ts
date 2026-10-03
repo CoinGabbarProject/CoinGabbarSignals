@@ -46,7 +46,7 @@ export class MemorySignalStore implements SignalStore {
 
   async saveLatest(s: FinalSignal): Promise<void> { this.latest.set(`${s.symbol}:${s.timeframe.primary}`, structuredClone(s)); }
   async findActive(symbol: string, primaryTf: string): Promise<FinalSignal[]> {
-    return [...this.history.values()].filter((s) => s.symbol === symbol && s.timeframe.primary === primaryTf && s.status === "ACTIVE").map((s) => structuredClone(s));
+    return [...this.history.values()].filter((s) => s.symbol === symbol && s.timeframe.primary === primaryTf && (TRACKABLE_STATUSES as readonly string[]).includes(s.status)).map((s) => structuredClone(s));
   }
   async insertSignal(s: FinalSignal): Promise<void> { this.history.set(s.id, structuredClone(s)); }
   async setStatus(id: string, status: SignalFilterStatus, atIso: string): Promise<void> {
