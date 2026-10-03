@@ -968,7 +968,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
     rows ||
     `
       <tr>
-        <td colspan="10" style="text-align:center;opacity:.65">
+        <td colspan="11" style="text-align:center;opacity:.65">
           No signals available
         </td>
       </tr>
