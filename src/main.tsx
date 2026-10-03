@@ -906,6 +906,11 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
         ? signal.targets
         : [];
 
+      const chg = changePct(signal);
+
+      const chgClass =
+        chg === null ? "" : chg >= 0 ? "up" : "down";
+
       return `
         <tr>
           <td>
