@@ -130,7 +130,22 @@ const TOOL_ICON: Record<DrawingKind, string> = {
   arrowdown: "M12 4v14M6 12l6 6 6-6",
 };
 
-interface TileProps { label: string; title?: string; icon?: ReactNode; active?: boolean; disabled?: boolean; onClick(): void }
+/** Indicators with their own pane under the price chart; the rest are drawn on the price chart. */
+const PANE_INDICATORS: ReadonlySet<string> = new Set(["rsi", "macd"]);
+const EMA_ICON = "M3 16c3-8 5 2 9-4s6-4 9-6";
+const INDICATOR_ICON: Record<string, string> = {
+  ema20: EMA_ICON,
+  ema50: "M3 17c3-7 6 1 9-3s6-5 9-7",
+  sma200: "M3 15c4-2 6 1 9-1s6-3 9-5",
+  bb: "M3 7c4-3 6 2 9 0s6-3 9 0M3 17c4-3 6 2 9 0s6-3 9 0M3 12c4-3 6 2 9 0s6-3 9 0",
+  vwap: "M3 17l5-4 4 2 4-6 5-2",
+  rsi: "M3 7h18M3 17h18M5 14l4-4 3 3 4-5 3 3",
+  macd: "M5 15v4M9 12v7M13 9v10M17 13v6M3 8c5 3 9-3 18 2",
+};
+const indicatorIcon = (key: string): string => INDICATOR_ICON[key] ?? EMA_ICON;
+const sectionLabel: CSSProperties = { gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: c.text.muted, margin: "4px 2px 0" };
+
+interface TileProps { label: string; icon?: ReactNode; active?: boolean; disabled?: boolean; onClick(): void }
 function Tile({ label, title, icon, active, disabled = false, onClick }: TileProps): ReactElement {
   return (
     <button type="button" title={title ?? label} aria-pressed={active} disabled={disabled} style={tileStyle(active === true, disabled)} onClick={onClick}>
