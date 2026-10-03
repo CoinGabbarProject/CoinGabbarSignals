@@ -94,6 +94,12 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
   const height = baseHeight + subPaneCount(active) * (SUB_PANE_HEIGHT + 8);
   const toggle = (k: IndicatorKey): void => setActive((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
     const label = symbol ? displaySymbol(symbol) : rawSymbol;
+  const open24 = useOpen24h(symbol);
+  const lastPrice = candles.at(-1)?.close ?? null;
+  const chgPts = lastPrice !== null && open24 !== null ? lastPrice - open24 : null;
+  const chgPct = chgPts !== null && open24 !== null ? (chgPts / open24) * 100 : null;
+  const up = chgPts === null || chgPts >= 0;
+  const chgColor = chgPts === null ? c.text.primary : up ? c.positive.base : c.negative.base;
 
   useEffect(() => {
     if (!symbol) {
