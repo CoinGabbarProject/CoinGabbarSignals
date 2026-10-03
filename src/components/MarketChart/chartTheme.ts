@@ -10,21 +10,37 @@ const c = tokens.color;
 
 export const volumeColors = { up: "rgba(59, 227, 154, 0.35)", down: "rgba(255, 92, 124, 0.35)" } as const;
 
+/** Canvas colours for the light page theme (set by the Settings page via <html data-theme="light">). */
+const light = { bg: "#FFFFFF", text: "#5B6B80", grid: "#E6EDF5", border: "#D3DEEB" } as const;
+
+function isLightTheme(): boolean {
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "light";
+}
+
+/** Theme-dependent part of the chart options; re-applied when the theme changes. */
+export function themedChartOptions(): DeepPartial<ChartOptions> {
+  const l = isLightTheme();
+  const bg = l ? light.bg : c.bg.panel, text = l ? light.text : c.text.muted;
+  const grid = l ? light.grid : c.border.subtle, border = l ? light.border : c.border.default;
+  return {
+    layout: { background: { type: ColorType.Solid, color: bg }, textColor: text },
+    grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+    rightPriceScale: { borderColor: border },
+    timeScale: { borderColor: border },
+  };
+}
+
 export function baseChartOptions(height: number): DeepPartial<ChartOptions> {
+  const t = themedChartOptions();
   return {
     autoSize: true, // built-in ResizeObserver, disconnected by chart.remove()
     height,
-    layout: {
-      background: { type: ColorType.Solid, color: c.bg.panel },
-      textColor: c.text.muted,
-      fontFamily: tokens.font.family.mono,
-      attributionLogo: true,
-    },
-    grid: { vertLines: { color: c.border.subtle }, horzLines: { color: c.border.subtle } },
+    layout: { ...t.layout, fontFamily: tokens.font.family.mono, attributionLogo: true },
+    grid: t.grid,
     crosshair: { mode: CrosshairMode.Normal },
-    rightPriceScale: { visible: true, borderColor: c.border.default },
+    rightPriceScale: { visible: true, ...t.rightPriceScale },
     leftPriceScale: { visible: false },
-    timeScale: { borderColor: c.border.default, timeVisible: true, secondsVisible: false, rightOffset: 4 },
+    timeScale: { ...t.timeScale, timeVisible: true, secondsVisible: false, rightOffset: 4 },
     handleScroll: true,
     handleScale: true,
   };
