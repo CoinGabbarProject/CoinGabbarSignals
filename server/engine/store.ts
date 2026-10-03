@@ -14,6 +14,12 @@ export interface ScanSummary {
   scanned: number; emitted: number; errors: number; results: SymbolResult[];
 }
 export type SignalFilterStatus = "ACTIVE" | "CANCELLED" | "EXPIRED";
+export interface SignalOutcome {
+  status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT";
+  exit: number;
+  closed: boolean;
+}
+export const TRACKABLE_STATUSES = ["ACTIVE", "EXPIRED", "TP1_HIT", "TP2_HIT"] as const;
 
 /** Persistence used by the scanner. Mongo in production, memory in tests/dev. */
 export interface SignalStore {
