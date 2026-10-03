@@ -59,9 +59,7 @@ function calculatePerformance(
     (s) => s.status === "ACTIVE",
   );
 
-  const closed = signals.filter(
-    (s) => s.status === "CLOSED",
-  );
+  const closed = signals.filter(isClosedSignal);
 
   /*
    * Planned R is calculated from TP1.
