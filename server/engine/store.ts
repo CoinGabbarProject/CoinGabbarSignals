@@ -55,6 +55,19 @@ export class MemorySignalStore implements SignalStore {
     s.timestamps.updatedAt = atIso;
     s.timestamps.closedAt = atIso;
   }
+  async listTrackable(sinceIso: string): Promise<FinalSignal[]> {
+    return [...this.history.values()]
+      .filter((s) => (TRACKABLE_STATUSES as readonly string[]).includes(s.status) && s.timestamps.createdAt >= sinceIso)
+      .map((s) => structuredClone(s));
+  }
+  async setOutcome(id: string, o: SignalOutcome, atIso: string): Promise<void> {
+    const s = this.history.get(id);
+    if (!s) return;
+    s.status = o.status;
+    s.outcome = { status: o.status, exit: o.exit, closed: o.closed, at: atIso };
+    s.timestamps.updatedAt = atIso;
+    s.timestamps.closedAt = o.closed ? atIso : null;
+  }
   async recordRun(run: ScanSummary): Promise<void> { this.runs.push(structuredClone(run)); }
   async lastRun(): Promise<ScanSummary | null> { return this.runs[this.runs.length - 1] ?? null; }
   async listLatest(f: { symbol?: string; direction?: FinalSignal["direction"]; limit: number }): Promise<FinalSignal[]> {
