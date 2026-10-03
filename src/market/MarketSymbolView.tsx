@@ -147,7 +147,7 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             <strong>{formatPercent(snapshot.ticker.change24hPct)}</strong>
           </div>
 
-          <div className="data-card">
+          <div className="data-card" style={snapshot.derivatives.fundingRate === null ? { display: "none" } : undefined}>
             <label>Funding</label>
             <strong>
               {snapshot.derivatives.fundingRate === null
