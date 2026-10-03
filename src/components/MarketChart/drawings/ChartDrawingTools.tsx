@@ -114,7 +114,8 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
   symbolRef.current = symbol;
 
   const [tool, setTool] = useState<Tool>("cursor");
-  const [cat, setCat] = useState<Category>("lines");
+  const [tab, setTab] = useState<SheetTab>("tools");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [magnet, setMagnet] = useState(true);
   const [visible, setVisible] = useState(true);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
