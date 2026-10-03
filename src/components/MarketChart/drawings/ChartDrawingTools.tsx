@@ -319,8 +319,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
   const pickTool = (t: DrawingKind): void => {
     cancelDraft(); setSelectedId(null); setVisible(true);
     setTool(t === tool ? "cursor" : t);
-    const g = SHEET_GROUPS.find((x) => x.kinds.includes(t));
-    if (g) setTab(g.id);
+    
   };
 
   const edit = (fn: (d: Drawing) => Drawing): void => {
