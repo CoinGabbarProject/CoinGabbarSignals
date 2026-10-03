@@ -225,9 +225,13 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
     volumeMomentum: clamp(vm, SCORE_MAX.volumeMomentum), derivativesOrderbook: clamp(dd, SCORE_MAX.derivativesOrderbook),
     newsFundamentals: clamp(nf, SCORE_MAX.newsFundamentals), riskExecution: clamp(rk, SCORE_MAX.riskExecution),
   };
-  score.total = Math.round(
+  const rawTotal =
     score.marketContext + score.trendMTF + score.structure + score.liquiditySR +
-    score.volumeMomentum + score.derivativesOrderbook + score.newsFundamentals + score.riskExecution,
-  );
+    score.volumeMomentum + score.derivativesOrderbook + score.newsFundamentals + score.riskExecution;
+  const lostMax =
+    (unavailable.includes("fundingRate") ? 3 : 0) + (unavailable.includes("openInterest") ? 2 : 0) +
+    (unavailable.includes("longShortRatio") ? 2 : 0) + (unavailable.includes("orderBook") ? 3 : 0) +
+    (unavailable.includes("news") ? 5 : 0);
+  score.total = Math.round((rawTotal * 100) / (100 - lostMax));
   return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical };
                             }
