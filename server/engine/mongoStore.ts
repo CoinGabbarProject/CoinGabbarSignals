@@ -38,7 +38,7 @@ const docs = await this.signals().find({ symbol, "timeframe.primary": primaryTf,
   }
   async listTrackable(): Promise<FinalSignal[]> {
     const docs = await this.signals()
-      .find({ status: { $in: [...TRACKABLE_STATUSES] } })
+      .find({ status: { $in: [...TRACKABLE_STATUSES] }, "outcome.closed": { $ne: true } })
       .toArray();
     return docs.map((d) => strip<FinalSignal>(d));
   }
