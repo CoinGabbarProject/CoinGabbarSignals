@@ -906,6 +906,104 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   return lines.join("");
 };
 
+function recentAccuracy(signals: DashboardSignal[]) {
+  const last20 = signals
+    .slice()
+    .sort(
+      (a, b) =>
+        (dashboardDate(b.createdAt) ?? 0) -
+        (dashboardDate(a.createdAt) ?? 0),
+    )
+    .slice(0, 20);
+
+  let wins = 0;
+  let losses = 0;
+  let open = 0;
+  let skipped = 0;
+
+  for (const s of last20) {
+    if (
+      s.status === "TP1_HIT" ||
+      s.status === "TP2_HIT" ||
+      s.status === "TP3_HIT"
+    ) wins++;
+    else if (s.status === "SL_HIT") losses++;
+    else if (s.status === "ACTIVE") open++;
+    else skipped++; // EXPIRED / CANCELLED / unknown
+  }
+
+  const resolved = wins + losses;
+  return {
+    wins,
+    losses,
+    open,
+    skipped,
+    total: last20.length,
+    pct: resolved > 0 ? (wins / resolved) * 100 : null,
+  };
+}
+
+function renderAccuracy(
+  section: Element,
+  signals: DashboardSignal[],
+): void {
+  if (!document.getElementById("cg-acc-style")) {
+    const st = document.createElement("style");
+    st.id = "cg-acc-style";
+    st.textContent = `
+      .acc-card{display:flex;align-items:center;gap:14px;margin:4px 0 10px;padding:10px;border:1px solid #18314e;border-radius:6px;background:#07182b;--acc-track:#17314b}
+      .acc-circle{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;position:relative;flex:0 0 auto}
+      .acc-circle:after{content:"";position:absolute;inset:7px;background:#061326;border-radius:50%}
+      .acc-circle span{position:relative;z-index:1;font-size:17px;font-weight:800;color:#dce9f4}
+      .acc-info{font-size:10px;color:#8ea3b9;line-height:1.7}
+      .acc-info b{display:block;color:#dce9f4;font-size:12px}
+      .acc-win{color:#1bdd90;font-weight:600}
+      .acc-loss{color:#ff5266;font-weight:600}
+      html[data-theme=light] .acc-card{background:#f7fafd;border-color:#d9e2ec;--acc-track:#d3deeb}
+      html[data-theme=light] .acc-circle:after{background:#fff}
+      html[data-theme=light] .acc-circle span,html[data-theme=light] .acc-info b{color:#142235}
+      html[data-theme=light] .acc-info{color:#5b6b80}
+    `;
+    document.head.appendChild(st);
+  }
+
+  const a = recentAccuracy(signals);
+
+  let card = section.querySelector<HTMLElement>("[data-accuracy-card]");
+  if (!card) {
+    card = document.createElement("div");
+    card.setAttribute("data-accuracy-card", "true");
+    const table = section.querySelector("table");
+    table?.parentNode?.insertBefore(card, table);
+  }
+
+  const pct = a.pct;
+  const shown = pct === null ? "—" : `${Math.round(pct)}%`;
+  const deg = pct === null ? 0 : Math.round(pct);
+  const col =
+    pct === null
+      ? "#71869d"
+      : pct >= 70
+        ? "#1bdd90"
+        : pct >= 50
+          ? "#f2c94c"
+          : "#ff5266";
+
+  card.className = "acc-card";
+  card.innerHTML = `
+    <div class="acc-circle"
+         style="background:conic-gradient(${col} 0 ${deg}%,var(--acc-track) ${deg}%)">
+      <span>${shown}</span>
+    </div>
+    <div class="acc-info">
+      <b>Accuracy · last ${a.total} signals</b>
+      <span class="acc-win">${a.wins} win</span> ·
+      <span class="acc-loss">${a.losses} loss</span><br>
+      ${a.open} active · ${a.skipped} expired/cancelled
+    </div>
+  `;
+}
+
 function renderRecentSignals(signals: DashboardSignal[]): void {
   const section = document.querySelector(".panel.recent");
 
