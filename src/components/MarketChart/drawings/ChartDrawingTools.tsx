@@ -623,7 +623,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
                 </>
               ) : (
                 catTools.map((t) => (
-                  <Tile key={t.kind} label={TILE_LABEL[t.kind]} title={t.title} icon={<Ico d={TOOL_ICON[t.kind]} />} active={tool === t.kind}
+                  <Tile key={t.kind} label={TILE_LABEL[t.kind]} title={t.title} icon={<Ico d={TOOL_ICON[t.kind]} />} active={tool === t.kind} star={{ on: favs.includes(t.kind), onToggle: () => toggleFav(t.kind) }} onClick={() => { pickTool(t.kind); setMenuOpen(false); }} />
                 ))
               )}
             </div>
