@@ -83,17 +83,68 @@ router.get("/signals", async (req, res) => {
       100
     );
 
-    const docs = await getMongoDB()
+    const db = getMongoDB();
+
+    // 1) Manual / admin signals (legacy "signals" collection)
+    const legacyDocs = await db
       .collection("signals")
       .find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
       .toArray();
 
-    const signals = docs.map(({ _id, ...rest }) => ({
+    const legacy = legacyDocs.map(({ _id, ...rest }) => ({
       id: _id.toString(),
       ...rest,
     }));
+
+    // 2) Auto-scanner signals ("engine_signals", FinalSignal shape) -> dashboard shape
+    const engineFilter: Record<string, unknown> = {};
+    if (filter.status) engineFilter.status = filter.status;
+    if (filter.symbol) engineFilter.symbol = filter.symbol;
+
+    let engine: Record<string, unknown>[] = [];
+    try {
+      const engineDocs = await db
+        .collection("engine_signals")
+        .find(engineFilter)
+        .sort({ "timestamps.createdAt": -1 })
+        .limit(limit)
+        .toArray();
+
+      engine = engineDocs.map((d: any) => {
+        const created = Date.parse(d?.timestamps?.createdAt ?? "");
+        const closed = d?.timestamps?.closedAt
+          ? Date.parse(d.timestamps.closedAt)
+          : undefined;
+
+        return {
+          id: String(d._id),
+          source: "engine",
+          symbol: d.symbol,
+          side: d.direction,
+          status: d.status,
+          timeframe: d?.timeframe?.primary ?? "",
+          score: d?.score?.total ?? 0,
+          entry: d?.entry?.ideal ?? null,
+          entryMin: d?.entry?.min ?? null,
+          entryMax: d?.entry?.max ?? null,
+          stop: d?.stopLoss?.price ?? null,
+          targets: [d?.takeProfit?.tp1, d?.takeProfit?.tp2, d?.takeProfit?.tp3].filter(
+            (t) => typeof t === "number",
+          ),
+          rationale: d?.reasoning?.primaryReason ?? "",
+          createdAt: Number.isFinite(created) ? created : Date.now(),
+          ...(closed !== undefined && Number.isFinite(closed) ? { closedAt: closed } : {}),
+        };
+      });
+    } catch (e) {
+      console.error("engine_signals read error:", e);
+    }
+
+    const signals = [...legacy, ...engine]
+      .sort((a: any, b: any) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
+      .slice(0, limit);
 
     return res.json({ success: true, count: signals.length, signals });
   } catch (error) {
