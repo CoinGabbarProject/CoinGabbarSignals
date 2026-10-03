@@ -149,6 +149,9 @@ router.get("/signals", async (req, res) => {
           rationale: d?.reasoning?.primaryReason ?? "",
           createdAt: Number.isFinite(created) ? created : Date.now(),
           ...(closed !== undefined && Number.isFinite(closed) ? { closedAt: closed } : {}),
+          ...(d?.outcome
+            ? { exit: d.outcome.exit, outcomeClosed: Boolean(d.outcome.closed) }
+            : {}),
         };
       });
     } catch (e) {
