@@ -911,6 +911,133 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   return lines.join("");
 };
 
+function renderPerformancePage(signals: DashboardSignal[]): void {
+  const panels = Array.from(
+    document.querySelectorAll<HTMLElement>(".panel"),
+  );
+
+  const byTitle = (re: RegExp): HTMLElement | undefined =>
+    panels.find((p) => {
+      const h = p.querySelector(":scope > h3");
+      return !!h && re.test(h.textContent?.trim() ?? "");
+    });
+
+  const winPanel = byTitle(/^Win Rate$/i);
+  if (!winPanel) return;
+
+  const avgPanel = byTitle(/^Average (R|Risk Reward)/i);
+  const ddPanel = byTitle(/^Drawdown$/i);
+  const sumPanel = panels.find(
+    (p) =>
+      p.querySelector(":scope > h3")?.textContent?.trim() ===
+        "Performance Summary" && !p.classList.contains("performance-summary"),
+  );
+
+  if (!document.getElementById("cg-perf-live-style")) {
+    const st = document.createElement("style");
+    st.id = "cg-perf-live-style";
+    st.textContent = `
+      .score-circle[data-perf]{--perf-track:#17314b;background:conic-gradient(var(--perf-col) 0 var(--perf-pct),var(--perf-track) var(--perf-pct))!important}
+      html[data-theme=light] .score-circle[data-perf]{--perf-track:#d3deeb}
+    `;
+    document.head.appendChild(st);
+  }
+
+  const p = calculatePerformance(signals);
+
+  const realizedList = signals
+    .filter(isClosedSignal)
+    .map(realizedR)
+    .filter((r): r is number => r !== null && Number.isFinite(r));
+
+  const best = realizedList.length ? Math.max(...realizedList) : null;
+
+  const fmt = (n: number | null, d = 2): string =>
+    n === null || !Number.isFinite(n)
+      ? "—"
+      : `${n >= 0 ? "+" : ""}${n.toFixed(d)} Risk Reward`;
+
+  const setText = (el: Element | null | undefined, t: string, cls?: string) => {
+    if (!el) return;
+    if (el.textContent !== t) el.textContent = t;
+    if (cls !== undefined) {
+      el.classList.remove("up", "down");
+      if (cls) el.classList.add(cls);
+    }
+  };
+
+  // 1) Win Rate circle
+  const circle = winPanel.querySelector<HTMLElement>(".score-circle");
+  if (circle) {
+    const pct = p.winRate === null ? null : Math.round(p.winRate * 100);
+    const col =
+      pct === null
+        ? "#71869d"
+        : pct >= 60
+          ? "#1bdd90"
+          : pct >= 45
+            ? "#f2c94c"
+            : "#ff5266";
+    circle.setAttribute("data-perf", "true");
+    circle.style.setProperty("--perf-col", col);
+    circle.style.setProperty("--perf-pct", `${pct ?? 0}%`);
+    setText(circle.querySelector("span"), pct === null ? "—" : `${pct}%`);
+  }
+
+  // 2) Average Risk Reward + Best Trade
+  if (avgPanel) {
+    const big = avgPanel.querySelector<HTMLElement>("div[style*='font-size']");
+    if (big) {
+      setText(big, fmt(p.averageR));
+      big.style.color =
+        p.averageR === null ? "" : p.averageR >= 0 ? "#19df91" : "#ff5266";
+    }
+    setText(
+      avgPanel.querySelector(".mini-row b"),
+      fmt(best, 1),
+      best !== null && best < 0 ? "down" : "up",
+    );
+  }
+
+  // 3) Drawdown (peak-to-trough in Risk Reward) + status
+  if (ddPanel) {
+    const big = ddPanel.querySelector<HTMLElement>("div[style*='font-size']");
+    setText(big, p.realizedCount ? `${p.maxDrawdown.toFixed(2)} Risk Reward` : "—");
+
+    const dd = Math.abs(p.maxDrawdown);
+    const label = !p.realizedCount
+      ? "No data"
+      : dd <= 3
+        ? "Healthy"
+        : dd <= 6
+          ? "Caution"
+          : "High";
+    setText(
+      ddPanel.querySelector(".mini-row b"),
+      label,
+      label === "Healthy" ? "up" : label === "No data" ? "" : "down",
+    );
+  }
+
+  // 4) Performance Summary rows
+  if (sumPanel) {
+    const rows = Array.from(sumPanel.querySelectorAll(".mini-row"));
+    const rowVal = (re: RegExp): Element | null => {
+      const r = rows.find((x) => re.test(x.querySelector("span")?.textContent?.trim() ?? ""));
+      return r?.querySelector("b") ?? null;
+    };
+
+    setText(rowVal(/^Total Signals$/i), String(p.total));
+    setText(rowVal(/^Winning Signals$/i), String(p.wins));
+    setText(rowVal(/^Losing Signals$/i), String(p.losses));
+    setText(
+      rowVal(/^Total (R|Risk Reward)$/i),
+      fmt(p.realizedCount ? p.totalR : null),
+      p.totalR < 0 ? "down" : "up",
+    );
+  }
+}
+
 function recentAccuracy(signals: DashboardSignal[]) {
   const last20 = signals
     .slice()
