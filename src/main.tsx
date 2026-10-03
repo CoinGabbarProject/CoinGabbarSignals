@@ -639,7 +639,11 @@ async function refreshDashboardAnalytics(): Promise<void> {
     ".performance-summary",
   );
 
-  if (!recent && !performance) return;
+  const perfPage = Array.from(
+    document.querySelectorAll(".panel > h3"),
+  ).some((h) => h.textContent?.trim() === "Win Rate");
+
+  if (!recent && !performance && !perfPage) return;
 
   try {
     const signals = await loadDashboardSignals();
