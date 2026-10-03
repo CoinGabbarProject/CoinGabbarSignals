@@ -27,6 +27,8 @@ const engine = new EngineService(
   },
 );
 
+engine.startTracker(60_000);
+
 if (config.scan.enabled) {
   engine.start(config.scan.intervalMs);
   console.log(`[engine] auto-scan every ${Math.round(config.scan.intervalMs / 1000)}s: ${config.scan.symbols.join(",")} ${config.scan.timeframe}`);
