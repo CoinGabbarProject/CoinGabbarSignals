@@ -517,7 +517,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
               </button>
             </div>
             <div role="tablist" aria-label="Drawing groups" style={{ ...barStyle, padding: "0 12px 8px", borderBottom: `1px solid ${c.border.subtle}` }}>
-              {SHEET_TABS.map((t) => (
+              {SHEET_TABS.filter((t) => t.id !== "indicators" || indicators !== undefined).map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} style={tabBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>
               ))}
             </div>
