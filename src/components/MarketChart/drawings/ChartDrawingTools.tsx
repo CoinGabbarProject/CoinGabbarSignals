@@ -167,6 +167,8 @@ export interface ChartDrawingToolsProps {
   api: MarketChartApi | null;
   symbol: string;
   timeframe: Timeframe;
+/** Optional: adds an Indicators tab to the Drawings sheet. */
+  indicators?: IndicatorMenu;
   /** The chart itself; the drawing overlay is stacked on top of it. */
   children: ReactNode;
 }
