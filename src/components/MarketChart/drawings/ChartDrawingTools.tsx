@@ -168,13 +168,29 @@ const INDICATOR_ICON: Record<string, string> = {
 const indicatorIcon = (key: string): string => INDICATOR_ICON[key] ?? EMA_ICON;
 const sectionLabel: CSSProperties = { gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: c.text.muted, margin: "4px 2px 0" };
 
-interface TileProps { label: string; icon?: ReactNode; active?: boolean; disabled?: boolean; onClick(): void }
-function Tile({ label, title, icon, active, disabled = false, onClick }: TileProps): ReactElement {
-  return (
-    <button type="button" title={title ?? label} aria-pressed={active} disabled={disabled} style={tileStyle(active === true, disabled)} onClick={onClick}>
+interface TileProps {
+  label: string; title?: string; icon?: ReactNode; active?: boolean; disabled?: boolean;
+  /** When set, a ☆ / ★ button is shown in the tile corner. */
+  star?: { on: boolean; onToggle(): void };
+  onClick(): void;
+}
+function Tile({ label, title, icon, active, disabled = false, star, onClick }: TileProps): ReactElement {
+  const body = (
+    <button type="button" title={title ?? label} aria-pressed={active} disabled={disabled} style={{ ...tileStyle(active === true, disabled), flex: 1 }} onClick={onClick}>
       {icon}
       <span style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
     </button>
+  );
+  if (!star) return body;
+  return (
+    <div style={{ position: "relative", minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {body}
+      <button type="button" aria-pressed={star.on} aria-label={`${star.on ? "Remove" : "Add"} ${label} ${star.on ? "from" : "to"} favorites`}
+        title={star.on ? "Remove from favorites" : "Add to favorites"} onClick={star.onToggle}
+        style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, border: 0, background: "transparent", cursor: "pointer", fontSize: 16, lineHeight: 1, color: star.on ? c.warning.base : c.text.muted }}>
+        {star.on ? "★" : "☆"}
+      </button>
+    </div>
   );
 }
 
