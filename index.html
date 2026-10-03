@@ -1881,10 +1881,12 @@ drop.style.cssText="position:fixed;display:none;z-index:99999;max-height:260px;o
       return '<div class="pd-item" data-c="'+c+'" style="padding:11px 14px;font-size:14px;font-weight:600;color:#ffffff;cursor:pointer;border-bottom:1px solid #1c3552;forced-color-adjust:none">'+c+'<span style="color:#9fb6cf;font-weight:400">/USDT</span></div>';
     }).join("");
     var r=inp.getBoundingClientRect();
-    drop.style.top=(r.bottom+4)+"px";
-    drop.style.left=Math.max(4,Math.min(r.left,window.innerWidth-drop.offsetWidth-4))+"px";
-    drop.style.width=Math.max(r.width,150)+"px";
+    var w=Math.max(r.width,170);
+    drop.style.width=w+"px";
     drop.style.display="block";
+    drop.style.top=(r.bottom+4)+"px";
+    drop.style.left=Math.max(4,Math.min(r.left,window.innerWidth-w-4))+"px";
+    drop.style.maxHeight=Math.max(120,window.innerHeight-r.bottom-20)+"px";
   }
   function go(sym){
     sym=norm(sym); if(!sym) return;
