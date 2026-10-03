@@ -4,9 +4,21 @@ import { EXECUTION_TF } from "./marketData.js";
 import type { MarketData } from "./marketData.js";
 import type { SignalOutcome, SignalStore } from "./store.js";
 
-export const TRACK_HORIZON_MS = 7 * 24 * 60 * 60 * 1000;
+const TF_MS: Record<string, number> = {
+  "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000,
+  "1H": 3_600_000, "4H": 14_400_000, "1D": 86_400_000,
+};
+const CANDLE_LIMIT = 1000;
 
-export function evaluateOutcome(s: FinalSignal, candles: Candle[]): SignalOutcome | null {
+export const trackHorizonMs = (execTf: string): number => (TF_MS[execTf] ?? 300_000) * CANDLE_LIMIT * 0.9;
+
+export type Evaluation =
+  | { kind: "outcome"; outcome: SignalOutcome }
+  | { kind: "entered" }
+  | { kind: "expired" }
+  | null;
+
+export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number): Evaluation {
   if (s.direction !== "LONG" && s.direction !== "SHORT") return null;
   const long = s.direction === "LONG";
   const sl = s.stopLoss.price;
@@ -14,33 +26,35 @@ export function evaluateOutcome(s: FinalSignal, candles: Candle[]): SignalOutcom
   if (sl === null || tps[0] === null) return null;
 
   const createdMs = Date.parse(s.timestamps.createdAt);
+  const expiryMs = Date.parse(s.entry.expiry);
   let entered = false;
   let best = 0;
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
-  const result = (closed: boolean): SignalOutcome | null => {
-    if (best === 0) return closed ? { status: "SL_HIT", exit: sl, closed: true } : null;
-    return { status: label(best), exit: tps[best - 1] as number, closed };
+  const done = (closed: boolean): Evaluation => {
+    if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true } } : { kind: "entered" };
+    return { kind: "outcome", outcome: { status: label(best), exit: tps[best - 1] as number, closed } };
   };
 
   for (const c of candles) {
     if (c.timestamp < createdMs) continue;
     if (!entered) {
+      if (Number.isFinite(expiryMs) && c.timestamp >= expiryMs) break;
       if (c.low <= s.entry.max && c.high >= s.entry.min) entered = true;
       else continue;
     }
     const slHit = long ? c.low <= sl : c.high >= sl;
-    if (slHit) return result(true);
+    if (slHit) return done(true);
     while (best < 3) {
       const tp = tps[best];
       if (tp === null || tp === undefined) break;
-      const hit = long ? c.high >= tp : c.low <= tp;
-      if (!hit) break;
+      if (!(long ? c.high >= tp : c.low <= tp)) break;
       best++;
     }
-    if (best === 3) return result(true);
+    if (best === 3) return done(true);
   }
-  return best > 0 ? result(false) : null;
+  if (entered) return done(false);
+  return Number.isFinite(expiryMs) && now >= expiryMs ? { kind: "expired" } : null;
 }
 
 export interface TrackerDeps {
@@ -52,31 +66,42 @@ export interface TrackerDeps {
 
 export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
   const now = deps.now ? deps.now() : Date.now();
+  const atIso = new Date(now).toISOString();
   const log = deps.log ?? console;
-  const open = await deps.store.listTrackable(new Date(now - TRACK_HORIZON_MS).toISOString());
+  const open = await deps.store.listTrackable();
   const cache = new Map<string, Candle[]>();
   let changed = 0;
 
   for (const s of open) {
     try {
-      const tf = s.timeframe.primary as Timeframe;
-      const exec = EXECUTION_TF[tf];
+      const exec = EXECUTION_TF[s.timeframe.primary as Timeframe];
       if (!exec) continue;
       const key = `${s.symbol}:${exec}`;
       let candles = cache.get(key);
       if (!candles) {
-        candles = await deps.market.getCandles(s.symbol, exec, 1000, now);
+        candles = await deps.market.getCandles(s.symbol, exec, CANDLE_LIMIT, now);
         cache.set(key, candles);
       }
-      const out = evaluateOutcome(s, candles);
-      if (!out) continue;
-      if (s.status === out.status && Boolean(s.outcome?.closed) === out.closed) continue;
-      await deps.store.setOutcome(s.id, out, new Date(now).toISOString());
-      changed++;
+      const ev = evaluateOutcome(s, candles, now);
+
+      if (ev?.kind === "expired") {
+        await deps.store.setStatus(s.id, "EXPIRED", atIso);
+        changed++;
+      } else if (ev?.kind === "outcome") {
+        const o = ev.outcome;
+        if (s.status === o.status && Boolean(s.outcome?.closed) === o.closed) continue;
+        await deps.store.setOutcome(s.id, o, atIso);
+        changed++;
+      } else if (ev?.kind === "entered") {
+        if (!s.entered) { await deps.store.markEntered(s.id, atIso); changed++; }
+        if (now - Date.parse(s.timestamps.createdAt) > trackHorizonMs(exec)) {
+          await deps.store.setStatus(s.id, "EXPIRED", atIso);
+        }
+      }
     } catch (e) {
       log.error(`[tracker] ${s.symbol} failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  if (changed > 0) log.info(`[tracker] ${changed} signal outcome(s) updated`);
+  if (changed > 0) log.info(`[tracker] ${changed} signal update(s)`);
   return changed;
-            }
+}
