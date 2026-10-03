@@ -37,8 +37,26 @@ const sep: CSSProperties = { width: 1, alignSelf: "stretch", background: c.borde
 const hint: CSSProperties = { fontSize: 12, color: c.text.muted, whiteSpace: "nowrap", flex: "0 0 auto" };
 
 // ---- Drawings menu (bottom sheet) -----------------------------------------
-type SheetTab = "tools" | Category;
-const SHEET_TABS: ReadonlyArray<{ id: SheetTab; label: string }> = [{ id: "tools", label: "Tools" }, ...CATEGORIES];
+type GroupId = "lines" | "fib" | "shapes" | "forecast" | "notes";
+type SheetTab = "tools" | GroupId;
+/** Sheet groups. Every drawing kind appears in exactly one group, in the order shown. */
+const SHEET_GROUPS: ReadonlyArray<{ id: GroupId; label: string; kinds: readonly DrawingKind[] }> = [
+  { id: "lines", label: "Trend lines", kinds: ["trend", "ray", "info", "extended", "angle", "hline", "hray", "vline", "cross", "arrow", "channel", "pitchfork"] },
+  { id: "fib", label: "Gann and Fibonacci", kinds: ["fib", "fibext", "fibtime"] },
+  { id: "shapes", label: "Shapes", kinds: ["rect", "ellipse", "triangle", "brush"] },
+  { id: "forecast", label: "Forecasting and measurement", kinds: ["long", "short", "measure", "pricerange", "daterange"] },
+  { id: "notes", label: "Annotation", kinds: ["text", "label", "flag", "arrowup", "arrowdown"] },
+];
+const SHEET_TABS: ReadonlyArray<{ id: SheetTab; label: string }> = [{ id: "tools", label: "Tools" }, ...SHEET_GROUPS.map((g) => ({ id: g.id, label: g.label }))];
+
+const TILE_LABEL: Record<DrawingKind, string> = {
+  trend: "Trend Line", ray: "Ray", info: "Info Line", extended: "Extended Line", angle: "Trend Angle", hline: "Horizontal Line", hray: "Horizontal Ray",
+  vline: "Vertical Line", cross: "Cross Line", arrow: "Arrow", channel: "Parallel Channel", pitchfork: "Pitchfork",
+  fib: "Fib Retracement", fibext: "Trend-Based Fib", fibtime: "Fib Time Zone",
+  rect: "Rectangle", ellipse: "Ellipse", triangle: "Triangle", brush: "Brush",
+  long: "Long Position", short: "Short Position", measure: "Measure", pricerange: "Price Range", daterange: "Date Range",
+  text: "Text", label: "Price Label", flag: "Flag", arrowup: "Arrow Up", arrowdown: "Arrow Down",
+};
 
 const menuBtn = (open: boolean): CSSProperties => ({
   display: "inline-flex", alignItems: "center", gap: 6, minHeight: 30, padding: "0 12px 0 9px", borderRadius: 999, cursor: "pointer",
