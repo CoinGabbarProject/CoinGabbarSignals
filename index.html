@@ -314,6 +314,194 @@ html,body{max-width:100%;overflow-x:hidden}
   .recent td:nth-child(11){order:11}
 }
 </style>
+  <!-- ===== CGS SETTINGS + THEME (injected) ===== -->
+<script>
+(function(){
+  var KEY='cgs-settings', THEME_KEY='cgs-theme';
+  var DEF={theme:'dark',fs:'normal',tz:'Asia/Kolkata',tf:'15m',pair:'BTCUSDT',balance:1000,riskPct:1,leverage:5,fee:0.05,minRR:2,maxDailyLoss:3,maxTrades:3,
+    sigAlerts:true,mktAlerts:true,sound:false,push:false,minScore:70,side:'both',refreshMs:5000};
+  function read(){try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return Object.assign({},DEF);}}
+  var S=read();
+  // legacy key from header.js
+  try{var old=localStorage.getItem(THEME_KEY);if(old&&!localStorage.getItem(KEY))S.theme=old;}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(THEME_KEY,effTheme());}catch(e){}}
+  function effTheme(){return S.theme==='auto'?(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):S.theme;}
+  function applyLook(){
+    var r=document.documentElement;
+    r.setAttribute('data-theme',effTheme());r.setAttribute('data-fs',S.fs);
+    var b=document.getElementById('cgs-theme-btn');
+    if(b){b.textContent=effTheme()==='dark'?'☀':'☾';b.title=effTheme()==='dark'?'Switch to light theme':'Switch to dark theme';}
+  }
+  function syncCfg(){
+    var C=(window.CG=window.CG||{});C.cfg=Object.assign(C.cfg||{},{balance:+S.balance,riskPct:+S.riskPct,leverage:+S.leverage,refreshMs:+S.refreshMs});
+  }
+  var CGS=window.CGS={
+    get:function(){return S;},
+    set:function(k,v){S[k]=v;save();applyLook();syncCfg();CGS.summary();},
+    reset:function(){S=Object.assign({},DEF);save();applyLook();syncCfg();},
+    toggleTheme:function(){CGS.set('theme',effTheme()==='dark'?'light':'dark');if(document.getElementById('cgs-root'))CGS.render();}
+  };
+  applyLook();syncCfg();
+  if(window.matchMedia)try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(){if(S.theme==='auto')applyLook();});}catch(e){}
+  document.addEventListener('DOMContentLoaded',applyLook);
+  document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('#cgs-theme-btn');if(t)CGS.toggleTheme();});
+
+  var TFS=['1m','5m','15m','1h','4h','1d'];
+  var TZ=[['Asia/Kolkata','India (IST)'],['UTC','UTC'],['America/New_York','New York'],['Europe/London','London'],['Asia/Dubai','Dubai'],['Asia/Singapore','Singapore'],['local','Device time']];
+  function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function seg(k,opts){return '<div class="cgs-seg" data-k="'+k+'">'+opts.map(function(o){return '<button type="button" data-v="'+o[0]+'" class="'+(String(S[k])===String(o[0])?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
+  function sw(k){return '<button type="button" class="cgs-sw '+(S[k]?'on':'')+'" data-sw="'+k+'" role="switch" aria-checked="'+!!S[k]+'"></button>';}
+  function num(k,step,min,max,suf){return '<span class="cgs-numw"><input class="cgs-in" type="number" inputmode="decimal" data-num="'+k+'" step="'+step+'" min="'+min+'" max="'+max+'" value="'+S[k]+'">'+(suf?'<em>'+suf+'</em>':'')+'</span>';}
+  function row(l,sub,ctl){return '<div class="cgs-row"><div><b>'+l+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'+ctl+'</div>';}
+
+  CGS.render=function(){
+    var root=document.getElementById('cgs-root');if(!root)return;
+    root.innerHTML=
+    '<div class="cgs-card"><h3>Appearance</h3>'+
+      row('Theme','Dark, Light, or follow your device',seg('theme',[['dark','Dark'],['light','Light'],['auto','Auto']]))+
+      row('Text size','Bigger text for small screens',seg('fs',[['small','S'],['normal','M'],['large','L']]))+
+      row('Time zone','Used for the footer clock','<select class="cgs-in" data-sel="tz">'+TZ.map(function(z){return '<option value="'+z[0]+'"'+(S.tz===z[0]?' selected':'')+'>'+z[1]+'</option>';}).join('')+'</select>')+
+    '</div>'+
+    '<div class="cgs-card"><h3>Trading Defaults</h3>'+
+      row('Default timeframe','Used when a signal has no timeframe',seg('tf',TFS.map(function(t){return [t,t.toUpperCase()];})))+
+      row('Default pair','Pre-filled in calculators','<input class="cgs-in" data-txt="pair" value="'+esc(S.pair)+'" maxlength="14" autocapitalize="characters">')+
+      row('Account balance','Used by risk &amp; position size',num('balance','any',0,1e9,'USDT'))+
+      row('Risk per trade','% of balance you risk on one trade',num('riskPct','0.1',0.1,100,'%'))+
+      row('Default leverage','Margin &amp; liquidation maths',num('leverage','1',1,125,'x'))+
+      row('Fee per side','Exchange taker fee, used in P&amp;L',num('fee','0.01',0,5,'%'))+
+      row('Min Risk : Reward','Skip trades below this ratio',num('minRR','0.1',0.5,10,': 1'))+
+      row('Max daily loss','Stop trading for the day at this loss',num('maxDailyLoss','0.5',0.5,100,'%'))+
+      row('Max open trades','Avoid over-exposure',num('maxTrades','1',1,50,''))+
+      '<div class="cgs-sum" id="cgs-sum"></div>'+
+    '</div>'+
+    '<div class="cgs-card"><h3>Notifications</h3>'+
+      row('Signal alerts','New signals &amp; TP / SL hits',sw('sigAlerts'))+
+      row('Market alerts','Volatility spikes &amp; big moves',sw('mktAlerts'))+
+      row('Sound','Beep when an alert fires',sw('sound'))+
+      row('Browser notifications','Needs your permission',sw('push'))+
+      row('Min signal score','Alert only if score is at least <b id="cgs-ms">'+S.minScore+'</b>','<input class="cgs-range" type="range" min="50" max="95" step="1" data-rng="minScore" value="'+S.minScore+'">')+
+      row('Direction','Which signals to alert',seg('side',[['both','Both'],['LONG','Long'],['SHORT','Short']]))+
+    '</div>'+
+    '<div class="cgs-card"><h3>Data &amp; Backup</h3>'+
+      row('Price refresh','Applies after page reload',seg('refreshMs',[[3000,'3s'],[5000,'5s'],[10000,'10s'],[30000,'30s']]))+
+      '<div class="cgs-actions">'+
+        '<button type="button" class="cgs-btn" data-act="export">⬇ Export</button>'+
+        '<button type="button" class="cgs-btn" data-act="import">⬆ Import</button>'+
+        '<button type="button" class="cgs-btn" data-act="clear">Clear cached signals</button>'+
+        '<button type="button" class="cgs-btn danger" data-act="reset">Reset all</button>'+
+        '<input type="file" id="cgs-file" accept="application/json" hidden>'+
+      '</div>'+
+      '<div class="cgs-note">Settings are saved on this device only (localStorage).</div>'+
+    '</div>';
+    CGS.summary();
+  };
+  CGS.summary=function(){
+    var el=document.getElementById('cgs-sum');if(!el)return;
+    var risk=S.balance*S.riskPct/100,dl=S.balance*S.maxDailyLoss/100,warn=[];
+    if(S.riskPct>2)warn.push('Risk above 2% per trade is aggressive.');
+    if(S.leverage>20)warn.push('Leverage above 20x raises liquidation risk.');
+    if(S.minRR<1.5)warn.push('R:R below 1.5 needs a very high win rate.');
+    var f=function(n){return n.toLocaleString('en-US',{maximumFractionDigits:2});};
+    el.innerHTML='<div><span>Risk / trade</span><b>'+f(risk)+' USDT</b></div><div><span>Max daily loss</span><b>'+f(dl)+' USDT</b></div><div><span>Trades to hit limit</span><b>'+(risk>0?Math.floor(dl/risk):'-')+'</b></div>'+(warn.length?'<p class="warn">⚠ '+warn.join(' ')+'</p>':'');
+  };
+  function toast(m){if(window.showToast)window.showToast(m);}
+  function bind(root){
+    root.addEventListener('click',function(e){
+      var b=e.target.closest('button');if(!b)return;
+      var sg=b.closest('.cgs-seg');
+      if(sg){var k=sg.dataset.k,v=b.dataset.v;CGS.set(k,/^\d+$/.test(v)?+v:v);sg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});toast('Saved');return;}
+      if(b.dataset.sw){var k2=b.dataset.sw,nv=!S[k2];
+        if(k2==='push'&&nv){
+          if(!('Notification' in window)){toast('Not supported on this browser');return;}
+          Notification.requestPermission().then(function(p){var ok=p==='granted';CGS.set('push',ok);b.classList.toggle('on',ok);b.setAttribute('aria-checked',ok);toast(ok?'Browser notifications on':'Permission denied');});return;}
+        CGS.set(k2,nv);b.classList.toggle('on',nv);b.setAttribute('aria-checked',nv);toast(nv?'Enabled':'Disabled');return;}
+      var a=b.dataset.act;if(!a)return;
+      if(a==='export'){var u=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}));var l=document.createElement('a');l.href=u;l.download='coingabbar-settings.json';l.click();setTimeout(function(){URL.revokeObjectURL(u);},500);}
+      if(a==='import')document.getElementById('cgs-file').click();
+      if(a==='clear'){var n=0;Object.keys(localStorage).forEach(function(k){if(k.indexOf('cgs_sig_')===0){localStorage.removeItem(k);n++;}});toast('Cleared '+n+' cached signals');}
+      if(a==='reset'&&confirm('Reset all settings to default?')){CGS.reset();CGS.render();toast('Settings reset');}
+    });
+    root.addEventListener('input',function(e){
+      var t=e.target;
+      if(t.dataset.num){var v=parseFloat(t.value);if(isFinite(v)&&v>=+t.min&&v<=+t.max)CGS.set(t.dataset.num,v);}
+      if(t.dataset.txt)CGS.set(t.dataset.txt,t.value.toUpperCase().replace(/[^A-Z0-9]/g,''));
+      if(t.dataset.rng){CGS.set(t.dataset.rng,+t.value);var m=document.getElementById('cgs-ms');if(m)m.textContent=t.value;}
+    });
+    root.addEventListener('change',function(e){
+      var t=e.target;
+      if(t.dataset.sel){CGS.set(t.dataset.sel,t.value);toast('Saved');}
+      if(t.id==='cgs-file'&&t.files[0]){var r=new FileReader();r.onload=function(){try{var o=JSON.parse(r.result);Object.keys(DEF).forEach(function(k){if(k in o&&typeof o[k]===typeof DEF[k])S[k]=o[k];});save();applyLook();syncCfg();CGS.render();toast('Imported');}catch(x){toast('Invalid file');}};r.readAsText(t.files[0]);}
+    });
+  }
+  // called by loadPage() after every page render
+  CGS.onPage=function(page){
+    if(page==='settings'){var root=document.getElementById('cgs-root');if(root&&!root.dataset.bound){root.dataset.bound=1;bind(root);}CGS.render();}
+    if(page==='tools'){
+      var m={p_bal:S.balance,p_risk:S.riskPct,p_lev:S.leverage,l_lev:S.leverage,l_fee:S.fee,p_sym:S.pair};
+      Object.keys(m).forEach(function(id){var el=document.getElementById(id);if(el&&(el.value===''||id==='p_sym'))el.value=m[id];});
+    }
+  };
+})();
+</script>
+<style id="cgs-settings-css">
+/* ----- Settings UI ----- */
+.cgs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.cgs-grid{grid-template-columns:minmax(0,1fr)}}
+.cgs-card{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:14px}
+.cgs-card h3{margin:0 0 6px;font-size:14px}
+.cgs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.cgs-row:first-of-type{border-top:0}
+.cgs-row small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.cgs-seg{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end}
+.cgs-seg button{border:1px solid var(--line);background:var(--panel2);color:var(--soft);border-radius:5px;padding:6px 9px;font-size:12px;min-width:38px}
+.cgs-seg button.on{background:var(--cyan);border-color:var(--cyan);color:#021019;font-weight:700}
+.cgs-sw{flex:none;width:44px;height:24px;border-radius:12px;border:0;background:#4a5b70;position:relative;transition:.15s}
+.cgs-sw:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+.cgs-sw.on{background:var(--green)}.cgs-sw.on:after{left:23px}
+.cgs-in{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;padding:7px 8px;font-size:13px;outline:none;max-width:150px;width:100%}
+.cgs-in:focus{border-color:var(--cyan)}
+.cgs-numw{display:flex;align-items:center;gap:5px;flex:none;width:130px}.cgs-numw em{font-style:normal;color:var(--muted);font-size:11px;min-width:30px}
+.cgs-range{width:130px;accent-color:var(--cyan)}
+.cgs-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.cgs-sum div{border:1px solid var(--line);background:var(--panel2);border-radius:5px;padding:8px}
+.cgs-sum span{display:block;color:var(--muted);font-size:10px}.cgs-sum b{font-size:13px}
+.cgs-sum .warn{grid-column:1/-1;margin:2px 0 0;color:var(--yellow);font-size:11px}
+.cgs-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cgs-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:5px;padding:8px 11px;font-size:12px}
+.cgs-btn.danger{color:var(--red);border-color:var(--red)}
+.cgs-note{margin-top:8px;color:var(--muted);font-size:11px}
+#cgs-theme-btn{width:30px;padding:0;font-size:14px;flex:none}
+html[data-fs=small] .app{zoom:.9}html[data-fs=large] .app{zoom:1.12}
+
+/* ----- Light theme ----- */
+html[data-theme=light]{color-scheme:light;--bg:#eef2f8;--panel:#fff;--panel2:#f1f5fa;--panel3:#e6edf6;--line:#d3deeb;--text:#142235;--muted:#5d718a;--soft:#3d516a;--green:#078a58;--red:#d12a43;--cyan:#0a84c6;--yellow:#a96e00}
+html[data-theme=light],html[data-theme=light] body{background:#eef2f8;color:#142235}
+html[data-theme=light] .app{background:linear-gradient(180deg,#f8fafd,#e8eef6)}
+html[data-theme=light] .topbar,html[data-theme=light] .cg-ticker,html[data-theme=light] .footer{background:#fff;border-color:#d3deeb}
+html[data-theme=light] .brand,html[data-theme=light] .cg-ticker__item b,html[data-theme=light] .footer b{color:#0b1a2b}
+html[data-theme=light] .brand-mark,html[data-theme=light] .brand small{color:#b87b00;border-color:#d99a1b}
+html[data-theme=light] .cg-ticker__item{border-color:#d3deeb}html[data-theme=light] .cg-ticker__price{color:#3d516a}
+html[data-theme=light] .topnav a{color:#4a5f78}html[data-theme=light] .topnav a span{color:#5d7a99}
+html[data-theme=light] .topnav a.active{color:#07426b;background:#e1f1fc;border-color:#2b9fdc}html[data-theme=light] .topnav a.active span{color:#0a84c6}
+html[data-theme=light] .topnav a:hover{color:#0a2740;background:#eaf3fb}
+html[data-theme=light] .login,html[data-theme=light] .search,html[data-theme=light] .mini-action,html[data-theme=light] .watch-btn,html[data-theme=light] .tin,html[data-theme=light] .modal input{background:#fff;border-color:#c3d2e3;color:#142235}
+html[data-theme=light] .search input{color:#142235}
+html[data-theme=light] .chartbox,html[data-theme=light] .panel,html[data-theme=light] .signal-head,html[data-theme=light] .mini,html[data-theme=light] .modal,html[data-theme=light] .right{background:#fff;border-color:#d3deeb}
+html[data-theme=light] .market,html[data-theme=light] .tabs,html[data-theme=light] .data-card,html[data-theme=light] .context-card,html[data-theme=light] .perf-card,html[data-theme=light] .alert-item,html[data-theme=light] .depth-side,html[data-theme=light] .recent th{background:#f3f7fc;border-color:#d3deeb}
+html[data-theme=light] .market-strip{background:#d3deeb;border-color:#d3deeb}
+html[data-theme=light] .signal-top,html[data-theme=light] .kpis,html[data-theme=light] .kpi,html[data-theme=light] .tabs,html[data-theme=light] .reason,html[data-theme=light] .detail-row,html[data-theme=light] .recent td,html[data-theme=light] .liq-line,html[data-theme=light] .depth-row{border-color:#dbe4ef}
+html[data-theme=light] .chart{background:linear-gradient(180deg,#fbfdff,#eef3fa)}
+html[data-theme=light] .score-circle{background:conic-gradient(#0aa86b 0 89%,#d3deeb 89%)}html[data-theme=light] .score-circle:after{background:#fff}
+html[data-theme=light] .scoreline,html[data-theme=light] .bar i,html[data-theme=light] .perf-meter,html[data-theme=light] .liq-meter{background:#dbe4ef}
+html[data-theme=light] .tf.active,html[data-theme=light] .tab.active{background:#e1f1fc;color:#07426b}
+html[data-theme=light] .mini h4,html[data-theme=light] .mini-row b,html[data-theme=light] .reason b,html[data-theme=light] .alert-title,html[data-theme=light] .detail-row b,html[data-theme=light] .liq-line b,html[data-theme=light] .depth-row b,html[data-theme=light] .kpi strong,html[data-theme=light] .market strong,html[data-theme=light] .tab.active,html[data-theme=light] .bar,html[data-theme=light] .recent td{color:#142235}
+html[data-theme=light] .mini-row,html[data-theme=light] .market label,html[data-theme=light] .kpi label,html[data-theme=light] .reason,html[data-theme=light] .recent th,html[data-theme=light] .alert-copy,html[data-theme=light] .alert-time,html[data-theme=light] .detail-row,html[data-theme=light] .data-card label,html[data-theme=light] .perf-card label,html[data-theme=light] .context-card p,html[data-theme=light] .tab,html[data-theme=light] .tf,html[data-theme=light] .chart-toolbar,html[data-theme=light] .footer{color:#5d718a}
+html[data-theme=light] .toast{background:#142235;color:#fff;border-color:#142235}
+html[data-theme=light] .modal-backdrop{background:rgba(20,34,53,.45)}
+html[data-theme=light] .mini-action.primary{background:#e1f1fc;border-color:#2b9fdc;color:#07426b}
+html[data-theme=light] .cgs-seg button.on{color:#fff}
+</style>
+
 </head>
 <body>
 <div class="app">
