@@ -27,7 +27,7 @@ const engine = new EngineService(
   },
 );
 
-engine.startTracker(60_000);
+engine.startTracker(10_000);
 
 const selfUrl = process.env.RENDER_EXTERNAL_URL;
 if (selfUrl) {
