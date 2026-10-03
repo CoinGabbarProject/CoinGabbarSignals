@@ -1319,6 +1319,7 @@ document.querySelector('.calculator-btn')?.addEventListener('click',()=>{backdro
     }
 
     updateNavigation(page);
+    if (window.CGS) CGS.onPage(page);
 
     document.title =
       'CoinGabbarSignals — ' +
