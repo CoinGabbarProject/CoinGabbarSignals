@@ -198,7 +198,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, children }: ChartDra
     cancelDraft(); setSelectedId(null); setVisible(true);
     setTool(t === tool ? "cursor" : t);
     const k = toolOf(t)?.cat;
-    if (k) setCat(k);
+    if (k) setTab(k);
   };
 
   const edit = (fn: (d: Drawing) => Drawing): void => {
