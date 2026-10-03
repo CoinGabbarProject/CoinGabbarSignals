@@ -579,7 +579,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
                 <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} style={tabBtn(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</button>
               ))}
             </div>
-            <div role="tabpanel" style={{ overflowY: "auto", padding: 12, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            <div role="tabpanel" style={{ overflowY: "auto", padding: "12px 12px calc(12px + env(safe-area-inset-bottom, 0px))", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
               {tab === "tools" ? (
                 <>
                   <Tile label="Cursor" title="Cursor / select" icon={<Ico d={ICON.cursor} />} active={tool === "cursor"} onClick={() => { cancelDraft(); setTool("cursor"); setMenuOpen(false); }} />
