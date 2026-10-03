@@ -982,7 +982,8 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   // 1) Win Rate circle
   const circle = winPanel.querySelector<HTMLElement>(".score-circle");
   if (circle) {
-    const pct = p.winRate === null ? null : Math.round(p.winRate * 100);
+    const pct =
+      winRateByStatus === null ? null : Math.round(winRateByStatus * 100);
     const col =
       pct === null
         ? "#71869d"
