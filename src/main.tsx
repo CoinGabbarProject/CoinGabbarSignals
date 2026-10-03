@@ -620,6 +620,8 @@ async function refreshDashboardAnalytics(): Promise<void> {
   try {
     const signals = await loadDashboardSignals();
 
+    await loadLivePrices(signals);
+
     renderRecentSignals(signals);
     renderPerformanceSummary(signals);
   } catch (error) {
