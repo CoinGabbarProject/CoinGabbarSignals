@@ -18,7 +18,7 @@ export type Evaluation =
   | { kind: "expired" }
   | null;
 
-export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number): Evaluation {
+export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number, execMs = 0): Evaluation {
   if (s.direction !== "LONG" && s.direction !== "SHORT") return null;
   const long = s.direction === "LONG";
   const sl = s.stopLoss.price;
