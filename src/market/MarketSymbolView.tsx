@@ -19,7 +19,7 @@ export const EMPTY_MESSAGE = "No market data available for this symbol/timeframe
 const c = tokens.color;
 const bar: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "8px 10px", minWidth: 0 };
 const tfBtn = (active: boolean): CSSProperties => ({
-  minHeight: 32, minWidth: 40, padding: "0 10px", borderRadius: 4, cursor: "pointer", font: "inherit", fontSize: 12,
+  minHeight: 26, minWidth: 34, padding: "0 7px", borderRadius: 6, cursor: "pointer", font: "inherit", fontSize: 11, fontWeight: 600, lineHeight: 1,
   color: active ? c.text.inverse : c.text.primary,
   background: active ? c.accent.primary : c.bg.elevated,
   border: `1px solid ${active ? c.accent.primary : c.border.default}`,
