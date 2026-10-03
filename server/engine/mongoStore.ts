@@ -24,7 +24,7 @@ export class MongoSignalStore implements SignalStore {
     await this.latest().replaceOne({ _id: `${s.symbol}:${s.timeframe.primary}` }, { _id: `${s.symbol}:${s.timeframe.primary}`, ...s }, { upsert: true });
   }
   async findActive(symbol: string, primaryTf: string): Promise<FinalSignal[]> {
-    const docs = await this.signals().find({ symbol, "timeframe.primary": primaryTf, status: { $in: [...TRACKABLE_STATUSES] } }).toArray();
+const docs = await this.signals().find({ symbol, "timeframe.primary": primaryTf, status: { $in: [...TRACKABLE_STATUSES] }, "outcome.closed": { $ne: true } }).toArray();
     return docs.map((d) => strip<FinalSignal>(d));
   }
   async insertSignal(s: FinalSignal): Promise<void> {
