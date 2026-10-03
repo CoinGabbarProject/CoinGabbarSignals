@@ -48,7 +48,7 @@ export class MongoSignalStore implements SignalStore {
       {
         $set: {
           status: o.status,
-          outcome: { status: o.status, exit: o.exit, closed: o.closed, at: atIso },
+          outcome: { status: o.status, exit: o.exit, closed: o.closed, at: atIso, hits: o.hits ?? {} },
           "timestamps.updatedAt": atIso,
           "timestamps.closedAt": o.closed ? atIso : null,
         },
