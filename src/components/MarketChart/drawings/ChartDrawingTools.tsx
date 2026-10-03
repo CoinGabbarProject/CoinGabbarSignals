@@ -36,6 +36,58 @@ const barStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 6,
 const sep: CSSProperties = { width: 1, alignSelf: "stretch", background: c.border.default, flex: "0 0 auto" };
 const hint: CSSProperties = { fontSize: 12, color: c.text.muted, whiteSpace: "nowrap", flex: "0 0 auto" };
 
+// ---- Drawings menu (bottom sheet) -----------------------------------------
+type SheetTab = "tools" | Category;
+const SHEET_TABS: ReadonlyArray<{ id: SheetTab; label: string }> = [{ id: "tools", label: "Tools" }, ...CATEGORIES];
+
+const menuBtn = (open: boolean): CSSProperties => ({
+  display: "inline-flex", alignItems: "center", gap: 6, minHeight: 30, padding: "0 12px 0 9px", borderRadius: 999, cursor: "pointer",
+  font: "inherit", fontSize: 12, fontWeight: 600, flex: "0 0 auto", color: c.text.primary,
+  background: open ? c.accent.primarySubtle : c.bg.elevated, border: `1px solid ${open ? c.state.selectedEdge : c.border.default}`,
+});
+const tabBtn = (active: boolean): CSSProperties => ({
+  flex: "0 0 auto", minHeight: 32, padding: "0 14px", borderRadius: 10, border: 0, cursor: "pointer", font: "inherit", fontSize: 13, fontWeight: 600,
+  whiteSpace: "nowrap", color: active ? c.text.primary : c.text.muted, background: active ? c.state.selected : "transparent",
+});
+const tileStyle = (active: boolean, disabled: boolean): CSSProperties => ({
+  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 72, padding: "10px 6px",
+  borderRadius: 12, cursor: disabled ? "default" : "pointer", font: "inherit", fontSize: 12, textAlign: "center", minWidth: 0,
+  color: disabled ? c.text.disabled : active ? c.accent.primary : c.text.primary,
+  background: active ? c.accent.primarySubtle : c.bg.panel, border: `1px solid ${active ? c.state.selectedEdge : c.border.subtle}`,
+});
+
+/** 24px stroke icon from a single SVG path (currentColor, so it follows the tile state). */
+function Ico({ d }: { d: string }): ReactElement {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+const ICON = {
+  pencil: "M4 20l4-1 11-11-3-3L5 16zM14 6l3 3",
+  cursor: "M5 3l14 7-6 2-2 6z",
+  magnet: "M6 3v8a6 6 0 0 0 12 0V3h-4v8a2 2 0 0 1-4 0V3z",
+  undo: "M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3",
+  redo: "M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3",
+  eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  eyeOff: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM3 3l18 18",
+  fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+  camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 11a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z",
+  trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13",
+  close: "M6 6l12 12M18 6L6 18",
+} as const;
+
+interface TileProps { label: string; title?: string; icon?: ReactNode; active?: boolean; disabled?: boolean; onClick(): void }
+function Tile({ label, title, icon, active, disabled = false, onClick }: TileProps): ReactElement {
+  return (
+    <button type="button" title={title ?? label} aria-pressed={active} disabled={disabled} style={tileStyle(active === true, disabled)} onClick={onClick}>
+      {icon}
+      <span style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    </button>
+  );
+}
+
 interface DragState { id: string; handle: number; start: { x: number; y: number }; orig: Drawing[]; moved: boolean }
 
 export interface ChartDrawingToolsProps {
