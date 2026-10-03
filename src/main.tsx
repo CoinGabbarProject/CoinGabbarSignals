@@ -957,6 +957,11 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
       ? "—"
       : `${n >= 0 ? "+" : ""}${n.toFixed(d)} Risk Reward`;
 
+  const num = (n: number | null, d = 2): string =>
+    n === null || !Number.isFinite(n)
+      ? "—"
+      : `${n >= 0 ? "+" : ""}${n.toFixed(d)}`;
+
   const setText = (el: Element | null | undefined, t: string, cls?: string) => {
     if (!el) return;
     if (el.textContent !== t) el.textContent = t;
