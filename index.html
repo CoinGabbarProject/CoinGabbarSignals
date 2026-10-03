@@ -329,6 +329,7 @@ html,body{max-width:100%;overflow-x:hidden}
   function applyLook(){
     var r=document.documentElement;
     r.setAttribute('data-theme',effTheme());r.setAttribute('data-fs',S.fs);
+    try{document.dispatchEvent(new Event('cgs:theme'));}catch(e){}
     
   }
   function syncCfg(){
