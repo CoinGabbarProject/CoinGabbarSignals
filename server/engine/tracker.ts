@@ -55,6 +55,7 @@ let best = 0;
       if (tp === null || tp === undefined) break;
       if (!(long ? c.high >= tp : c.low <= tp)) break;
       best++;
+      hits[`tp${best}` as "tp1" | "tp2" | "tp3"] = c.timestamp;
     }
     if (best === 3) return done(true);
   }
