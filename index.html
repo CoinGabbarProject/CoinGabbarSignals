@@ -5145,6 +5145,124 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) { X.sweep(); P.render(); }
 })();
 </script>
+<style id="paper-css-10">
+.pt-hrow{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pt-hrow select{flex:1;min-width:105px;padding:8px;font-size:13px}
+.pt-hi{border-top:1px solid var(--line);padding:10px 0;cursor:pointer}
+.pt-hi:first-child{border-top:0}
+.pt-hi-m{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+.pt-hi-m small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.pt-hi .pt-kv{margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:6px}
+.pt-rs{display:inline-block;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:6px;color:var(--soft);vertical-align:1px}
+.pt-rs.g{color:var(--green);border-color:var(--green)}
+.pt-rs.r{color:var(--red);border-color:var(--red)}
+</style>
+<script>
+/* ===== PAPER PART 8A: History tab (Trades + Wallet history) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x7 || !P.x7.b || P.x8) return;
+  var esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, fdate = P.fdate;
+  var HOUR = 3600000;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var q6 = function (n) { return Number(Number(n).toPrecision(6)); };
+  var sum = function (a, f) { return a.reduce(function (s, x) { return s + f(x); }, 0); };
+  var uniq = function (a) { return a.filter(function (v, i) { return v && a.indexOf(v) === i; }).sort(); };
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? d + 'd ' + (h % 24) + 'h' : h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  var X = P.x8 = { version: '8A', subs: [] };
+  var H = P.ui.h = { sub: 'trades', range: 'all', sym: '', side: '', res: '', reason: '', wt: '', limit: 20, open: null };
+  X.H = H;
+  var RANGES = [['24h', 24 * HOUR, '24h'], ['7d', 7 * 24 * HOUR, '7 days'], ['30d', 30 * 24 * HOUR, '30 days'], ['all', 0, 'All']];
+  X.cutoff = function () { var r = RANGES.filter(function (x) { return x[0] === H.range; })[0]; return r && r[1] ? Date.now() - r[1] : 0; };
+  X.sel = function (name, opts, cur) {
+    return '<select class="pt-in pt-hf" data-hf="' + name + '" aria-label="' + name + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(cur) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
+  };
+  X.card = function (l, v, s, k) { return '<div class="pt-card"><label>' + l + '</label><strong class="' + (k || '') + '">' + v + '</strong>' + (s ? '<small>' + s + '</small>' : '') + '</div>'; };
+  X.more = function (total) { return total > H.limit ? '<div class="pt-row" style="justify-content:center"><button class="pt-btn" data-act="x8-more">Show more (' + (total - H.limit) + ' left)</button></div>' : ''; };
+  X.kv = function (pairs) { return '<div class="pt-kv">' + pairs.map(function (p) { return '<div><span>' + p[0] + '</span><b>' + p[1] + '</b></div>'; }).join('') + '</div>'; };
+
+  /* ---------- Trades ---------- */
+  var RS = { TP: 'g', TP1: 'g', TP2: 'g', TP3: 'g', SL: 'r', LIQ: 'r' };
+  function tradeItem(t) {
+    var L = t.side === 'LONG', open = H.open === t.id;
+    var main = '<div class="pt-hi-m"><div><b>' + base(t.symbol) + '</b><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + t.side + ' ' + t.lev + 'x</span><span class="pt-rs ' + (RS[t.reason] || '') + '">' + esc(t.reason) + '</span><small>' + fdate(t.closed) + '</small></div>' +
+      '<div style="text-align:right"><b class="' + cls(t.pnl) + '" style="font-size:15px">' + money(t.pnl, 1) + '</b><small>' + (t.r === null || t.r === undefined ? '' : (t.r >= 0 ? '+' : '') + Number(t.r).toFixed(2) + 'R') + '</small></div></div>';
+    var det = !open ? '' : X.kv([
+      ['Entry', fp(t.entry)], ['Exit', fp(t.exit)], ['Quantity', q6(t.qty) + ' ' + base(t.symbol)], ['Margin', money(t.margin)],
+      ['Gross P&amp;L', '<span class="' + cls(t.gross) + '">' + money(t.gross, 1) + '</span>'], ['Fees', money(t.fees)],
+      ['Net P&amp;L', '<span class="' + cls(t.pnl) + '">' + money(t.pnl, 1) + '</span>'], ['R multiple', t.r === null || t.r === undefined ? '-' : Number(t.r).toFixed(2) + 'R'],
+      ['Stop loss', t.sl ? fp(t.sl) : '-'], ['Take profit', t.tp ? fp(t.tp) : '-'],
+      ['Opened', fdate(t.opened)], ['Closed', fdate(t.closed)], ['Held', dur(t.closed - t.opened)], ['Source', esc(t.src || 'manual')]
+    ]);
+    return '<div class="pt-hi" data-act="x8-open" data-id="' + t.id + '">' + main + det + '</div>';
+  }
+  function tradesView(acc) {
+    var cut = X.cutoff(), all = acc.trades;
+    var rows = all.filter(function (t) {
+      return t.closed >= cut && (!H.sym || t.symbol === H.sym) && (!H.side || t.side === H.side) && (!H.reason || t.reason === H.reason) &&
+        (!H.res || (H.res === 'win' ? t.pnl > 0 : t.pnl < 0));
+    });
+    var n = rows.length, wins = rows.filter(function (t) { return t.pnl > 0; }).length, net = sum(rows, function (t) { return t.pnl; }), fees = sum(rows, function (t) { return t.fees; });
+    var rr = rows.filter(function (t) { return t.r !== null && t.r !== undefined && isFinite(t.r); }), avgR = rr.length ? sum(rr, function (t) { return t.r; }) / rr.length : null;
+    var best = n ? Math.max.apply(null, rows.map(function (t) { return t.pnl; })) : 0, worst = n ? Math.min.apply(null, rows.map(function (t) { return t.pnl; })) : 0;
+    var filters = '<div class="pt-hrow">' +
+      X.sel('sym', [['', 'All coins']].concat(uniq(all.map(function (t) { return t.symbol; })).map(function (s) { return [s, base(s)]; })), H.sym) +
+      X.sel('side', [['', 'Long + Short'], ['LONG', 'Long'], ['SHORT', 'Short']], H.side) +
+      X.sel('res', [['', 'Win + Loss'], ['win', 'Wins'], ['loss', 'Losses']], H.res) +
+      X.sel('reason', [['', 'Any exit']].concat(uniq(all.map(function (t) { return t.reason; })).map(function (r) { return [r, r]; })), H.reason) + '</div>';
+    var list = rows.slice(0, H.limit).map(tradeItem).join('') || '<div class="pt-mut">' + (all.length ? 'No trades match these filters.' : 'No closed trades yet.') + '</div>';
+    return filters + '<div class="pt-grid">' +
+      X.card('Trades', n, n ? Math.round(wins / n * 100) + '% win (' + wins + 'W / ' + (n - wins) + 'L)' : 'None') +
+      X.card('Net P&amp;L', money(net, 1), 'After fees ' + money(fees), cls(net)) +
+      X.card('Best / Worst', '<span class="pt-up">' + money(best, 1) + '</span> <span class="pt-mut">/</span> <span class="pt-dn">' + money(worst, 1) + '</span>', 'Single trade') +
+      X.card('Average R', avgR === null ? '-' : (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R', rr.length + ' with a stop loss', avgR === null ? '' : cls(avgR)) + '</div>' +
+      '<div class="pt-box"><h3>Closed Trades</h3><div>' + list + '</div>' + X.more(n) + '<div class="pt-mut" style="font-size:11px;margin-top:8px">Tap a trade for details. Every partial close (TP1, TP2, manual %) is its own row.</div></div>';
+  }
+
+  /* ---------- Wallet history ---------- */
+  var TT = { DEPOSIT: 'Deposit', WITHDRAW: 'Withdrawal', PNL: 'Trade P&amp;L', FEE: 'Fee', FUNDING: 'Funding', LIQ: 'Liquidation cover' };
+  var signed = function (x) { return x.type === 'WITHDRAW' ? -Math.abs(x.amt) : x.type === 'DEPOSIT' ? Math.abs(x.amt) : x.amt; };
+  X.signed = signed;
+  function walletView(acc) {
+    var cut = X.cutoff(), run = acc.balance, all = acc.txns.map(function (x) { var after = run; run -= signed(x); return { x: x, v: signed(x), after: after }; });
+    var rows = all.filter(function (r) { return r.x.t >= cut && (!H.wt || r.x.type === H.wt); });
+    var tot = function (types) { return sum(all.filter(function (r) { return r.x.t >= cut && types.indexOf(r.x.type) >= 0; }), function (r) { return r.v; }); };
+    var dep = tot(['DEPOSIT']), wd = tot(['WITHDRAW']), pnl = tot(['PNL']), fee = tot(['FEE']), fund = tot(['FUNDING']), net = tot(['DEPOSIT', 'WITHDRAW', 'PNL', 'FEE', 'FUNDING', 'LIQ']);
+    var filters = '<div class="pt-hrow">' + X.sel('wt', [['', 'All types']].concat(Object.keys(TT).map(function (k) { return [k, TT[k].replace('&amp;', '&')]; })), H.wt) + '</div>';
+    var list = rows.slice(0, H.limit).map(function (r) {
+      return '<div class="pt-li"><div><b>' + (TT[r.x.type] || esc(r.x.type)) + '</b><small>' + fdate(r.x.t) + (r.x.note ? ' &middot; ' + esc(r.x.note) : '') + '</small></div>' +
+        '<div style="text-align:right"><b class="' + cls(r.v) + '">' + money(r.v, 1) + '</b><small>Balance ' + money(r.after) + '</small></div></div>';
+    }).join('') || '<div class="pt-mut">No wallet activity here.</div>';
+    return filters + '<div class="pt-grid">' + X.card('Net change', money(net, 1), 'Incl. deposits', cls(net)) + X.card('Deposited', money(dep, 1), '', cls(dep)) + X.card('Withdrawn', money(wd, 1), '', cls(wd)) +
+      X.card('Trade P&amp;L', money(pnl, 1), 'Gross', cls(pnl)) + X.card('Fees', money(fee, 1), 'Trading fees', cls(fee)) + X.card('Funding', money(fund, 1), 'Paid / received', cls(fund)) + '</div>' +
+      '<div class="pt-box"><h3>Wallet History</h3><div class="pt-list">' + list + '</div>' + X.more(rows.length) + '<div class="pt-mut" style="font-size:11px;margin-top:8px">Keeps the latest 500 entries. Unrealized P&amp;L is not cash, so it is not listed.</div></div>';
+  }
+
+  X.subs.push({ id: 'trades', label: 'Trades', order: 10, render: tradesView }, { id: 'wallet', label: 'Wallet', order: 30, render: walletView });
+
+  /* ---------- tab ---------- */
+  P.addTab('history', 'History', 30, function (acc) {
+    var subs = X.subs.slice().sort(function (a, b) { return a.order - b.order; }), cur = subs.filter(function (s) { return s.id === H.sub; })[0] || subs[0];
+    H.sub = cur.id;
+    return '<div class="pt-seg">' + subs.map(function (s) { return '<button class="pt-chip' + (s.id === cur.id ? ' on' : '') + '" data-act="x8-sub" data-v="' + s.id + '">' + s.label + '</button>'; }).join('') + '</div>' +
+      '<div class="pt-seg">' + RANGES.map(function (r) { return '<button class="pt-chip' + (r[0] === H.range ? ' on' : '') + '" data-act="x8-range" data-v="' + r[0] + '">' + r[2] + '</button>'; }).join('') + '</div>' + cur.render(acc);
+  });
+
+  var A = P.acts;
+  A['x8-sub'] = function (el) { H.sub = el.dataset.v; H.limit = 20; H.open = null; P.render(); };
+  A['x8-range'] = function (el) { H.range = el.dataset.v; H.limit = 20; H.open = null; P.render(); };
+  A['x8-more'] = function () { H.limit += 20; P.render(); };
+  A['x8-open'] = function (el) { H.open = H.open === el.dataset.id ? null : el.dataset.id; P.render(); };
+  document.addEventListener('change', function (e) {
+    var k = e.target && e.target.dataset && e.target.dataset.hf;
+    if (k) { H[k] = e.target.value; H.limit = 20; H.open = null; P.render(); }
+  });
+  P.on('position', function () { if (P.ui.tab === 'history') P.render(); });
+
+  if (document.querySelector('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
