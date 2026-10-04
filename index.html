@@ -5846,6 +5846,8 @@ var bd = $("posCalcBackdrop");
   function paint() { var el = $('#x10-list'); if (el && P.ui.tab === 'signals') el.innerHTML = listHtml(); }
   badge();
 
+X.badge = badge; X.notes = notes;
+
   /* ---------- Trade this signal: fill the order ticket ---------- */
   P.tradeSignal = function (s) {
     if (typeof s === 'string') s = X.sigs.filter(function (x) { return x.id === s; })[0];
