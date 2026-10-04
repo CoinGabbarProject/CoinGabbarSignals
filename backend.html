@@ -512,6 +512,38 @@ async function performanceView() {
 }
 
 function backtestView() {
+  const root = API.replace("/api/v1", "");
+  host.innerHTML = panel("Backtesting", "Real signal engine, same rules as live scanner",
+    `<div style="display:grid;gap:8px;max-width:420px">
+      <input id="bk" type="password" placeholder="BACKTEST_KEY" autocomplete="off" style="${INP}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="bd" class="btn">${opts(["7", "14", "30", "60", "90", "180"])}</select>
+        <select id="bt" class="btn">${opts(["15m", "30m", "1H", "4H"])}</select>
+        <select id="bm" class="btn">${opts(["60", "65", "70", "75", "80", "85"])}</select>
+      </div>
+      <small style="opacity:.7">Days / Timeframe / Min score</small>
+      <input id="bc" placeholder="Coins (optional): BTCUSDT,ETHUSDT" style="${INP}">
+      <button id="bgo" class="btn p">Run backtest</button>
+    </div>
+    <pre id="bout" style="margin-top:12px;white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5"></pre>`);
+  $("bd").value = "30"; $("bt").value = "1H"; $("bm").value = "75";
+  $("bgo").onclick = async () => {
+    const key = $("bk").value.trim();
+    if (!key) { $("bout").textContent = "Enter BACKTEST_KEY first."; return; }
+    const q = new URLSearchParams({ key, days: $("bd").value, tf: $("bt").value, minScore: $("bm").value });
+    const coins = $("bc").value.trim();
+    if (coins) q.set("symbols", coins);
+    $("bgo").disabled = true;
+    $("bout").textContent = "Running... this can take 15-60 seconds.";
+    try {
+      const r = await fetch(root + "/engine/backtest?" + q.toString());
+      $("bout").textContent = await r.text();
+    } catch (e) { $("bout").textContent = "Request failed: " + e.message; }
+    $("bgo").disabled = false;
+  };
+}
+
+function oldBacktestView() {
   host.innerHTML = panel("Backtesting", "EMA 20/50 crossover, long only, last 1000 candles, 0.2% fee per trade",
     `<select id="bs" class="btn">${opts(SYMS)}</select> <select id="bt" class="btn">${opts(["15m", "1h", "4h", "1d"])}</select> <button id="bgo" class="btn p">Run</button><div id="bout" style="margin-top:12px"></div>`);
   $("bgo").onclick = async () => {
