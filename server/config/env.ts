@@ -35,7 +35,7 @@ export function loadScanConfig(env: NodeJS.ProcessEnv = process.env): ScanConfig
     .filter(Boolean);
   const bad = symbols.find((s) => !SYMBOL_RE.test(s));
   if (bad) throw new Error(`SCAN_SYMBOLS contains an invalid symbol: ${bad}`);
-  if (symbols.length === 0 || symbols.length > 50) throw new Error("SCAN_SYMBOLS must list 1-50 symbols");
+if (symbols.length === 0 || symbols.length > 100) throw new Error("SCAN_SYMBOLS must list 1-100 symbols");
 
   const tf = (env.SCAN_TIMEFRAME || "1H") as Timeframe;
   if (!TIMEFRAMES.includes(tf)) throw new Error(`SCAN_TIMEFRAME must be one of ${TIMEFRAMES.join(", ")}`);
