@@ -3644,7 +3644,7 @@ var bd = $("posCalcBackdrop");
   labelTab();
   var r0 = P.render;
   P.render = function () { labelTab(); return r0.apply(P, arguments); };
-  P.on('prices', function () { var el = $('#pt-pos'); if (el && P.ui.tab === 'positions') el.innerHTML = posHtml(); });
+  P.on('prices', function () { if (P.posLive) return P.posLive(); var el = $('#pt-pos'); if (el && P.ui.tab === 'positions') el.innerHTML = posHtml(); });
 
   P.acts['pos-close'] = function (el) {
     var pos = P.acc().positions.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!pos) return;
