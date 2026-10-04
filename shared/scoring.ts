@@ -107,7 +107,11 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   if (!cInd || !cLast) unavailable.push("confirmationTF");
   else {
     let ct = 0;
-    if ((cInd.ema20 - cInd.ema50) * s > 0) ct += 4; else conflicts.push("Confirmation timeframe trend disagrees");
+    if ((cInd.ema20 - cInd.ema50) * s > 0) ct += 4;
+    else {
+      conflicts.push("Confirmation timeframe trend disagrees");
+      critical = critical ?? "Higher timeframe trend disagrees with the setup";
+    }
     if ((cLast.close - cInd.ema50) * s > 0) ct += 2;
     if (cInd.macd.histogram * s > 0) ct += 2;
     if (ct >= 6) conf.push("Confirmation timeframe agrees");
