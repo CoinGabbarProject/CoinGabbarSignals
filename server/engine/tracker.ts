@@ -34,7 +34,11 @@ let best = 0;
   const hits: SignalHits = {};
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
-  const done = (closed: boolean): Evaluation => {
+  const stopNow = (): number => {
+    if (!TRAILING_ON || best === 0) return sl;
+    return best === 1 ? s.entry.ideal : (tps[0] as number);
+  };
+  const done = (closed: boolean, exit?: number): Evaluation => {
  if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true, hits } } : { kind: "entered" };
     return { kind: "outcome", outcome: { status: label(best), exit: tps[best - 1] as number, closed, hits } };
   };
