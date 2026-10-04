@@ -3177,7 +3177,9 @@ var bd = $("posCalcBackdrop");
     return getJson('/ticker/24hr?symbols=' + encodeURIComponent(JSON.stringify(syms))).then(function (rows) {
       rows.forEach(function (r) { P.stats[r.symbol] = { chg: Number(r.priceChangePercent), high: Number(r.highPrice), low: Number(r.lowPrice), vol: Number(r.quoteVolume) }; });
       setPrices(rows); F.last = Date.now(); P.emit('stats'); P.emit('prices');
-    }).catch(function () { /* next tick retries */ });
+    }).catch(function (e) {
+      if (e && e.status === 400) return pruneBad(syms).then(function () { P.emit('stats'); });
+    });
   }
   function candleTick() {
     var key = U.symbol + '|' + U.tf, sym = U.symbol, tf = U.tf;
