@@ -3434,6 +3434,228 @@ var bd = $("posCalcBackdrop");
   if (onPaper()) P.render();
 })();
 </script>
+<style id="paper-css-3">
+.pt-pos{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:11px;margin-bottom:10px}
+.pt-pos-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.pt-pos-h b{font-size:15px}
+.pt-tag{display:inline-block;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:800;margin-left:6px}
+.pt-tag.L{background:rgba(25,223,145,.15);color:var(--green)}
+.pt-tag.S{background:rgba(255,82,102,.15);color:var(--red)}
+.pt-tag.O{background:rgba(255,200,74,.15);color:var(--yellow)}
+.pt-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;font-size:12px}
+.pt-kv span{color:var(--muted);display:block;font-size:11px}
+.pt-kv b{font-weight:600;word-break:break-word}
+.pt-pnl{font-size:18px;font-weight:800}
+</style>
+<script>
+/* ===== PAPER PART 3: order engine (fills, positions, SL/TP, simple liquidation) ===== */
+(function () {
+  var P = window.PAPER; if (!P || !P.feed || P.engine) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, r8 = P.r8, fp = P.fp;
+  var BASE = 'https://data-api.binance.vision/api/v3', MIN = 60000, STALE = 15000;
+  var E = P.engine = { version: 3 };
+  P.k1 = {};
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var nextMin = function (t) { return Math.ceil(t / MIN) * MIN; };
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  var q6 = function (n) { return Number(Number(n).toPrecision(6)); };
+
+  function get(path) {
+    var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(BASE + path, { signal: c.signal }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }, function (e) { clearTimeout(t); throw e; });
+  }
+
+  /** Price where an isolated position is wiped out. Replaced by the leverage/margin part later. */
+  P.liqPrice = function (pos) { return pos.side === 'LONG' ? pos.entry * (1 - 1 / pos.lev) : pos.entry * (1 + 1 / pos.lev); };
+
+  function openPosition(acc, o, fill, feePct, src) {
+    var qty = o.qty, margin = qty * fill / o.lev, fee = qty * fill * feePct / 100, now = Date.now();
+    var pos = { id: P.uid('p'), symbol: o.symbol, side: o.side, lev: o.lev, qty: qty, entry: fill, margin: margin, sl: o.sl || null, tp: o.tp || null, fee: fee, opened: now, chk: nextMin(now), src: src || 'manual' };
+    acc.balance = r8(acc.balance - fee);
+    acc.positions.push(pos);
+    P.addTxn(acc, 'FEE', -fee, 'Open ' + o.side + ' ' + base(o.symbol));
+    P.addLog(acc, 'Opened ' + o.side + ' ' + base(o.symbol) + ' ' + q6(qty) + ' @ ' + fp(fill) + ' (' + o.lev + 'x)');
+    return pos;
+  }
+
+  /**
+   * Closes `fraction` (0-1] of a position at `exit`. Balance gets gross P&L minus the exit fee (the entry fee
+   * was already taken when the position opened). Returns the trade record.
+   */
+  function closePosition(acc, pos, exit, feePct, reason, fraction) {
+    var f = fraction > 0 && fraction < 1 ? fraction : 1, q = f === 1 ? pos.qty : pos.qty * f;
+    var gross = (exit - pos.entry) * q * dir(pos.side), fee = q * exit * feePct / 100;
+    var entryFee = pos.fee * f, marginPart = pos.margin * f;
+    acc.balance = r8(acc.balance + gross - fee);
+    if (f === 1) acc.positions = acc.positions.filter(function (x) { return x !== pos; });
+    else { pos.qty = r8(pos.qty - q); pos.margin = pos.margin - marginPart; pos.fee = pos.fee - entryFee; }
+    var net = gross - fee - entryFee, risk = pos.sl ? Math.abs(pos.entry - pos.sl) * q : 0;
+    var tr = { id: P.uid('t'), symbol: pos.symbol, side: pos.side, lev: pos.lev, qty: r8(q), entry: pos.entry, exit: exit, gross: r8(gross), fees: r8(fee + entryFee), pnl: r8(net), margin: marginPart, r: risk > 0 ? r8(net / risk) : null, reason: reason, opened: pos.opened, closed: Date.now(), src: pos.src, sl: pos.sl, tp: pos.tp, note: '' };
+    acc.trades.unshift(tr); if (acc.trades.length > 1000) acc.trades.length = 1000;
+    P.addTxn(acc, 'PNL', gross, reason + ' ' + base(pos.symbol));
+    P.addTxn(acc, 'FEE', -fee, 'Close ' + base(pos.symbol));
+    P.addLog(acc, reason + ' ' + pos.side + ' ' + base(pos.symbol) + ' ' + q6(q) + ' @ ' + fp(exit) + ' = ' + money(net, 1));
+    return tr;
+  }
+  E.openPosition = openPosition; P.closePosition = closePosition;
+
+  /* ---------- placing orders ---------- */
+  function showMsg(t, bad) { var m = $('#pt-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } }
+  function after(msgText) {
+    P.save(); labelTab();
+    P.ticket.size = ''; P.ticket.limit = ''; P.ticket.sl = ''; P.ticket.tp = '';
+    P.ui.tab = 'positions'; P.render(); P.emit('position'); P.toast(msgText);
+  }
+  P.placeOrder = function (spec, extra) {
+    var acc = P.acc(), c = P.calc(acc), mkt = P.price(spec.symbol), isL = spec.side === 'LONG';
+    var fail = function (m) { showMsg(m, true); return { ok: false, error: m }; };
+    if (mkt === null) return fail('No live price yet. Wait a moment.');
+    var slip = acc.fees.slip / 100, now = Date.now();
+    var marketable = spec.type === 'MARKET' || (isL ? spec.limit >= mkt : spec.limit <= mkt);
+    if (marketable) {
+      if (now - P.feed.last > STALE) return fail('Price feed is delayed. Try again in a moment.');
+      var fill = spec.type === 'MARKET' ? mkt * (1 + (isL ? 1 : -1) * slip) : (isL ? Math.min(spec.limit, mkt * (1 + slip)) : Math.max(spec.limit, mkt * (1 - slip)));
+      var need = spec.qty * fill / spec.lev + spec.qty * fill * acc.fees.taker / 100;
+      if (need > c.available + 1e-9) return fail('Not enough available balance. Need ' + money(need) + ', have ' + money(c.available));
+      var pos = openPosition(acc, spec, fill, acc.fees.taker, (extra && extra.src) || 'manual');
+      after((isL ? 'Long' : 'Short') + ' ' + base(pos.symbol) + ' filled @ ' + fp(fill));
+      return { ok: true, position: pos };
+    }
+    var m0 = spec.qty * spec.limit / spec.lev, rsv = m0 + spec.qty * spec.limit * acc.fees.maker / 100;
+    if (rsv > c.available + 1e-9) return fail('Not enough available balance. Need ' + money(rsv) + ', have ' + money(c.available));
+    var o = { id: P.uid('o'), symbol: spec.symbol, side: spec.side, type: 'LIMIT', price: spec.limit, qty: spec.qty, lev: spec.lev, margin: rsv, m0: m0, sl: spec.sl, tp: spec.tp, created: now, chk: nextMin(now), src: (extra && extra.src) || 'manual' };
+    acc.orders.push(o);
+    P.addLog(acc, 'Limit ' + spec.side + ' ' + base(spec.symbol) + ' ' + q6(spec.qty) + ' @ ' + fp(spec.limit));
+    after('Limit order placed @ ' + fp(spec.limit));
+    return { ok: true, order: o };
+  };
+  P.cancelOrder = function (id) {
+    var acc = P.acc(), o = acc.orders.filter(function (x) { return x.id === id; })[0]; if (!o) return false;
+    acc.orders = acc.orders.filter(function (x) { return x !== o; });
+    P.addLog(acc, 'Cancelled ' + o.side + ' ' + base(o.symbol) + ' limit @ ' + fp(o.price));
+    P.save(); labelTab(); P.emit('position'); return true;
+  };
+  P.closeAtMarket = function (id, fraction) {
+    var acc = P.acc(), pos = acc.positions.filter(function (x) { return x.id === id; })[0], mkt = pos && P.price(pos.symbol);
+    if (!pos) return null;
+    if (!mkt) { P.toast('No live price yet'); return null; }
+    var slip = acc.fees.slip / 100, exit = mkt * (1 - dir(pos.side) * slip);
+    var tr = closePosition(acc, pos, exit, acc.fees.taker, 'MANUAL', fraction);
+    P.save(); labelTab(); P.emit('position'); return tr;
+  };
+
+  /* ---------- trigger engine ---------- */
+  function rangeFor(sym, chk) {
+    var p = P.price(sym), hi = p || -Infinity, lo = p || Infinity, upTo = chk, now = Date.now();
+    (P.k1[sym] || []).forEach(function (k) {
+      if (k.t >= chk && k.t + MIN <= now) { if (k.h > hi) hi = k.h; if (k.l < lo) lo = k.l; if (k.t + MIN > upTo) upTo = k.t + MIN; }
+    });
+    return isFinite(hi) && isFinite(lo) ? { hi: hi, lo: lo, p: p, upTo: upTo } : null;
+  }
+  function note(tr) {
+    var tag = tr.reason === 'TP' ? 'Take profit' : tr.reason === 'SL' ? 'Stop loss' : tr.reason === 'LIQ' ? 'LIQUIDATED' : 'Closed';
+    P.toast(tag + ' ' + base(tr.symbol) + ' ' + money(tr.pnl, 1));
+  }
+  E.check = function () {
+    var st = P.state(), changed = false, ended = [];
+    Object.keys(st.accounts).forEach(function (id) {
+      var acc = st.accounts[id];
+      acc.orders.slice().forEach(function (o) {
+        var r = rangeFor(o.symbol, o.chk); if (!r) return;
+        if (o.side === 'LONG' ? r.lo <= o.price : r.hi >= o.price) {
+          acc.orders = acc.orders.filter(function (x) { return x !== o; });
+          openPosition(acc, o, o.price, acc.fees.maker, o.src);
+          P.toast('Limit filled ' + o.side + ' ' + base(o.symbol) + ' @ ' + fp(o.price)); changed = true;
+        } else o.chk = Math.max(o.chk, r.upTo);
+      });
+      acc.positions.slice().forEach(function (pos) {
+        var r = rangeFor(pos.symbol, pos.chk); if (!r) return;
+        var L = pos.side === 'LONG', liq = P.liqPrice(pos), slip = acc.fees.slip / 100;
+        var slHit = pos.sl !== null && (L ? r.lo <= pos.sl : r.hi >= pos.sl);
+        var liqHit = L ? r.lo <= liq : r.hi >= liq;
+        var tpHit = pos.tp !== null && (L ? r.hi >= pos.tp : r.lo <= pos.tp);
+        var tr = null;
+        if (liqHit && (!slHit || (L ? liq > pos.sl : liq < pos.sl))) tr = closePosition(acc, pos, liq, acc.fees.taker, 'LIQ');
+        else if (slHit) {
+          var b = L ? (r.p !== null && r.p < pos.sl ? r.p : pos.sl) : (r.p !== null && r.p > pos.sl ? r.p : pos.sl);
+          tr = closePosition(acc, pos, b * (1 - dir(pos.side) * slip), acc.fees.taker, 'SL');
+        } else if (tpHit) tr = closePosition(acc, pos, pos.tp, acc.fees.maker, 'TP');
+        else pos.chk = Math.max(pos.chk, r.upTo);
+        if (tr) { ended.push(tr); changed = true; }
+      });
+    });
+    if (changed) { P.save(); labelTab(); ended.forEach(note); if (P.ui.tab === 'positions' || P.ui.tab === 'wallet') P.render(); P.emit('position'); }
+    return changed;
+  };
+  P.on('prices', function () { try { E.check(); } catch (e) { console.error('engine', e); } });
+
+  function wickTick() {
+    if (document.hidden) return;
+    var need = {}, st = P.state(), now = Date.now();
+    Object.keys(st.accounts).forEach(function (id) {
+      st.accounts[id].positions.concat(st.accounts[id].orders).forEach(function (x) { need[x.symbol] = Math.min(need[x.symbol] || Infinity, x.chk); });
+    });
+    Object.keys(need).forEach(function (sym) {
+      var lim = Math.min(1000, Math.max(3, Math.ceil((now - need[sym]) / MIN) + 2));
+      get('/klines?symbol=' + sym + '&interval=1m&limit=' + lim).then(function (rows) {
+        P.k1[sym] = rows.map(function (k) { return { t: +k[0], h: +k[2], l: +k[3] }; });
+        try { E.check(); } catch (e) { console.error('engine', e); }
+      }).catch(function () { /* retry next cycle */ });
+    });
+  }
+  setInterval(wickTick, 8000);
+  setTimeout(wickTick, 1500);
+
+  /* ---------- Positions tab ---------- */
+  function openCount() { var a = P.acc(); return a.positions.length + a.orders.length; }
+  function labelTab() { var n = openCount(); P.addTab('positions', 'Positions' + (n ? ' (' + n + ')' : ''), 20, posView); }
+  function posCard(p) {
+    var mk = P.price(p.symbol), px = mk === null ? p.entry : mk, u = (px - p.entry) * p.qty * dir(p.side), roe = p.margin > 0 ? u / p.margin * 100 : 0;
+    return '<div class="pt-pos"><div class="pt-pos-h"><div><b>' + base(p.symbol) + '/USDT</b><span class="pt-tag ' + (p.side === 'LONG' ? 'L' : 'S') + '">' + p.side + ' ' + p.lev + 'x</span></div>' +
+      '<div style="text-align:right"><div class="pt-pnl ' + cls(u) + '">' + money(u, 1) + '</div><div class="' + cls(u) + '" style="font-size:12px">' + (roe >= 0 ? '+' : '') + roe.toFixed(2) + '%</div></div></div>' +
+      '<div class="pt-kv"><div><span>Entry</span><b>' + fp(p.entry) + '</b></div><div><span>Mark</span><b>' + (mk === null ? '--' : fp(mk)) + '</b></div>' +
+      '<div><span>Quantity</span><b>' + q6(p.qty) + ' ' + base(p.symbol) + '</b></div><div><span>Margin</span><b>' + money(p.margin) + '</b></div>' +
+      '<div><span>Stop loss</span><b>' + (p.sl ? fp(p.sl) : '-') + '</b></div><div><span>Take profit</span><b>' + (p.tp ? fp(p.tp) : '-') + '</b></div>' +
+      '<div><span>Liq. price</span><b class="pt-dn">' + fp(Math.max(0, P.liqPrice(p))) + '</b></div><div><span>Opened</span><b>' + P.fdate(p.opened) + '</b></div></div>' +
+      '<div class="pt-row" style="margin-top:10px"><button class="pt-btn red sm" data-act="pos-close" data-id="' + p.id + '">Close at market</button></div></div>';
+  }
+  function ordCard(o) {
+    return '<div class="pt-pos"><div class="pt-pos-h"><div><b>' + base(o.symbol) + '/USDT</b><span class="pt-tag O">LIMIT ' + o.side + ' ' + o.lev + 'x</span></div></div>' +
+      '<div class="pt-kv"><div><span>Price</span><b>' + fp(o.price) + '</b></div><div><span>Mark</span><b>' + (P.price(o.symbol) === null ? '--' : fp(P.price(o.symbol))) + '</b></div>' +
+      '<div><span>Quantity</span><b>' + q6(o.qty) + ' ' + base(o.symbol) + '</b></div><div><span>Reserved</span><b>' + money(o.margin) + '</b></div>' +
+      '<div><span>Stop loss</span><b>' + (o.sl ? fp(o.sl) : '-') + '</b></div><div><span>Take profit</span><b>' + (o.tp ? fp(o.tp) : '-') + '</b></div></div>' +
+      '<div class="pt-row" style="margin-top:10px"><button class="pt-btn sm" data-act="ord-cancel" data-id="' + o.id + '">Cancel order</button></div></div>';
+  }
+  function posHtml() {
+    var a = P.acc(), c = P.calc(a);
+    var recent = a.trades.slice(0, 3).map(function (t) {
+      return '<div class="pt-li"><div><b>' + base(t.symbol) + ' ' + t.side + '</b><small>' + t.reason + ' &middot; ' + P.fdate(t.closed) + '</small></div><b class="' + cls(t.pnl) + '">' + money(t.pnl, 1) + '</b></div>';
+    }).join('');
+    return '<div class="pt-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="pt-card"><label>Open P&amp;L</label><strong class="' + cls(c.unreal) + '">' + money(c.unreal, 1) + '</strong></div>' +
+      '<div class="pt-card"><label>Available</label><strong>' + money(c.available) + '</strong></div></div>' +
+      (a.positions.length ? '<h3 style="margin:4px 0 8px;font-size:14px">Open Positions</h3>' + a.positions.map(posCard).join('') : '') +
+      (a.orders.length ? '<h3 style="margin:4px 0 8px;font-size:14px">Pending Orders</h3>' + a.orders.map(ordCard).join('') : '') +
+      (!a.positions.length && !a.orders.length ? '<div class="pt-box pt-mut">No open positions or orders. Use the Trade tab to place one.</div>' : '') +
+      (recent ? '<div class="pt-box"><h3>Recently Closed</h3><div class="pt-list">' + recent + '</div></div>' : '') +
+      '<div class="pt-mut" style="font-size:11px">Each order opens its own position with isolated margin. Stop loss uses market exit with slippage; take profit and limit fills use maker fees.</div>';
+  }
+  function posView() { return '<div id="pt-pos">' + posHtml() + '</div>'; }
+  labelTab();
+  var r0 = P.render;
+  P.render = function () { labelTab(); return r0.apply(P, arguments); };
+  P.on('prices', function () { var el = $('#pt-pos'); if (el && P.ui.tab === 'positions') el.innerHTML = posHtml(); });
+
+  P.acts['pos-close'] = function (el) {
+    var pos = P.acc().positions.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!pos) return;
+    if (!window.confirm('Close ' + base(pos.symbol) + ' ' + pos.side + ' at market?')) return;
+    var tr = P.closeAtMarket(pos.id, 1); if (tr) { note(tr); P.render(); }
+  };
+  P.acts['ord-cancel'] = function (el) { if (P.cancelOrder(el.dataset.id)) { P.toast('Order cancelled'); P.render(); } };
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <!-- PAPER_NEXT_PART -->
 <script type="module" src="/src/main.tsx"></script>
 </body>
