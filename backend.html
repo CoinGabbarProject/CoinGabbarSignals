@@ -660,6 +660,37 @@ function settingsView() {
   $("sx").onclick = () => { if (confirm("Reset watchlist and alerts?")) { localStorage.removeItem("cg_watch"); localStorage.removeItem("cg_alerts"); $("sm").textContent = "Reset done"; } };
 }
 
+async function scanView() {
+  host.innerHTML = panel("Scan Health", "Loading...", "Loading...");
+  try {
+    const d = await api("/engine/status"), lr = d.lastRun, res = (lr && lr.results) || [];
+    const n = (f) => res.filter(f).length;
+    const every = Math.round((d.intervalMs || 0) / 60000);
+    const age = lr ? Math.round((Date.now() - Date.parse(lr.finishedAt)) / 60000) : null;
+    const stale = !lr || age > every * 2 + 2;
+    const done = new Set(res.map(r => r.symbol));
+    const missing = d.symbols.filter(s => !done.has(s));
+    const card = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="value ${c}">${v}</div><div class="sub">${sub}</div></div>`;
+    const rows = [...res].sort((a, b) => b.score - a.score).map(r => `<tr><td>${esc(r.symbol)}</td><td class="${r.direction === "LONG" ? "green" : r.direction === "SHORT" ? "red" : ""}">${esc(r.direction)}</td><td>${esc(r.score)}</td><td><span class="status ${r.outcome === "emitted" ? "active" : r.outcome === "error" ? "danger" : "neutral"}">${esc(r.outcome)}</span>${r.error ? ` <small class="red">${esc(r.error)}</small>` : ""}</td></tr>`).join("");
+    host.innerHTML = panel("Scan Health", `${esc(d.timeframe)} · every ${every} min`,
+      `<div class="cards" style="margin-bottom:10px">
+        ${card("Auto scan", d.autoScan ? "ON" : "OFF", d.autoScan ? "green" : "red", d.scanning ? "scanning now" : "idle")}
+        ${card("Tracked coins", d.symbols.length, d.symbols.length >= 100 ? "green" : "yellow", "server SCAN_SYMBOLS")}
+        ${card("Last scan", lr ? age + " min ago" : "never", stale ? "red" : "green", lr ? esc(new Date(lr.finishedAt).toLocaleTimeString()) : "")}
+        ${card("Scanned", lr ? lr.scanned : 0, "", "coins in last run")}
+        ${card("New signals", lr ? lr.emitted : 0, "cyan", "last run")}
+        ${card("Errors", lr ? lr.errors : 0, lr && lr.errors ? "red" : "green", "last run")}
+      </div>
+      <p>LONG <b class="green">${n(r => r.direction === "LONG")}</b> · SHORT <b class="red">${n(r => r.direction === "SHORT")}</b> · WAIT/NO TRADE <b>${n(r => r.direction !== "LONG" && r.direction !== "SHORT")}</b><br>
+      Score 75+ : <b class="cyan">${n(r => r.score >= 75)}</b> · 60 to 74 : <b>${n(r => r.score >= 60 && r.score < 75)}</b> · below 60 : <b>${n(r => r.score < 60)}</b><br>
+      Already open (duplicate) : <b>${n(r => r.outcome === "duplicate")}</b> · Blocked/not emitted : <b>${n(r => r.outcome === "not_emitted")}</b><br>
+      Not scanned in last run : <b class="${missing.length ? "red" : "green"}">${missing.length}</b>${missing.length ? " (" + esc(missing.join(", ")) + ")" : ""}</p>
+      <table class="table">${th(["Coin", "Direction", "Score", "Result"])}<tbody>${rows || '<tr><td colspan="4">No scan has run yet</td></tr>'}</tbody></table>`);
+  } catch (e) {
+    host.innerHTML = panel("Scan Health", "", `<span class="red">${esc(e.message)}</span>`);
+  }
+}
+
 const VIEW_MAP = {
   "Market Data": marketView, "Indicators": indicatorsView,
   "Risk Engine": riskView, "Calculations": riskView,
