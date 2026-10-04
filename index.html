@@ -5263,6 +5263,196 @@ var bd = $("posCalcBackdrop");
   if (document.querySelector('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 8B: Orders history (filled / cancelled / OCO) + Activity log ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x8 || P.x8.b) return;
+  var X = P.x8, H = X.H, esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, fdate = P.fdate;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var q6 = function (n) { return Number(Number(n).toPrecision(6)); };
+  var MAXH = 300;
+  X.b = true; X.version = '8B';
+  H.os = ''; H.ot = ''; H.lc = ''; H.q = '';
+
+  /* ---------- order journal: watches acc.orders and records how each one ended ---------- */
+  var why = {};
+  var kindName = { LIMIT: 'Limit', STOP: 'Stop', STOPLIMIT: 'Stop-Limit' };
+
+  function snap(o, old) {
+    var s = old || { id: o.id, created: o.created, kind: o.type, grp: o.grp || null };
+    if (old && old.kind === 'STOPLIMIT' && o.type === 'LIMIT') { s.lim = o.price; s.trigd = true; }
+    else { s.kind = o.type; s.trig = o.price; s.lim = o.lim || null; }
+    s.symbol = o.symbol; s.side = o.side; s.qty = o.qty; s.lev = o.lev; s.sl = o.sl || null; s.tp = o.tp || null; s.src = o.src || 'manual';
+    return s;
+  }
+  function findPos(acc, s, used) {
+    var best = null, bd = Infinity;
+    acc.positions.concat(acc.trades).forEach(function (p) {
+      if (p.symbol !== s.symbol || p.side !== s.side || p.opened < s.created - 2000) return;
+      var k = p.opened + '|' + p.symbol + '|' + p.side; if (used[k]) return;
+      var d = Math.abs(p.entry - (s.trigd ? s.lim : s.trig)) / (p.entry || 1);
+      if (d < bd) { bd = d; best = p; }
+    });
+    return best;
+  }
+  function sync(acc) {
+    if (!acc.ow || acc.oc !== acc.created) { acc.ow = {}; acc.oh = []; acc.oc = acc.created; }
+    var live = {}, now = Date.now();
+    acc.orders.forEach(function (o) { live[o.id] = 1; acc.ow[o.id] = snap(o, acc.ow[o.id]); });
+    var gone = Object.keys(acc.ow).filter(function (id) { return !live[id]; });
+    if (!gone.length) return false;
+    var used = {}; acc.oh.forEach(function (e) { if (e.pk) used[e.pk] = 1; });
+    var groups = {};
+    gone.forEach(function (id) { var s = acc.ow[id], g = s.grp || id; (groups[g] = groups[g] || []).push(s); });
+    Object.keys(groups).forEach(function (g) {
+      var legs = groups[g], filled = null, fpos = null;
+      var byYou = legs.some(function (s) { return why[s.id]; });
+      if (!byYou) {
+        legs.forEach(function (s) { var p = findPos(acc, s, used); if (p && (!fpos || Math.abs(p.entry - s.trig) < Math.abs(fpos.entry - filled.trig))) { fpos = p; filled = s; } });
+      }
+      if (fpos) used[fpos.opened + '|' + fpos.symbol + '|' + fpos.side] = 1;
+      legs.forEach(function (s) {
+        var ok = s === filled;
+        acc.oh.unshift({
+          id: s.id, grp: s.grp, t: now, created: s.created, symbol: s.symbol, side: s.side, kind: s.kind, trig: s.trig, lim: s.lim, trigd: !!s.trigd,
+          qty: s.qty, lev: s.lev, sl: s.sl, tp: s.tp, src: s.src, status: ok ? 'FILLED' : 'CANCELLED',
+          fill: ok ? fpos.entry : null, pk: ok ? fpos.opened + '|' + fpos.symbol + '|' + fpos.side : null,
+          why: ok ? '' : (why[s.id] || (filled ? 'Other OCO order filled' : 'Cancelled by system'))
+        });
+        delete acc.ow[s.id]; delete why[s.id];
+      });
+    });
+    if (acc.oh.length > MAXH) acc.oh.length = MAXH;
+    return true;
+  }
+  X.sync = sync;
+
+  var cancel0 = P.cancelOrder;
+  P.cancelOrder = function (id) {
+    var acc = P.acc(), o = acc.orders.filter(function (x) { return x.id === id; })[0];
+    if (o) acc.orders.forEach(function (x) { if (x === o || (o.grp && x.grp === o.grp)) why[x.id] = 'Cancelled by you'; });
+    var r = cancel0.apply(P, arguments);
+    if (!r && o) acc.orders.forEach(function (x) { delete why[x.id]; });
+    return r;
+  };
+  var save0 = P.save;
+  P.save = function () {
+    try { var st = P.state(); Object.keys(st.accounts).forEach(function (id) { sync(st.accounts[id]); }); } catch (e) { console.error(e); }
+    return save0.apply(P, arguments);
+  };
+
+  /* ---------- Orders view ---------- */
+  function items(acc) {
+    var out = [], seen = {};
+    (acc.oh || []).forEach(function (e) {
+      if (e.grp) {
+        if (seen[e.grp]) return;
+        var legs = acc.oh.filter(function (x) { return x.grp === e.grp; });
+        seen[e.grp] = 1;
+        var f = legs.filter(function (x) { return x.status === 'FILLED'; })[0];
+        out.push({ key: e.grp, oco: true, legs: legs, t: e.t, symbol: e.symbol, status: f ? 'FILLED' : 'CANCELLED', created: e.created });
+      } else out.push({ key: e.id, oco: false, legs: [e], t: e.t, symbol: e.symbol, status: e.status, created: e.created });
+    });
+    return out;
+  }
+  function priceTxt(e) {
+    if (e.kind === 'LIMIT') return fp(e.trig);
+    if (e.kind === 'STOP') return 'Trigger ' + fp(e.trig);
+    return 'Trigger ' + fp(e.trig) + ' / Limit ' + fp(e.lim);
+  }
+  function legLine(e) {
+    var L = e.side === 'LONG';
+    return '<div style="margin-top:6px"><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + e.side + ' ' + e.lev + 'x</span> <b>' + (kindName[e.kind] || e.kind) + '</b> ' + priceTxt(e) +
+      ' <span class="pt-rs ' + (e.status === 'FILLED' ? 'g' : 'r') + '">' + (e.status === 'FILLED' ? 'Filled' : 'Cancelled') + '</span>' +
+      '<small style="display:block">' + (e.status === 'FILLED' ? 'Filled @ ' + fp(e.fill) : esc(e.why)) + '</small></div>';
+  }
+  function orderItem(it) {
+    var e = it.legs[0], open = H.open === it.key, f = it.legs.filter(function (x) { return x.status === 'FILLED'; })[0] || e;
+    var ok = it.status === 'FILLED';
+    var title = it.oco ? 'OCO' : (kindName[e.kind] || e.kind);
+    var sub = it.oco ? it.legs.map(function (x) { return x.side + ' ' + (kindName[x.kind] || x.kind) + ' ' + fp(x.trig); }).join(' / ') : e.side + ' ' + priceTxt(e);
+    var main = '<div class="pt-hi-m"><div><b>' + base(it.symbol) + '</b><span class="pt-tag O">' + title + '</span><span class="pt-rs ' + (ok ? 'g' : 'r') + '">' + (ok ? 'FILLED' : 'CANCELLED') + '</span><small>' + fdate(it.t) + '</small></div>' +
+      '<div style="text-align:right"><b>' + q6(f.qty) + ' ' + base(it.symbol) + '</b><small>' + esc(sub) + '</small></div></div>';
+    var det = !open ? '' : '<div class="pt-kv" style="display:block">' +
+      '<div><span>Placed</span><b>' + fdate(it.created) + '</b></div>' +
+      '<div><span>Ended</span><b>' + fdate(it.t) + '</b></div>' +
+      '<div><span>Source</span><b>' + esc(f.src) + '</b></div>' +
+      '<div><span>SL / TP</span><b>' + (f.sl ? fp(f.sl) : '-') + ' / ' + (f.tp ? fp(f.tp) : '-') + '</b></div>' +
+      it.legs.map(legLine).join('') + '</div>';
+    return '<div class="pt-hi" data-act="x8-open" data-id="' + esc(it.key) + '">' + main + det + '</div>';
+  }
+  function ordersView(acc) {
+    var cut = X.cutoff(), all = items(acc);
+    var rows = all.filter(function (it) {
+      return it.t >= cut && (!H.os || it.status === H.os) && (!H.ot || (H.ot === 'OCO' ? it.oco : (!it.oco && it.legs[0].kind === H.ot)));
+    });
+    var n = rows.length, fl = rows.filter(function (i) { return i.status === 'FILLED'; }).length, oco = rows.filter(function (i) { return i.oco; }).length;
+    var filters = '<div class="pt-hrow">' +
+      X.sel('os', [['', 'Filled + Cancelled'], ['FILLED', 'Filled'], ['CANCELLED', 'Cancelled']], H.os) +
+      X.sel('ot', [['', 'All types'], ['LIMIT', 'Limit'], ['STOP', 'Stop'], ['STOPLIMIT', 'Stop-Limit'], ['OCO', 'OCO']], H.ot) + '</div>';
+    var list = rows.slice(0, H.limit).map(orderItem).join('') || '<div class="pt-mut">' + (all.length ? 'No orders match these filters.' : 'No finished orders yet. Filled and cancelled pending orders show here.') + '</div>';
+    return filters + '<div class="pt-grid">' + X.card('Orders', n, 'Pending not included') + X.card('Filled', fl, n ? Math.round(fl / n * 100) + '%' : '-', 'pt-up') +
+      X.card('Cancelled', n - fl, '', n - fl ? 'pt-dn' : 'pt-mut') + X.card('OCO', oco, 'Pairs') + '</div>' +
+      '<div class="pt-box"><h3>Order History</h3><div>' + list + '</div>' + X.more(n) +
+      '<div class="pt-mut" style="font-size:11px;margin-top:8px">Market orders fill instantly, so they appear in Trades. An OCO pair is one row; tap it to see both orders.</div></div>';
+  }
+
+  /* ---------- Activity log ---------- */
+  var CATS = [
+    ['order', 'Orders', /^(Limit|Stop |Stop-limit|STOP|OCO|Cancelled|Edited)/],
+    ['trade', 'Trades', /^(Opened|MANUAL|SL |TP\d? |LIQ |CROSS LIQ)/],
+    ['pos', 'Position edits', /^(Updated|Trailing|Partial TPs|Stop moved|Leverage|Removed .* margin|Added .* margin)/],
+    ['wallet', 'Wallet', /^(Added \$[\d,.]+$|Withdrew|Funding)/],
+    ['risk', 'Risk', /^(Risk|Daily loss)/]
+  ];
+  function catOf(m) { for (var i = 0; i < CATS.length; i++) if (CATS[i][2].test(m)) return CATS[i][0]; return 'other'; }
+  function alogRows(acc) {
+    var cut = X.cutoff(), q = H.q.trim().toLowerCase();
+    return acc.log.filter(function (l) { return l.t >= cut && (!H.lc || catOf(l.msg) === H.lc) && (!q || l.msg.toLowerCase().indexOf(q) >= 0); });
+  }
+  function alogList(acc) {
+    var rows = alogRows(acc);
+    var html = rows.slice(0, H.limit).map(function (l) {
+      var c = catOf(l.msg), lab = (CATS.filter(function (x) { return x[0] === c; })[0] || [0, 'Other'])[1];
+      return '<div class="pt-li"><div><b style="font-weight:600">' + esc(l.msg) + '</b><small>' + fdate(l.t) + ' &middot; ' + lab + '</small></div></div>';
+    }).join('') || '<div class="pt-mut">' + (acc.log.length ? 'No activity matches.' : 'No activity yet.') + '</div>';
+    return '<div class="pt-list">' + html + '</div>' + X.more(rows.length);
+  }
+  function activityView(acc) {
+    var filters = '<div class="pt-hrow"><input id="x8-q" class="pt-in" type="search" placeholder="Search activity…" value="' + esc(H.q) + '" autocomplete="off" style="flex:1;min-width:130px">' +
+      X.sel('lc', [['', 'All activity']].concat(CATS.map(function (c) { return [c[0], c[1]]; })).concat([['other', 'Other']]), H.lc) + '</div>';
+    return filters + '<div class="pt-box"><h3>Activity Log</h3><div id="x8-alog">' + alogList(acc) + '</div>' +
+      '<div class="pt-row" style="margin-top:10px"><button class="pt-btn sm red" data-act="x8-clearlog">Clear log</button></div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-top:8px">Keeps the latest 500 entries. Clearing the log does not touch trades, orders or the wallet.</div></div>';
+  }
+
+  X.subs.push({ id: 'orders', label: 'Orders', order: 20, render: ordersView }, { id: 'activity', label: 'Activity', order: 40, render: activityView });
+
+  var A = P.acts;
+  A['x8-clearlog'] = function () {
+    var a = P.acc(); if (!a.log.length) return P.toast('Log is already empty');
+    if (!window.confirm('Clear the activity log (' + a.log.length + ' entries)? Trades, orders and wallet stay as they are.')) return;
+    a.log = []; H.limit = 20; P.save(); P.render(); P.toast('Activity log cleared');
+  };
+  document.addEventListener('input', function (e) {
+    if (!e.target || e.target.id !== 'x8-q') return;
+    H.q = e.target.value; H.limit = 20;
+    var box = document.getElementById('x8-alog'); if (box) box.innerHTML = alogList(P.acc());
+  });
+  /* keep typing focus when the screen re-renders (price ticks, fills) */
+  var r0 = P.render;
+  P.render = function () {
+    var el = document.activeElement, keep = el && el.id === 'x8-q', s = keep ? el.selectionStart : 0, e2 = keep ? el.selectionEnd : 0;
+    var r = r0.apply(P, arguments);
+    if (keep) { var n = document.getElementById('x8-q'); if (n) { n.focus(); try { n.setSelectionRange(s, e2); } catch (x) { /* ignore */ } } }
+    return r;
+  };
+
+  P.save();
+  if (document.querySelector('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
