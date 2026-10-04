@@ -5016,6 +5016,135 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<style id="paper-css-9">
+.pt-rk-st{font-size:11px;color:var(--muted);margin:10px 0 0;line-height:1.6}
+.pt-lock{border:1px solid var(--red);background:rgba(255,82,102,.1);color:var(--red);border-radius:6px;padding:8px 10px;font-size:12px;font-weight:700;margin:6px 0}
+.pt-b7{margin:10px 0}
+.pt-b7-h{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:4px}
+.pt-b7-h span{color:var(--muted)}
+.pt-b7-t{height:7px;border-radius:4px;background:var(--panel3);overflow:hidden}
+.pt-b7-t i{display:block;height:100%;background:var(--green)}
+.pt-b7-t i.wn{background:var(--yellow)}
+.pt-b7-t i.dn{background:var(--red)}
+</style>
+<script>
+/* ===== PAPER PART 7B: daily loss limit, max trades per day, max open positions ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x7 || P.x7.b) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var money = P.money, r8 = P.r8;
+  var X = P.x7; X.b = true; X.version = '7B';
+  X.defs.dayLoss = 5; X.defs.dlOpen = true; X.defs.maxTrades = 10; X.defs.maxOpen = 5;
+  X.fields.push(
+    { k: 'dayLoss', t: 'num', label: 'Daily loss limit', hint: 'When today\'s loss reaches this % of your capital, new orders are blocked until midnight. 0 = off.', min: 0, max: 50, step: 0.1, unit: '%' },
+    { k: 'dlOpen', t: 'bool', label: 'Count open P&L in daily loss', hint: 'On: floating profit/loss of open positions counts too. Off: only closed trades, fees and funding.' },
+    { k: 'maxTrades', t: 'num', label: 'Max new trades per day', hint: 'Positions opened today plus pending orders. 0 = off.', min: 0, max: 200, step: 1, unit: '', int: true },
+    { k: 'maxOpen', t: 'num', label: 'Max open positions', hint: 'Open positions plus pending orders at the same time. 0 = off.', min: 0, max: 100, step: 1, unit: '', int: true }
+  );
+
+  var dayStart = function () { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  var dayKey = function (t) { var d = new Date(t); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+
+  /** Everything about today for one account. Day = 00:00 to 24:00 on this device. */
+  X.status = function (acc) {
+    acc = acc || P.acc();
+    var R = X.rules(acc), t0 = dayStart(), key = dayKey(t0), real = 0;
+    acc.txns.forEach(function (x) { if (x.t >= t0 && x.type !== 'DEPOSIT' && x.type !== 'WITHDRAW') real += x.amt; });
+    var unreal = P.calc(acc).unreal, pnl = real + (R.dlOpen ? unreal : 0);
+    var base = Math.max(0, acc.balance - real), limit = R.dayLoss > 0 ? base * R.dayLoss / 100 : 0;
+    var seen = {}, n = 0, cnt = function (x) { var k = x.opened + '|' + x.symbol + '|' + x.side; if (x.opened >= t0 && !seen[k]) { seen[k] = 1; n++; } };
+    acc.trades.forEach(cnt); acc.positions.forEach(cnt);
+    var grp = {}, pend = 0;
+    acc.orders.forEach(function (o) { var g = o.grp || o.id; if (!grp[g]) { grp[g] = 1; pend++; } });
+    var breached = limit > 0 && -pnl >= limit - 1e-9, lk = acc.risk.lock && acc.risk.lock.d === key ? acc.risk.lock : null;
+    return { rules: R, t0: t0, key: key, real: real, unreal: unreal, pnl: pnl, base: base, limit: limit, usedPct: limit > 0 ? Math.max(0, -pnl) / limit * 100 : 0,
+      trades: n, pend: pend, open: acc.positions.length + pend, breached: breached, lock: lk, locked: !!lk || breached };
+  };
+  P.riskStatus = X.status;
+
+  /** Locks an account for the rest of the day once the loss limit is hit. Runs on every price tick. */
+  X.sweep = function () {
+    var st = P.state(), ch = false;
+    Object.keys(st.accounts).forEach(function (id) {
+      var a = st.accounts[id], s = X.status(a);
+      if (s.breached && !s.lock) {
+        a.risk.lock = { d: s.key, t: Date.now(), pnl: r8(s.pnl) };
+        P.addLog(a, 'Daily loss limit hit (' + money(s.pnl, 1) + '). New orders blocked until tomorrow.');
+        if (a === P.acc()) P.toast('Daily loss limit reached. New orders are blocked until tomorrow.');
+        ch = true;
+      } else if (a.risk.lock && !s.lock) { a.risk.lock = null; ch = true; }
+    });
+    if (ch) { P.save(); P.emit('risk'); if (P.ui.tab === 'risk') P.render(); else if (P.ui.tab === 'trade' && P.updPreview) P.updPreview(); }
+    return ch;
+  };
+  X.afterSave = function (acc) { acc.risk.lock = null; setTimeout(X.sweep, 0); };
+  P.on('prices', function () { try { X.sweep(); } catch (e) { console.error('Part 7B', e); } });
+  P.on('position', function () { try { X.sweep(); } catch (e) { console.error('Part 7B', e); } });
+  setInterval(function () { try { X.sweep(); } catch (e) { /* ignore */ } }, 60000);
+
+  /* ---------- the checks: Part 7A calls X.block() before every order ---------- */
+  X.block = function () {
+    var acc = P.acc(), s = X.status(acc), R = s.rules;
+    if (s.locked) {
+      var lp = s.lock ? Math.min(s.pnl, s.lock.pnl) : s.pnl;
+      return 'Daily loss limit reached (' + money(Math.max(0, -lp)) + ' lost, limit ' + money(s.limit) + '). New orders are blocked until midnight. Closing positions still works.';
+    }
+    if (R.maxTrades > 0 && s.trades + s.pend >= R.maxTrades) return 'Max ' + R.maxTrades + ' trades per day reached (' + s.trades + ' opened, ' + s.pend + ' pending). Try again tomorrow or change the rule in the Risk tab.';
+    if (R.maxOpen > 0 && s.open >= R.maxOpen) return 'Max ' + R.maxOpen + ' open positions / orders reached. Close a position or cancel an order first.';
+    return '';
+  };
+
+  /* A reset starts a clean day, so the lock goes too. */
+  var rs = P.acts.reset;
+  if (rs) P.acts.reset = function () {
+    var a = P.acc(), first = a.archive[0];
+    rs.apply(null, arguments);
+    if (a.archive[0] !== first) { X.rules(a); a.risk.lock = null; P.save(); }
+  };
+
+  /* ---------- ticket status line ---------- */
+  function chips(s) {
+    var R = s.rules, o = [];
+    if (R.dayLoss > 0) o.push('<span class="' + (s.usedPct >= 80 ? 'pt-dn' : '') + '">Daily loss ' + money(Math.max(0, -s.pnl)) + ' / ' + money(s.limit) + '</span>');
+    if (R.maxTrades > 0) o.push('<span class="' + (s.trades + s.pend >= R.maxTrades ? 'pt-dn' : '') + '">Trades ' + (s.trades + s.pend) + '/' + R.maxTrades + '</span>');
+    if (R.maxOpen > 0) o.push('<span class="' + (s.open >= R.maxOpen ? 'pt-dn' : '') + '">Open ' + s.open + '/' + R.maxOpen + '</span>');
+    return o.join(' &middot; ');
+  }
+  X.line = function () {
+    var s = X.status();
+    return (s.locked ? '<div class="pt-lock">Trading locked until midnight: daily loss limit reached.</div>' : '') + chips(s);
+  };
+  var tx = P.ticketXHtml;
+  P.ticketXHtml = function () { return '<div class="pt-rk-st" id="pt-x7-st">' + X.line() + '</div>' + (tx ? tx() : ''); };
+  var pv = P.previewX;
+  P.previewX = function (b) {
+    var out = pv ? pv(b) : '';
+    try { var el = $('#pt-x7-st'); if (el) el.innerHTML = X.line(); } catch (e) { /* ignore */ }
+    return out;
+  };
+
+  /* ---------- Risk tab: "Today" box ---------- */
+  function bar(label, used, max, txt) {
+    var pct = max > 0 ? Math.min(100, used / max * 100) : 0;
+    return '<div class="pt-b7"><div class="pt-b7-h"><span>' + label + '</span><b>' + txt + '</b></div>' +
+      (max > 0 ? '<div class="pt-b7-t"><i class="' + (pct >= 100 ? 'dn' : pct >= 70 ? 'wn' : '') + '" style="width:' + pct.toFixed(0) + '%"></i></div>' : '') + '</div>';
+  }
+  function boxInner(acc) {
+    var s = X.status(acc), R = s.rules, lost = Math.max(0, -s.pnl);
+    return '<h3>Today</h3>' + (s.locked ? '<div class="pt-lock">Trading locked until midnight. Daily loss limit reached. You can still close positions.</div>' : '') +
+      bar('Daily loss', lost, s.limit, R.dayLoss > 0 ? money(lost) + ' / ' + money(s.limit) : 'Limit off') +
+      bar('Trades today', s.trades + s.pend, R.maxTrades, R.maxTrades > 0 ? (s.trades + s.pend) + ' / ' + R.maxTrades : (s.trades + s.pend) + ' (no limit)') +
+      bar('Open positions + orders', s.open, R.maxOpen, R.maxOpen > 0 ? s.open + ' / ' + R.maxOpen : s.open + ' (no limit)') +
+      '<div class="pt-hint">Today\'s P&amp;L ' + money(s.pnl, 1) + ' (closed ' + money(s.real, 1) + (R.dlOpen ? ', open ' + money(s.unreal, 1) : '') + '). Day resets at 00:00 on this device.</div>';
+  }
+  X.top.unshift(function (acc) { return '<div class="pt-box" id="pt-x7-box">' + boxInner(acc) + '</div>'; });
+  function refresh() { if (P.ui.tab !== 'risk') return; var el = $('#pt-x7-box'); if (el) el.innerHTML = boxInner(P.acc()); }
+  P.on('prices', refresh); P.on('position', refresh);
+
+  if ($('#paperRoot .pt')) { X.sweep(); P.render(); }
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
