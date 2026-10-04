@@ -60,7 +60,8 @@ export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   app.use("/api/v1", authRouter);
   app.use("/api/v1", signalsRouter);
   app.use("/api/v1", candlesRouter);
-  if (deps.engine && deps.store) app.use("/api/v1", createEngineRouter(deps.engine, deps.store));
+if (deps.engine && deps.store) app.use("/api/v1", createEngineRouter(deps.engine, deps.store));
+  app.use("/engine", createBacktestRouter(config.scan));
 
   // 404
   app.use((_req, res) => {
