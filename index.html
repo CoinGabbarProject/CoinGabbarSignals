@@ -1197,49 +1197,8 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
           <h3>Recent Signals</h3>
 
           <table>
-            <thead>
-              <tr>
-                <th>Pair</th>
-                <th>Side</th>
-                <th>Score</th>
-                <th>Result</th>
-                <th>R</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td>BTC/USDT</td>
-                <td class="up">LONG</td>
-                <td>89</td>
-                <td class="up">WIN</td>
-                <td class="up">+2.8R</td>
-              </tr>
-
-              <tr>
-                <td>ETH/USDT</td>
-                <td class="up">LONG</td>
-                <td>84</td>
-                <td class="up">WIN</td>
-                <td class="up">+2.1R</td>
-              </tr>
-
-              <tr>
-                <td>SOL/USDT</td>
-                <td class="down">SHORT</td>
-                <td>71</td>
-                <td class="down">LOSS</td>
-                <td class="down">-1.0R</td>
-              </tr>
-
-              <tr>
-                <td>BNB/USDT</td>
-                <td class="up">LONG</td>
-                <td>82</td>
-                <td class="up">WIN</td>
-                <td class="up">+1.9R</td>
-              </tr>
-            </tbody>
+            <thead><tr><th>Pair</th><th>Current Price</th><th>Direction</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Status</th><th>R:R</th><th>Change %</th><th>Created</th></tr></thead>
+            <tbody><tr><td colspan="12" style="text-align:center;opacity:.65;padding:18px 0">Loading signal history…</td></tr></tbody>
           </table>
 
         </div>
