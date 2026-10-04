@@ -915,7 +915,7 @@ const hitTimeLines = (signal: DashboardSignal): string => {
     typeof h.sl !== "number"
   ) {
     lines.push(
-      `<small class="down" style="display:block;font-weight:600">MANUAL EXIT 🚪${
+      `<small style="display:block;font-weight:500;opacity:.8">Exit${
         signal.outcomeAt ? " · " + dashboardEscape(formatCreated(signal.outcomeAt)) : ""
       }${
         typeof signal.exit === "number" ? " @ " + dashboardEscape(dashboardPrice(signal.exit)) : ""
