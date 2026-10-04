@@ -2846,6 +2846,280 @@ var bd = $("posCalcBackdrop");
 })();
 </script>
 
+<style id="paper-css">
+.pt{max-width:980px;margin:0 auto;padding:0 2px 24px;font-size:13px;color:var(--text)}
+.pt *{box-sizing:border-box}
+.pt-banner{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;border:1px solid #6b5316;background:rgba(255,200,74,.09);color:var(--yellow);border-radius:8px;padding:9px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
+.pt-banner small{font-weight:500;color:var(--soft);font-size:11px}
+.pt-acc{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.pt-acc select{flex:1;min-width:150px}
+.pt-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);margin-bottom:12px}
+.pt-tabs::-webkit-scrollbar{display:none}
+.pt-tab{border:0;background:transparent;color:var(--muted);padding:10px 12px;font-size:13px;font-weight:700;white-space:nowrap;border-bottom:2px solid transparent}
+.pt-tab.on{color:var(--text);border-bottom-color:var(--cyan)}
+.pt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+@media(min-width:700px){.pt-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.pt-card{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:11px}
+.pt-card label{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.pt-card strong{font-size:16px;display:block;word-break:break-word}
+.pt-card small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.pt-box{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:12px;margin-bottom:12px}
+.pt-box h3{margin:0 0 10px;font-size:14px}
+.pt-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.pt-in{flex:1;min-width:120px;padding:10px;border:1px solid #24425e;border-radius:6px;background:var(--panel2);color:var(--text);outline:none;font-size:14px}
+.pt-in:focus{border-color:var(--cyan)}
+.pt-btn{border:1px solid #28506f;background:var(--panel3);color:var(--text);border-radius:6px;padding:9px 13px;font-size:13px;font-weight:700}
+.pt-btn.pri{background:#0b4a73;border-color:var(--cyan);color:#fff}
+.pt-btn.grn{background:#0c6b4a;border-color:var(--green);color:#fff}
+.pt-btn.red{background:transparent;border-color:var(--red);color:var(--red)}
+.pt-btn.sm{padding:6px 9px;font-size:12px}
+.pt-chip{border:1px solid var(--line);background:var(--panel2);color:var(--soft);border-radius:14px;padding:6px 11px;font-size:12px}
+.pt-chip.on{border-color:var(--cyan);color:var(--text)}
+.pt-list{display:flex;flex-direction:column}
+.pt-li{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:12px}
+.pt-li:first-child{border-top:0}
+.pt-li small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.pt-up{color:var(--green)}.pt-dn{color:var(--red)}.pt-mut{color:var(--muted)}
+.pt-msg{font-size:12px;margin-top:6px;min-height:16px}
+.pt-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#09243b;border:1px solid #245677;color:#dff5ff;border-radius:6px;padding:9px 14px;font-size:13px;z-index:200}
+</style>
+<script>
+/* ===== PAPER PART 1: core, storage, wallet, accounts ===== */
+(function () {
+  if (window.PAPER) return;
+  var KEY = 'cg_paper_v1';
+  var DAY = 86400000;
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (x) { return String(x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var uid = function (p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); };
+  var r8 = function (n) { return Math.round(n * 1e8) / 1e8; };
+  var money = function (n, sign) {
+    n = Number(n) || 0;
+    var s = '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (n < 0 ? '-' : (sign && n > 0 ? '+' : '')) + s;
+  };
+  var cls = function (n) { return n > 0 ? 'pt-up' : n < 0 ? 'pt-dn' : 'pt-mut'; };
+  var fdate = function (t) { var d = new Date(t); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
+
+  var MAX_ACCOUNTS = 5, MIN_START = 100, MAX_START = 10000000;
+  var PRESETS = [1000, 10000, 100000];
+
+  function makeAccount(name, start) {
+    var now = Date.now();
+    return {
+      id: uid('a'), name: name, start: start, balance: start, created: now,
+      fees: { maker: 0.02, taker: 0.05, slip: 0.03 }, // percent
+      positions: [], orders: [], trades: [], log: [], archive: [],
+      txns: [{ t: now, type: 'DEPOSIT', amt: start, note: 'Initial balance' }]
+    };
+  }
+
+  function load() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
+    if (!s || !s.accounts || !Object.keys(s.accounts).length) {
+      var a = makeAccount('Main Account', 10000);
+      s = { v: 1, active: a.id, accounts: {} };
+      s.accounts[a.id] = a;
+    }
+    if (!s.accounts[s.active]) s.active = Object.keys(s.accounts)[0];
+    return s;
+  }
+
+  var S = load();
+  var subs = {};
+  var P = window.PAPER = {
+    version: 1,
+    prices: {},        // filled by the live feed part: { BTCUSDT: 65000 }
+    tabs: [],          // { id, label, order, render }
+    acts: {},          // click handlers: data-act="name"
+    ui: { tab: 'wallet', msg: '' },
+    state: function () { return S; },
+    acc: function () { return S.accounts[S.active]; },
+    esc: esc, money: money, cls: cls, fdate: fdate, uid: uid, r8: r8,
+    save: function () { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } },
+    on: function (ev, fn) { (subs[ev] = subs[ev] || []).push(fn); },
+    emit: function (ev, a) { (subs[ev] || []).forEach(function (fn) { try { fn(a); } catch (e) { console.error(e); } }); },
+    price: function (sym) { var p = P.prices[sym]; return typeof p === 'number' && p > 0 ? p : null; },
+    toast: function (m) {
+      var old = $('.pt-toast'); if (old) old.remove();
+      var t = document.createElement('div'); t.className = 'pt-toast'; t.textContent = m; document.body.appendChild(t);
+      setTimeout(function () { t.remove(); }, 2200);
+    },
+    addTxn: function (acc, type, amt, note) {
+      acc.txns.unshift({ t: Date.now(), type: type, amt: r8(amt), note: note || '' });
+      if (acc.txns.length > 500) acc.txns.length = 500;
+    },
+    addLog: function (acc, msg) {
+      acc.log.unshift({ t: Date.now(), msg: msg });
+      if (acc.log.length > 500) acc.log.length = 500;
+    },
+    /** Every number the screens need. Later parts only fill positions/orders/trades. */
+    calc: function (acc) {
+      acc = acc || P.acc();
+      var unreal = 0, used = 0, ordM = 0, funded = 0;
+      acc.positions.forEach(function (p) {
+        var px = P.price(p.symbol); if (px === null) px = p.entry;
+        unreal += (px - p.entry) * p.qty * (p.side === 'LONG' ? 1 : -1);
+        used += p.margin || 0;
+      });
+      acc.orders.forEach(function (o) { ordM += o.margin || 0; });
+      acc.txns.forEach(function (x) { if (x.type === 'DEPOSIT') funded += x.amt; else if (x.type === 'WITHDRAW') funded -= x.amt; });
+      var equity = acc.balance + unreal, net = equity - funded;
+      return {
+        balance: acc.balance, unreal: unreal, equity: equity, used: used, orderMargin: ordM,
+        available: Math.max(0, acc.balance - used - ordM), funded: funded, net: net,
+        roi: funded > 0 ? (net / funded) * 100 : 0,
+        days: Math.max(1, Math.ceil((Date.now() - acc.created) / DAY))
+      };
+    },
+    addTab: function (id, label, order, render) {
+      P.tabs = P.tabs.filter(function (t) { return t.id !== id; });
+      P.tabs.push({ id: id, label: label, order: order, render: render });
+      P.tabs.sort(function (a, b) { return a.order - b.order; });
+    },
+    render: function () {
+      var root = $('#paperRoot'); if (!root) return;
+      var acc = P.acc();
+      var tab = P.tabs.filter(function (t) { return t.id === P.ui.tab; })[0] || P.tabs[0];
+      P.ui.tab = tab.id;
+      var opts = Object.keys(S.accounts).map(function (id) {
+        return '<option value="' + id + '"' + (id === S.active ? ' selected' : '') + '>' + esc(S.accounts[id].name) + '</option>';
+      }).join('');
+      root.innerHTML = '<div class="pt">' +
+        '<div class="pt-banner"><span>PAPER TRADING &middot; VIRTUAL MONEY</span><small>No real funds. Practice only.</small></div>' +
+        '<div class="pt-acc"><select class="pt-in" id="pt-accsel" aria-label="Account">' + opts + '</select></div>' +
+        '<div class="pt-tabs">' + P.tabs.map(function (t) { return '<button class="pt-tab' + (t.id === tab.id ? ' on' : '') + '" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'; }).join('') + '</div>' +
+        '<div id="pt-body">' + tab.render(acc) + '</div></div>';
+    },
+    onPage: function (page) { if (page === 'paper') P.render(); }
+  };
+
+  function msg(text, bad) {
+    var m = $('#pt-msg'); if (!m) return;
+    m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = text;
+  }
+  var num = function (id) { var el = document.getElementById(id); return el ? Number(el.value) : NaN; };
+  var pickedStart = 10000;
+
+  /* ---------- Wallet tab ---------- */
+  P.addTab('wallet', 'Wallet', 10, function (acc) {
+    var c = P.calc(acc), n = acc.trades.length;
+    var wins = acc.trades.filter(function (t) { return t.pnl > 0; }).length;
+    var card = function (l, v, sub, k) { return '<div class="pt-card"><label>' + l + '</label><strong class="' + (k || '') + '">' + v + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
+    var tx = acc.txns.slice(0, 15).map(function (x) {
+      var v = x.type === 'WITHDRAW' ? -Math.abs(x.amt) : x.type === 'DEPOSIT' ? Math.abs(x.amt) : x.amt;
+      return '<div class="pt-li"><div><b>' + esc(x.type.replace('_', ' ')) + '</b><small>' + fdate(x.t) + (x.note ? ' &middot; ' + esc(x.note) : '') + '</small></div><b class="' + cls(v) + '">' + money(v, 1) + '</b></div>';
+    }).join('') || '<div class="pt-mut">No transactions yet.</div>';
+    return '<div class="pt-grid">' +
+      card('Equity', money(c.equity), 'Balance + open P&amp;L') +
+      card('Balance', money(c.balance), 'Wallet cash') +
+      card('Available', money(c.available), 'Free to trade') +
+      card('Used Margin', money(c.used + c.orderMargin), 'Positions + orders') +
+      card('Unrealized P&amp;L', money(c.unreal, 1), 'Open positions', cls(c.unreal)) +
+      card('Net P&amp;L', money(c.net, 1), 'Since start', cls(c.net)) +
+      card('ROI', (c.roi >= 0 ? '+' : '') + c.roi.toFixed(2) + '%', 'On funds added', cls(c.roi)) +
+      card('Account Age', c.days + ' day' + (c.days > 1 ? 's' : ''), n + ' trades' + (n ? ' &middot; ' + Math.round(wins / n * 100) + '% win' : '')) +
+      '</div>' +
+      '<div class="pt-box"><h3>Add / Withdraw (virtual)</h3>' +
+      '<div class="pt-row"><input class="pt-in" id="pt-amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount in USDT">' +
+      '<button class="pt-btn grn" data-act="deposit">Add</button><button class="pt-btn" data-act="withdraw">Withdraw</button></div>' +
+      '<div class="pt-msg" id="pt-msg"></div></div>' +
+      '<div class="pt-box"><h3>Recent Transactions</h3><div class="pt-list">' + tx + '</div></div>' +
+      '<div class="pt-box"><h3>Reset Account</h3><div class="pt-mut" style="margin-bottom:8px">Starts again with a fresh balance. Current results are saved in Account history.</div>' +
+      '<div class="pt-row">' + PRESETS.map(function (v) { return '<button class="pt-chip' + (v === pickedStart ? ' on' : '') + '" data-act="pick" data-v="' + v + '">$' + v.toLocaleString('en-US') + '</button>'; }).join('') +
+      '<input class="pt-in" id="pt-rstart" type="number" min="' + MIN_START + '" step="any" inputmode="decimal" placeholder="Custom" value="' + (PRESETS.indexOf(pickedStart) < 0 ? pickedStart : '') + '"></div>' +
+      '<div class="pt-row"><button class="pt-btn red" data-act="reset">Reset Account</button></div></div>';
+  });
+
+  /* ---------- Accounts tab ---------- */
+  P.addTab('accounts', 'Accounts', 90, function () {
+    var ids = Object.keys(S.accounts);
+    var list = ids.map(function (id) {
+      var a = S.accounts[id], c = P.calc(a);
+      return '<div class="pt-li"><div><b>' + esc(a.name) + (id === S.active ? ' <span class="pt-up">&bull; active</span>' : '') + '</b><small>Equity ' + money(c.equity) + ' &middot; ' + a.trades.length + ' trades &middot; ' + (a.archive.length) + ' past runs</small></div>' +
+        '<div class="pt-row" style="margin:0">' + (id === S.active ? '' : '<button class="pt-btn sm" data-act="switch" data-id="' + id + '">Use</button>') +
+        '<button class="pt-btn sm" data-act="rename" data-id="' + id + '">Rename</button>' +
+        (ids.length > 1 ? '<button class="pt-btn sm red" data-act="delacc" data-id="' + id + '">Delete</button>' : '') + '</div></div>';
+    }).join('');
+    var past = [];
+    ids.forEach(function (id) { S.accounts[id].archive.forEach(function (r) { past.push({ n: S.accounts[id].name, r: r }); }); });
+    past.sort(function (a, b) { return b.r.t - a.r.t; });
+    var hist = past.slice(0, 10).map(function (x) {
+      var d = x.r.end - x.r.start;
+      return '<div class="pt-li"><div><b>' + esc(x.n) + '</b><small>' + fdate(x.r.t) + ' &middot; ' + x.r.trades + ' trades</small></div><b class="' + cls(d) + '">' + money(x.r.start) + ' &rarr; ' + money(x.r.end) + '</b></div>';
+    }).join('') || '<div class="pt-mut">No reset yet.</div>';
+    return '<div class="pt-box"><h3>Your Paper Accounts (' + ids.length + '/' + MAX_ACCOUNTS + ')</h3><div class="pt-list">' + list + '</div></div>' +
+      '<div class="pt-box"><h3>New Account</h3>' +
+      '<div class="pt-row"><input class="pt-in" id="pt-nname" maxlength="24" placeholder="Name (e.g. Score 85+ strategy)"></div>' +
+      '<div class="pt-row">' + PRESETS.map(function (v) { return '<button class="pt-chip' + (v === pickedStart ? ' on' : '') + '" data-act="pick" data-v="' + v + '">$' + v.toLocaleString('en-US') + '</button>'; }).join('') +
+      '<input class="pt-in" id="pt-nstart" type="number" min="' + MIN_START + '" step="any" inputmode="decimal" placeholder="Custom amount"></div>' +
+      '<div class="pt-row"><button class="pt-btn pri" data-act="newacc">Create Account</button></div><div class="pt-msg" id="pt-msg"></div></div>' +
+      '<div class="pt-box"><h3>Past Runs (after reset)</h3><div class="pt-list">' + hist + '</div></div>';
+  });
+
+  /* ---------- Actions ---------- */
+  var A = P.acts;
+  A.tab = function (el) { P.ui.tab = el.dataset.id; P.render(); };
+  A.pick = function (el) { pickedStart = Number(el.dataset.v); var i = $('#pt-rstart') || $('#pt-nstart'); if (i) i.value = ''; document.querySelectorAll('[data-act="pick"]').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.v) === pickedStart); }); };
+  A.deposit = function () {
+    var v = num('pt-amt'); if (!(v > 0)) return msg('Enter an amount above 0.', true);
+    if (v > MAX_START) return msg('Maximum is $' + MAX_START.toLocaleString('en-US') + ' at a time.', true);
+    var a = P.acc(); a.balance = r8(a.balance + v); P.addTxn(a, 'DEPOSIT', v, 'Virtual top-up'); P.addLog(a, 'Added ' + money(v)); P.save(); P.render(); P.toast('Added ' + money(v));
+  };
+  A.withdraw = function () {
+    var v = num('pt-amt'); if (!(v > 0)) return msg('Enter an amount above 0.', true);
+    var a = P.acc(), c = P.calc(a);
+    if (v > c.available) return msg('Only ' + money(c.available) + ' is available (rest is in margin).', true);
+    a.balance = r8(a.balance - v); P.addTxn(a, 'WITHDRAW', v, 'Virtual withdrawal'); P.addLog(a, 'Withdrew ' + money(v)); P.save(); P.render(); P.toast('Withdrew ' + money(v));
+  };
+  A.reset = function () {
+    var inp = num('pt-rstart'), start = inp > 0 ? inp : pickedStart;
+    if (!(start >= MIN_START && start <= MAX_START)) return msg('Start amount must be $' + MIN_START + ' to $' + MAX_START.toLocaleString('en-US') + '.', true);
+    var a = P.acc(), c = P.calc(a);
+    if (!window.confirm('Reset "' + a.name + '" to ' + money(start) + '? Open positions and orders will be cleared.')) return;
+    a.archive.unshift({ t: Date.now(), start: c.funded, end: c.equity, trades: a.trades.length });
+    if (a.archive.length > 20) a.archive.length = 20;
+    var f = makeAccount(a.name, start);
+    a.start = start; a.balance = start; a.created = Date.now(); a.positions = []; a.orders = []; a.trades = []; a.log = []; a.txns = f.txns;
+    P.save(); P.render(); P.toast('Account reset');
+  };
+  A.newacc = function () {
+    var ids = Object.keys(S.accounts);
+    if (ids.length >= MAX_ACCOUNTS) return msg('Maximum ' + MAX_ACCOUNTS + ' accounts.', true);
+    var name = ($('#pt-nname').value || '').trim().slice(0, 24); if (!name) return msg('Enter an account name.', true);
+    var custom = num('pt-nstart'), start = custom > 0 ? custom : pickedStart;
+    if (!(start >= MIN_START && start <= MAX_START)) return msg('Start amount must be $' + MIN_START + ' to $' + MAX_START.toLocaleString('en-US') + '.', true);
+    var a = makeAccount(name, start); S.accounts[a.id] = a; S.active = a.id; P.ui.tab = 'wallet'; P.save(); P.render(); P.toast('Account created');
+  };
+  A.switch = function (el) { if (S.accounts[el.dataset.id]) { S.active = el.dataset.id; P.save(); P.render(); } };
+  A.rename = function (el) {
+    var a = S.accounts[el.dataset.id]; if (!a) return;
+    var n = window.prompt('New name', a.name); if (n === null) return;
+    n = n.trim().slice(0, 24); if (!n) return;
+    a.name = n; P.save(); P.render();
+  };
+  A.delacc = function (el) {
+    var ids = Object.keys(S.accounts), a = S.accounts[el.dataset.id];
+    if (!a || ids.length < 2) return;
+    if (!window.confirm('Delete "' + a.name + '" and all its history? This cannot be undone.')) return;
+    delete S.accounts[a.id];
+    if (S.active === a.id) S.active = Object.keys(S.accounts)[0];
+    P.save(); P.render();
+  };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest ? e.target.closest('#paperRoot [data-act]') : null;
+    if (el && A[el.dataset.act]) A[el.dataset.act](el, e);
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'pt-accsel' && S.accounts[e.target.value]) { S.active = e.target.value; P.save(); P.render(); }
+  });
+
+  P.onPage(new URLSearchParams(location.search).get('page'));
+})();
+</script>
+<!-- PAPER_NEXT_PART -->
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
