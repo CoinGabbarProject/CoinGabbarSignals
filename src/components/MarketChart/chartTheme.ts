@@ -30,6 +30,40 @@ export function themedChartOptions(): DeepPartial<ChartOptions> {
   };
 }
 
+const IST_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kolkata",
+  day: "2-digit",
+  month: "short",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function istParts(time: unknown): Record<string, string> {
+  const t = time as number | { year: number; month: number; day: number };
+  const ms = typeof t === "number" ? t * 1000 : Date.UTC(t.year, t.month - 1, t.day);
+  const o: Record<string, string> = {};
+  for (const p of IST_FMT.formatToParts(new Date(ms))) o[p.type] = p.value;
+  return o;
+}
+
+/** Crosshair label, shown in IST (chart data itself stays in UTC). */
+function istCrosshairFormatter(time: unknown): string {
+  const p = istParts(time);
+  if (typeof time === "number" && time % 86400 === 0) return `${p.day} ${p.month} '${p.year}`;
+  return `${p.day} ${p.month} '${p.year}  ${p.hour}:${p.minute}`;
+}
+
+/** X-axis tick labels, shown in IST. 0=year, 1=month, 2=day, 3/4=time. */
+function istTickFormatter(time: unknown, type: number): string {
+  const p = istParts(time);
+  if (type === 0) return `20${p.year}`;
+  if (type === 1) return p.month;
+  if (type === 2) return p.day;
+  return `${p.hour}:${p.minute}`;
+}
+
 export function baseChartOptions(height: number): DeepPartial<ChartOptions> {
   const t = themedChartOptions();
   return {
