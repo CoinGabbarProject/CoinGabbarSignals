@@ -3579,7 +3579,7 @@ var bd = $("posCalcBackdrop");
         var liqHit = L ? r.lo <= liq : r.hi >= liq;
         var tpHit = pos.tp !== null && (L ? r.hi >= pos.tp : r.lo <= pos.tp);
         var tr = null;
-        if (liqHit && (!slHit || (L ? liq > pos.sl : liq < pos.sl))) tr = closePosition(acc, pos, liq, acc.fees.taker, 'LIQ');
+        if (liqHit && (!slHit || (L ? liq > pos.sl : liq < pos.sl))) tr = (P.liquidate || closePosition)(acc, pos, liq, acc.fees.taker, 'LIQ');
         else if (slHit) {
           var b = L ? (r.p !== null && r.p < pos.sl ? r.p : pos.sl) : (r.p !== null && r.p > pos.sl ? r.p : pos.sl);
           tr = closePosition(acc, pos, b * (1 - dir(pos.side) * slip), acc.fees.taker, 'SL');
