@@ -9,6 +9,8 @@ const TF_MS: Record<string, number> = {
   "1H": 3_600_000, "4H": 14_400_000, "1D": 86_400_000,
 };
 const CANDLE_LIMIT = 1000;
+// Staged trailing stop: after TP1 the stop moves to entry (breakeven), after TP2 it moves to TP1. Set TRAILING_STOP=false to turn off.
+const TRAILING_ON = (process.env.TRAILING_STOP ?? "true").toLowerCase() !== "false";
 
 export const trackHorizonMs = (execTf: string): number => (TF_MS[execTf] ?? 300_000) * CANDLE_LIMIT * 0.9;
 
