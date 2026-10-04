@@ -5875,6 +5875,22 @@ X.badge = badge; X.notes = notes;
   }
 
   /* ---------- keep it fresh ---------- */
+/* live price for every signal coin (Active + Recent) */
+  P.extraSyms = function () {
+    var o = {};
+    X.sigs.forEach(function (s) { o[s.symbol] = 1; });
+    return Object.keys(o);
+  };
+  X.fetchPx = function () {
+    var syms = P.extraSyms(); if (!syms.length) return Promise.resolve();
+    var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
+    return fetch('https://data-api.binance.vision/api/v3/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal })
+      .then(function (r) { clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (rows) {
+        (rows || []).forEach(function (r) { var p = Number(r.price); if (r.symbol && p > 0) P.prices[r.symbol] = p; });
+        badge(); paint();
+      }, function () { clearTimeout(to); });
+  };
   var last = 0;
   P.on('prices', function () { if (P.ui.tab === 'signals' && Date.now() - last > 5000) { last = Date.now(); paint(); } });
   setInterval(function () { if (!document.hidden) X.load(false); }, 60000);
