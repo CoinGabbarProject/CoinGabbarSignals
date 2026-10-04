@@ -29,6 +29,10 @@ export class EngineBusyError extends Error {
   constructor() { super("A scan is already running"); this.name = "EngineBusyError"; }
 }
 
+export class SignalNotOpenError extends Error {
+  constructor() { super("Signal not found or already closed"); this.name = "SignalNotOpenError"; }
+}
+
 const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
