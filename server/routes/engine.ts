@@ -4,7 +4,7 @@ import type { Timeframe } from "../../shared/market.js";
 import type { FinalSignal } from "../models/signal.js";
 import { SYMBOL_RE } from "../config/env.js";
 import { requireAuth, requireAdmin } from "../middleware/requireAuth.js";
-import { EngineBusyError } from "../engine/scanner.js";
+import { EngineBusyError, SignalNotOpenError } from "../engine/scanner.js";
 import type { EngineService } from "../engine/scanner.js";
 import type { SignalFilterStatus, SignalStore } from "../engine/store.js";
 
