@@ -111,6 +111,21 @@ export function createEngineRouter(engine: EngineService, store: SignalStore): R
     }
   });
 
+  router.post("/engine/signals/:id/exit", requireAuth, requireAdmin, async (req, res) => {
+    const id = String(req.params["id"] ?? "").trim();
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) return bad(res, "Invalid signal id");
+    try {
+      res.json({ success: true, ...(await engine.exitSignal(id)) });
+    } catch (err) {
+      if (err instanceof SignalNotOpenError) {
+        res.status(404).json({ error: "Signal not found or already closed" });
+        return;
+      }
+      console.error("engine exit error:", err);
+      res.status(500).json({ error: "Could not exit signal" });
+    }
+  });
+
   router.post("/engine/scan", requireAuth, requireAdmin, async (req, res) => {
     const body = parseScanBody(req.body);
     if (!body.ok) return bad(res, body.error);
