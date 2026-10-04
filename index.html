@@ -5649,6 +5649,115 @@ var bd = $("posCalcBackdrop");
   if (document.querySelector('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 9B: Analytics (P&L heatmap, calendar, breakdowns) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x9 || P.x9.b) return;
+  var X = P.x9, D = X.D, esc = P.esc, money = P.money, cls = P.cls;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var DAY = 86400000, DN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var sum = function (a, f) { return a.reduce(function (s, x) { return s + f(x); }, 0); };
+  X.b = true; X.version = '9B';
+  D.hm = 'week'; D.bd = 'coin';
+  var wd = function (d) { return (d.getDay() + 6) % 7; };
+  var short = function (v) { var a = Math.abs(v), s = v < 0 ? '-' : '+'; return s + (a >= 1000 ? (a / 1000).toFixed(1) + 'k' : a >= 100 ? a.toFixed(0) : a.toFixed(1)); };
+  var shade = function (v, mx) {
+    if (!v || !mx) return 'var(--panel2)';
+    var a = (0.22 + 0.78 * Math.min(1, Math.abs(v) / mx)).toFixed(2);
+    return v > 0 ? 'rgba(25,223,145,' + a + ')' : 'rgba(255,82,102,' + a + ')';
+  };
+  var seg = function (act, cur, opts) { return '<div class="pt-seg">' + opts.map(function (o) { return '<button class="pt-chip' + (o[0] === cur ? ' on' : '') + '" data-act="' + act + '" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>'; };
+
+  /* ---------- heatmap: weekday x hour (by close time) ---------- */
+  function weekGrid(ctx) {
+    var cells = {}, mx = 0, byDay = {}, byHour = {};
+    ctx.tg.forEach(function (g) {
+      var d = new Date(g.closed), k = wd(d) + '-' + d.getHours(), c = cells[k] || (cells[k] = { n: 0, pnl: 0 });
+      c.n++; c.pnl += g.pnl;
+      var bd = byDay[wd(d)] || (byDay[wd(d)] = { pnl: 0, n: 0 }), bh = byHour[d.getHours()] || (byHour[d.getHours()] = { pnl: 0, n: 0 });
+      bd.pnl += g.pnl; bd.n++; bh.pnl += g.pnl; bh.n++;
+    });
+    Object.keys(cells).forEach(function (k) { mx = Math.max(mx, Math.abs(cells[k].pnl)); });
+    var h = '<div style="display:grid;grid-template-columns:30px repeat(24,minmax(0,1fr));gap:2px;align-items:center"><span></span>';
+    for (var i = 0; i < 24; i++) h += '<span class="pt-mut" style="font-size:9px;text-align:center;overflow:visible;white-space:nowrap">' + (i % 6 === 0 ? i : '') + '</span>';
+    for (var r = 0; r < 7; r++) {
+      h += '<span class="pt-mut" style="font-size:10px">' + DN[r] + '</span>';
+      for (var c = 0; c < 24; c++) {
+        var cell = cells[r + '-' + c], tip = DN[r] + ' ' + (c < 10 ? '0' : '') + c + ':00 &middot; ' + (cell ? cell.n + ' trade' + (cell.n > 1 ? 's' : '') + ' &middot; ' + money(cell.pnl, 1) : 'no trades');
+        h += '<i data-act="x9-hm" data-tip="' + esc(tip) + '" style="display:block;aspect-ratio:1;border-radius:2px;background:' + shade(cell && cell.pnl, mx) + '"></i>';
+      }
+    }
+    h += '</div>';
+    var best = function (o, lbl) {
+      var ks = Object.keys(o).filter(function (k) { return o[k].pnl > 0; }).sort(function (a, b) { return o[b].pnl - o[a].pnl; });
+      var worst = Object.keys(o).filter(function (k) { return o[k].pnl < 0; }).sort(function (a, b) { return o[a].pnl - o[b].pnl; });
+      return { b: ks[0], w: worst[0] };
+    };
+    var bd = best(byDay), bh = best(byHour), hh = function (x) { return (x < 10 ? '0' : '') + x + ':00'; };
+    var ins = ctx.tg.length >= 5 ? '<div style="font-size:12px;margin-top:10px;line-height:1.6">' +
+      (bd.b !== undefined ? 'Best day: <b class="pt-up">' + DN[bd.b] + '</b> ' : '') + (bd.w !== undefined ? '&middot; Worst day: <b class="pt-dn">' + DN[bd.w] + '</b><br>' : '<br>') +
+      (bh.b !== undefined ? 'Best hour: <b class="pt-up">' + hh(bh.b) + '</b> ' : '') + (bh.w !== undefined ? '&middot; Worst hour: <b class="pt-dn">' + hh(bh.w) + '</b>' : '') + '</div>' : '';
+    return h + '<div id="x9-hmrd" class="pt-mut" style="font-size:12px;margin-top:8px;min-height:16px">Tap a square for details</div>' + ins +
+      '<div class="pt-mut" style="font-size:11px;margin-top:6px">Each square is one hour of the week (your local time), by the time trades closed. Green = profit, red = loss. Brighter = bigger.</div>';
+  }
+
+  /* ---------- heatmap: calendar of daily P&L (last 5 weeks) ---------- */
+  function calGrid(ctx) {
+    var days = {}, mx = 0;
+    ctx.acc.trades.forEach(function (t) { var d = new Date(t.closed); d.setHours(0, 0, 0, 0); var k = d.getTime(), c = days[k] || (days[k] = { n: 0, pnl: 0 }); c.pnl += t.pnl; c.n++; });
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var start = new Date(today.getTime() - wd(today) * DAY - 28 * DAY);
+    Object.keys(days).forEach(function (k) { if (+k >= start.getTime()) mx = Math.max(mx, Math.abs(days[k].pnl)); });
+    var h = '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px">' + DN.map(function (n) { return '<span class="pt-mut" style="font-size:10px;text-align:center">' + n + '</span>'; }).join('');
+    var tot = 0, win = 0, lose = 0;
+    for (var i = 0; i < 35; i++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), k = d.getTime(), c = days[k], fut = k > today.getTime();
+      if (c) { tot += c.pnl; if (c.pnl > 0) win++; else if (c.pnl < 0) lose++; }
+      var tip = d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) + ' &middot; ' + (c ? c.n + ' close' + (c.n > 1 ? 's' : '') + ' &middot; ' + money(c.pnl, 1) : 'no trades');
+      h += '<div data-act="x9-hm" data-tip="' + esc(tip) + '" style="border-radius:5px;padding:4px 2px;min-height:38px;text-align:center;background:' + (fut ? 'transparent' : shade(c && c.pnl, mx)) + ';' + (k === today.getTime() ? 'outline:1px solid var(--cyan);' : '') + 'opacity:' + (fut ? .3 : 1) + '">' +
+        '<span class="pt-mut" style="font-size:9px;display:block">' + d.getDate() + '</span><b style="font-size:10px;display:block;margin-top:2px">' + (c ? short(c.pnl) : '') + '</b></div>';
+    }
+    h += '</div>';
+    return h + '<div id="x9-hmrd" class="pt-mut" style="font-size:12px;margin-top:8px;min-height:16px">Tap a day for details</div>' +
+      '<div style="font-size:12px;margin-top:4px">Last 5 weeks: <b class="' + cls(tot) + '">' + money(tot, 1) + '</b> <span class="pt-mut">&middot; ' + win + ' green day' + (win === 1 ? '' : 's') + ', ' + lose + ' red day' + (lose === 1 ? '' : 's') + '</span></div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-top:6px">Realized P&amp;L (after fees) by the day each trade closed. This view ignores the range chips above.</div>';
+  }
+  function secHeat(ctx) {
+    return '<div class="pt-box"><h3>P&amp;L Heatmap</h3>' + seg('x9-hmv', D.hm, [['week', 'Day &times; Hour'], ['cal', 'Calendar']]) + (D.hm === 'cal' ? calGrid(ctx) : weekGrid(ctx)) + '</div>';
+  }
+
+  /* ---------- breakdowns ---------- */
+  function secBreak(ctx) {
+    var dim = D.bd, items = dim === 'reason' || dim === 'src' ? ctx.rows : ctx.tg, map = {}, order = [];
+    items.forEach(function (x) {
+      var k = dim === 'coin' ? x.symbol : dim === 'side' ? x.side : dim === 'reason' ? x.reason : (x.src || 'manual');
+      if (!map[k]) { map[k] = { k: k, n: 0, w: 0, pnl: 0 }; order.push(k); }
+      var m = map[k]; m.n++; m.pnl += x.pnl; if (x.pnl > 0) m.w++;
+    });
+    var rows = order.map(function (k) { return map[k]; }).sort(function (a, b) { return b.pnl - a.pnl; }).slice(0, 10);
+    var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.pnl); }).concat([0.0001]));
+    var lbl = function (k) { return dim === 'coin' ? base(k) : dim === 'side' ? (k === 'LONG' ? 'Long' : 'Short') : esc(k); };
+    var list = rows.map(function (r) {
+      var up = r.pnl >= 0;
+      return '<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;font-size:13px"><b>' + lbl(r.k) + '</b><b class="' + cls(r.pnl) + '">' + money(r.pnl, 1) + '</b></div>' +
+        '<i style="display:block;height:5px;border-radius:3px;background:var(--panel2);margin:6px 0 4px"><b style="display:block;height:100%;width:' + Math.max(3, Math.abs(r.pnl) / mx * 100).toFixed(0) + '%;border-radius:3px;background:var(--' + (up ? 'green' : 'red') + ')"></b></i>' +
+        '<small class="pt-mut" style="font-size:11px">' + r.n + ' ' + (dim === 'reason' || dim === 'src' ? 'close' : 'trade') + (r.n > 1 ? 's' : '') + ' &middot; ' + (r.w / r.n * 100).toFixed(0) + '% win &middot; avg ' + money(r.pnl / r.n, 1) + '</small></div>';
+    }).join('') || '<div class="pt-mut">No closed trades in this range yet.</div>';
+    return '<div class="pt-box"><h3>Breakdown</h3>' + seg('x9-bd', dim, [['coin', 'Coin'], ['side', 'Long/Short'], ['reason', 'Exit'], ['src', 'Source']]) + '<div>' + list + '</div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-top:8px">' + (dim === 'reason' || dim === 'src' ? 'Counts every close, so a trade with partial closes shows more than once.' : 'A trade with partial closes counts once.') + ' Source shows where the trade came from: manual or a signal.</div></div>';
+  }
+
+  X.secs.push({ id: 'heat', order: 60, render: secHeat }, { id: 'break', order: 70, render: secBreak });
+
+  var A = P.acts;
+  A['x9-hmv'] = function (el) { D.hm = el.dataset.v; P.render(); };
+  A['x9-bd'] = function (el) { D.bd = el.dataset.v; P.render(); };
+  A['x9-hm'] = function (el) { var rd = document.getElementById('x9-hmrd'); if (rd) rd.innerHTML = el.dataset.tip; };
+
+  if (document.querySelector('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
