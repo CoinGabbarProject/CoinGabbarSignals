@@ -4110,6 +4110,236 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+  <style id="paper-css-6">
+.pt-x5{font-size:12px;margin-top:8px}
+.pt-x5>div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--line)}
+.pt-x5>div:first-child{border-top:0}
+.pt-x5 span{color:var(--muted)}
+.pt-xt{border-top:1px dashed var(--line);margin-top:10px;padding-top:2px}
+</style>
+<script>
+/* ===== PAPER PART 5B: Trailing stop + Partial take profits (TP1/TP2/TP3) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x5a || P.x5b) return;
+  if (!P.breakeven) { console.error('Part 5B: Part 4 missing'); return; }
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, fp = P.fp, r8 = P.r8, E = P.engine, T = P.ticket;
+  var MIN = 60000;
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  var q6 = function (n) { return Number(Number(n).toPrecision(6)); };
+  var nextMin = function (t) { return Math.ceil(t / MIN) * MIN; };
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  var findPos = function (id) { return P.acc().positions.filter(function (x) { return x.id === id; })[0]; };
+  var X = P.x5b = { version: '5B' };
+  ['trail', 'tact', 'tp1', 'tp1p', 'tp2', 'tp2p', 'tp3', 'tp3p'].forEach(function (k) { if (T[k] === undefined) T[k] = ''; });
+  if (T.be1 === undefined) T.be1 = false;
+  var clearT = function () { ['trail', 'tact', 'tp1', 'tp1p', 'tp2', 'tp2p', 'tp3', 'tp3p'].forEach(function (k) { T[k] = ''; }); T.be1 = false; };
+
+  /** rows: [{price, pct}] as typed (strings). Returns {legs:[{price,pct}]|null} or {error}. */
+  function parseTps(rows, side, ref) {
+    var L = side === 'LONG', f = [], sum = 0, empty = 0, prev = null;
+    rows.forEach(function (r, i) { if (String(r.price).trim() !== '') f.push({ i: i + 1, price: Number(r.price), pct: String(r.pct).trim() === '' ? null : Number(r.pct) }); });
+    if (!f.length) return { legs: null };
+    for (var k = 0; k < f.length; k++) {
+      var x = f[k];
+      if (!(x.price > 0)) return { error: 'TP' + x.i + ' price must be above 0' };
+      if (L ? x.price <= ref : x.price >= ref) return { error: 'TP' + x.i + ' must be ' + (L ? 'above ' : 'below ') + fp(ref) };
+      if (prev !== null && (L ? x.price <= prev : x.price >= prev)) return { error: 'TP prices must go ' + (L ? 'up' : 'down') + ' in order (TP1 is the nearest)' };
+      prev = x.price;
+      if (x.pct === null) empty++;
+      else { if (!(x.pct > 0 && x.pct <= 100)) return { error: 'TP' + x.i + ' % must be above 0 and up to 100' }; sum += x.pct; }
+    }
+    if (sum > 100 + 1e-9) return { error: 'TP percentages add up to more than 100%' };
+    if (empty) {
+      var share = (100 - sum) / empty;
+      if (!(share > 0.01)) return { error: 'No % left for the other TP levels' };
+      f.forEach(function (x) { if (x.pct === null) x.pct = share; });
+    }
+    return { legs: f.map(function (x) { return { price: x.price, pct: x.pct }; }) };
+  }
+  var ticketRows = function () { return [1, 2, 3].map(function (i) { return { price: T['tp' + i], pct: T['tp' + i + 'p'] }; }); };
+
+  /* ---------- ticket: validate trailing / partial TP ---------- */
+  var pb = P.buildOrder;
+  P.buildOrder = function () {
+    var out = pb.apply(P, arguments); if (!out.ok) return out;
+    var spec = out.spec, rows = ticketRows(), tr = String(T.trail).trim(), anyTp = rows.some(function (r) { return String(r.price).trim() !== ''; });
+    spec.trail = null; spec.tps = null; spec.be1 = false;
+    if (tr === '' && !anyTp) return out;
+    var bad = function (m) { out.ok = false; out.error = m; out.spec = null; return out; };
+    if (spec.type === 'OCO' && spec.legs[0].side !== spec.legs[1].side) return bad('For Long + Short OCO, set trailing / partial TP after one order fills');
+    if (tr !== '') {
+      var pct = Number(tr), act = String(T.tact).trim() === '' ? null : Number(T.tact);
+      if (!(pct >= 0.1 && pct <= 50)) return bad('Trailing stop % must be 0.1 to 50');
+      if (act !== null && !(act > 0)) return bad('Activation price must be above 0');
+      spec.trail = { pct: pct, act: act };
+    }
+    if (anyTp) {
+      if (spec.tp !== null && spec.tp !== undefined) return bad('Use either Take profit or Partial TPs, not both');
+      var L = spec.side === 'LONG', ref = spec.type === 'OCO' ? Math[L ? 'max' : 'min'].apply(null, spec.legs.map(function (l) { return l.entry; })) : spec.entry;
+      var r = parseTps(rows, spec.side, ref); if (r.error) return bad(r.error);
+      spec.tps = r.legs; spec.be1 = !!T.be1;
+    }
+    return out;
+  };
+
+  /* ---------- placing: carry settings to pending orders ---------- */
+  var op = P.placeOrder;
+  P.placeOrder = function (spec) {
+    var acc = P.acc(), before = {}; acc.orders.forEach(function (o) { before[o.id] = 1; });
+    var res = op.apply(P, arguments);
+    if (res && res.ok) {
+      acc.orders.forEach(function (o) {
+        if (before[o.id]) return;
+        o.trail = spec.trail || null; o.tps = spec.tps || null; o.be1 = !!spec.be1;
+      });
+      clearT(); P.save();
+    }
+    return res;
+  };
+
+  /* ---------- engine: trailing stop + partial TPs ---------- */
+  function rng(sym, chk) {
+    var p = P.price(sym), hi = p || -Infinity, lo = p || Infinity, upTo = chk, now = Date.now();
+    (P.k1[sym] || []).forEach(function (k) {
+      if (k.t >= chk && k.t + MIN <= now) { if (k.h > hi) hi = k.h; if (k.l < lo) lo = k.l; if (k.t + MIN > upTo) upTo = k.t + MIN; }
+    });
+    return isFinite(hi) && isFinite(lo) ? { hi: hi, lo: lo, p: p, upTo: upTo } : null;
+  }
+  function ensureQty(pos) {
+    var t = pos.tps; if (!t || !t.length || !t.some(function (l) { return !(l.qty > 0); })) return;
+    var tot = 0, run = 0; t.forEach(function (l) { tot += l.pct; });
+    t.forEach(function (l, i) { if (l.done) return; l.qty = (tot >= 99.9999 && i === t.length - 1) ? r8(pos.qty - run) : r8(pos.qty * l.pct / 100); run += l.qty; });
+  }
+  X.check = function () {
+    var st = P.state(), changed = false, saved = false, msg = '';
+    Object.keys(st.accounts).forEach(function (id) {
+      var acc = st.accounts[id];
+      acc.positions.slice().forEach(function (pos) {
+        var L = pos.side === 'LONG', px = P.price(pos.symbol), t = pos.trail, nm = base(pos.symbol);
+        /* trailing stop */
+        if (t && px !== null) {
+          if (!t.on && (t.act == null || (L ? px >= t.act : px <= t.act))) { t.on = true; t.ext = px; saved = true; P.addLog(acc, 'Trailing stop active ' + pos.side + ' ' + nm + ' (' + t.pct + '%)'); }
+          if (t.on) {
+            t.ext = L ? Math.max(t.ext, px) : Math.min(t.ext, px);
+            var ns = Number((L ? t.ext * (1 - t.pct / 100) : t.ext * (1 + t.pct / 100)).toPrecision(8)), liq = P.liqPrice(pos);
+            if ((pos.sl === null || pos.sl === undefined || (L ? ns > pos.sl : ns < pos.sl)) && (L ? ns > liq && ns < px : ns < liq && ns > px)) { pos.sl = ns; pos.chk = nextMin(Date.now()); saved = true; }
+          }
+        }
+        /* partial take profits */
+        if (pos.tps && pos.tps.length) {
+          ensureQty(pos);
+          var from = pos.tchk == null ? nextMin(pos.opened) : pos.tchk, r = rng(pos.symbol, from); if (!r) return;
+          for (var i = 0; i < pos.tps.length; i++) {
+            var leg = pos.tps[i]; if (leg.done) continue;
+            if (!(L ? r.hi >= leg.price : r.lo <= leg.price)) break;
+            leg.done = true;
+            var q = Math.min(leg.qty, pos.qty), frac = q >= pos.qty * (1 - 1e-9) ? 1 : q / pos.qty;
+            var tr = P.closePosition(acc, pos, leg.price, acc.fees.maker, 'TP' + (i + 1), frac);
+            msg = 'TP' + (i + 1) + ' ' + nm + ' ' + money(tr.pnl, 1); changed = true;
+            if (frac === 1) break;
+            if (i === 0 && pos.be1) {
+              var be = P.breakeven(pos), mk = P.price(pos.symbol);
+              if (mk !== null && (L ? (pos.sl == null || be > pos.sl) && be < mk : (pos.sl == null || be < pos.sl) && be > mk)) { pos.sl = be; pos.chk = nextMin(Date.now()); P.addLog(acc, 'Stop moved to breakeven ' + nm + ' @ ' + fp(be)); }
+            }
+          }
+          if (acc.positions.indexOf(pos) >= 0) pos.tchk = Math.max(from, r.upTo);
+        }
+      });
+    });
+    if (/^(trail|tps):/.test(P.ui.edit || '') && !findPos(P.ui.edit.split(':')[1])) P.ui.edit = null;
+    if (changed || saved) P.save();
+    if (changed) {
+      P.toast(msg);
+      if (!P.ui.edit && (P.ui.tab === 'positions' || P.ui.tab === 'wallet')) P.render();
+      P.emit('position');
+    }
+    return changed;
+  };
+  var c1 = E.check;
+  E.check = function () {
+    var a = c1.apply(E, arguments), b = false;
+    try { b = X.check(); } catch (e) { console.error('Part 5B engine', e); }
+    return a || b;
+  };
+
+  /* ---------- ticket section ---------- */
+  P.ticketXHtml = function () {
+    if (T.type === 'OCO' && T.obs === 'OPP') return '<div class="pt-hint pt-xt">Trailing stop and partial TPs: set them after one of the OCO orders fills.</div>';
+    var inp = function (id, ph, v) { return '<input class="pt-in" id="' + id + '" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="' + ph + '" value="' + esc(v) + '">'; };
+    var rows = [1, 2, 3].map(function (i) { return '<div class="pt-two" style="margin-bottom:6px">' + inp('pt-x-tp' + i, 'TP' + i + ' price', T['tp' + i]) + inp('pt-x-tp' + i + 'p', '% of position', T['tp' + i + 'p']) + '</div>'; }).join('');
+    return '<div class="pt-xt"><label class="pt-lbl">Trailing stop (optional)</label><div class="pt-two">' + inp('pt-x-trail', 'Trail %  e.g. 1.5', T.trail) + inp('pt-x-tact', 'Start at price (optional)', T.tact) + '</div>' +
+      '<label class="pt-lbl">Partial take profits (optional)</label>' + rows +
+      '<div class="pt-seg"><button class="pt-chip' + (T.be1 ? ' on' : '') + '" data-act="x-be1">Move SL to breakeven after TP1</button></div>' +
+      '<div class="pt-hint">Empty % is shared equally from what is left. If % adds to less than 100, the rest stays open. Use either Take profit or Partial TPs.</div></div>';
+  };
+
+  /* ---------- position card extras ---------- */
+  P.posExtra = function (p) {
+    var t = p.trail, rows = '', ed = P.ui.edit, id = p.id;
+    if (t) rows += '<div><span>Trailing stop</span><b>' + t.pct + '%' + (t.on ? ' &middot; active' : ' &middot; starts @ ' + (t.act ? fp(t.act) : 'now')) + '</b></div>';
+    if (p.tps) p.tps.forEach(function (l, i) { rows += '<div><span>TP' + (i + 1) + (l.done ? ' &#10003;' : '') + '</span><b class="' + (l.done ? 'pt-up' : '') + '">' + fp(l.price) + ' &middot; ' + q6(l.pct) + '%</b></div>'; });
+    var h = (rows ? '<div class="pt-x5">' + rows + '</div>' : '') +
+      '<div class="pt-row"><button class="pt-btn sm" data-act="x-trail" data-id="' + id + '">' + (t ? 'Edit trailing' : 'Trailing stop') + '</button><button class="pt-btn sm" data-act="x-tps" data-id="' + id + '">' + (p.tps ? 'Edit TPs' : 'Partial TPs') + '</button></div>';
+    var inp = function (i, ph, v) { return '<input class="pt-in" id="' + i + '" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="' + ph + '" value="' + esc(v) + '">'; };
+    if (ed === 'trail:' + id) {
+      h += '<div class="pt-ed"><div class="pt-two"><div><label class="pt-lbl">Trail %</label>' + inp('pt-x-e-trail', 'e.g. 1.5', t ? t.pct : '') + '</div><div><label class="pt-lbl">Start at price (optional)</label>' + inp('pt-x-e-act', 'now', t && t.act ? t.act : '') + '</div></div>' +
+        '<div class="pt-hint">Stop follows the best price by this %. It only moves in your favour.</div>' +
+        '<div class="pt-row"><button class="pt-btn pri sm" data-act="x-tsave" data-id="' + id + '">Save</button>' + (t ? '<button class="pt-btn red sm" data-act="x-toff" data-id="' + id + '">Remove</button>' : '') + '<button class="pt-btn sm" data-act="x-ex">Cancel</button></div><div class="pt-msg" id="pt-x-pmsg"></div></div>';
+    }
+    if (ed === 'tps:' + id) {
+      var lg = p.tps || [], rr = [0, 1, 2].map(function (i) {
+        return '<div class="pt-two" style="margin-bottom:6px">' + inp('pt-x-e-tp' + (i + 1), 'TP' + (i + 1) + ' price', lg[i] ? lg[i].price : '') + inp('pt-x-e-tp' + (i + 1) + 'p', '% of position', lg[i] ? q6(lg[i].pct) : '') + '</div>';
+      }).join('');
+      h += '<div class="pt-ed">' + rr + '<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin:6px 0"><input type="checkbox" id="pt-x-e-be1"' + (p.be1 ? ' checked' : '') + '> Move SL to breakeven after TP1</label>' +
+        '<div class="pt-hint">% is of the current size (' + q6(p.qty) + ' ' + base(p.symbol) + '). Saving replaces the old TP plan and clears the single Take profit.</div>' +
+        '<div class="pt-row"><button class="pt-btn pri sm" data-act="x-psave" data-id="' + id + '">Save</button>' + (p.tps ? '<button class="pt-btn red sm" data-act="x-poff" data-id="' + id + '">Remove</button>' : '') + '<button class="pt-btn sm" data-act="x-ex">Cancel</button></div><div class="pt-msg" id="pt-x-pmsg"></div></div>';
+    }
+    return h;
+  };
+
+  /* ---------- actions ---------- */
+  var A = P.acts;
+  var pmsg = function (t) { var m = $('#pt-x-pmsg'); if (m) { m.className = 'pt-msg pt-dn'; m.textContent = t; } };
+  var done = function (t) { P.ui.edit = null; P.save(); P.render(); P.emit('position'); P.toast(t); };
+  A['x-be1'] = function () { T.be1 = !T.be1; P.redrawTicket(); };
+  A['x-ex'] = function () { P.ui.edit = null; P.render(); };
+  A['x-trail'] = function (el) { var k = 'trail:' + el.dataset.id; P.ui.edit = P.ui.edit === k ? null : k; P.render(); };
+  A['x-tps'] = function (el) { var k = 'tps:' + el.dataset.id; P.ui.edit = P.ui.edit === k ? null : k; P.render(); };
+  A['x-tsave'] = function (el) {
+    var p = findPos(el.dataset.id); if (!p) return;
+    var pct = Number(val('pt-x-e-trail')), av = val('pt-x-e-act'), act = av === '' ? null : Number(av);
+    if (!(pct >= 0.1 && pct <= 50)) return pmsg('Trail % must be 0.1 to 50');
+    if (act !== null && !(act > 0)) return pmsg('Start price must be above 0');
+    p.trail = { pct: pct, act: act, ext: null, on: false };
+    P.addLog(P.acc(), 'Trailing stop ' + pct + '% set on ' + p.side + ' ' + base(p.symbol));
+    done('Trailing stop set');
+  };
+  A['x-toff'] = function (el) { var p = findPos(el.dataset.id); if (!p) return; p.trail = null; done('Trailing stop removed'); };
+  A['x-psave'] = function (el) {
+    var p = findPos(el.dataset.id); if (!p) return;
+    var mk = P.price(p.symbol); if (mk === null) return pmsg('No live price yet');
+    var rows = [1, 2, 3].map(function (i) { return { price: val('pt-x-e-tp' + i), pct: val('pt-x-e-tp' + i + 'p') }; });
+    var r = parseTps(rows, p.side, mk); if (r.error) return pmsg(r.error);
+    if (!r.legs) return pmsg('Enter at least TP1, or use Remove');
+    var be = $('#pt-x-e-be1');
+    p.tps = r.legs.map(function (l) { return { price: l.price, pct: l.pct, done: false }; }); p.tp = null; p.be1 = !!(be && be.checked);
+    ensureQty(p); p.tchk = nextMin(Date.now());
+    P.addLog(P.acc(), 'Partial TPs set on ' + p.side + ' ' + base(p.symbol) + ': ' + p.tps.map(function (l) { return fp(l.price); }).join(' / '));
+    done('Partial TPs saved');
+  };
+  A['x-poff'] = function (el) { var p = findPos(el.dataset.id); if (!p) return; p.tps = null; p.be1 = false; done('Partial TPs removed'); };
+
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id;
+    if (id && /^pt-x-(trail|tact|tp[123]p?)$/.test(id)) { T[id.slice(5)] = e.target.value; P.updPreview(); }
+  });
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
