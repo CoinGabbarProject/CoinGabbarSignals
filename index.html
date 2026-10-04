@@ -3368,7 +3368,8 @@ var bd = $("posCalcBackdrop");
     el.innerHTML = (p ? row('Entry (est.)', '$' + fp(p.entry)) + row('Quantity', p.qty + ' ' + base(U.symbol)) + row('Position value', money(p.notional)) + row('Margin', money(p.margin)) + row('Fee (est.)', money(p.fee)) + row('Available after', money(p.left)) : '') +
       (b.ok ? '' : '<div class="pt-dn" style="display:block;padding-top:4px">' + esc(b.error) + '</div>');
   }
-  function redrawTicket() { var el = $('#pt-ticketbox'); if (el) { el.innerHTML = ticketHtml(); updPreview(); } }
+  P.redrawTicket = redrawTicket; P.updPreview = updPreview;
+  function redrawTicket() { var el = $('#pt-ticketbox');
 
   /* ---------- Trade tab ---------- */
   P.addTab('trade', 'Trade', 5, function () {
