@@ -5782,7 +5782,7 @@ var bd = $("posCalcBackdrop");
       s.targets.map(function (t, i) { return '<div><span>TP' + (i + 1) + '</span><b class="pt-up">' + fp(t) + '</b></div>'; }).join('') +
       '<div><span>Reward : Risk (TP1)</span><b>' + (r === null ? '-' : '1 : ' + r.toFixed(2)) + '</b></div>' +
       '<div><span>Live price</span><b>' + (mk === null ? '--' : fp(mk) + (dist === null ? '' : ' <small class="pt-mut">(' + (dist >= 0 ? '+' : '') + dist.toFixed(2) + '%)</small>')) + '</b></div></div>' +
-      (s.why ? '<div class="pt-mut" style="font-size:12px;margin-top:8px">' + esc(s.why.slice(0, 160)) + (s.why.length > 160 ? '...' : '') + '</div>' : '') + nt +
+      nt +
       (ok ? '<div class="pt-row" style="margin-top:10px"><button class="pt-btn grn" data-act="x10-trade" data-id="' + esc(s.id) + '">' + (tk ? 'Trade again' : 'Trade this signal') + '</button></div>' : '') + '</div>';
   }
   function listHtml() {
