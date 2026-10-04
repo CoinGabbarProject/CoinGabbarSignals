@@ -3574,7 +3574,7 @@ var bd = $("posCalcBackdrop");
       });
       acc.positions.slice().forEach(function (pos) {
         var r = rangeFor(pos.symbol, pos.chk); if (!r) return;
-        var L = pos.side === 'LONG', liq = P.liqPrice(pos), slip = acc.fees.slip / 100;
+        var L = pos.side === 'LONG', liq = (P.liqCheck || P.liqPrice)(pos), slip = acc.fees.slip / 100;
         var slHit = pos.sl !== null && (L ? r.lo <= pos.sl : r.hi >= pos.sl);
         var liqHit = L ? r.lo <= liq : r.hi >= liq;
         var tpHit = pos.tp !== null && (L ? r.hi >= pos.tp : r.lo <= pos.tp);
