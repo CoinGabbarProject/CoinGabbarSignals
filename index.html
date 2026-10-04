@@ -6170,6 +6170,496 @@ X.badge = badge; X.notes = notes;
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 11A: Trade journal + CSV export ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x8 || !P.x8.b || P.x11) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, fdate = P.fdate, H8 = P.x8;
+  var DAY = 86400000;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var X = P.x11 = { version: '11A', exports: [] };
+  var J = P.ui.j = { f: 'todo', limit: 15, open: null, d: null, xr: 'all' };
+  var TAGS = [['plan', 'Followed plan'], ['patient', 'Patient'], ['signal', 'Good signal'], ['early', 'Entered early'], ['late', 'Chased entry'], ['fomo', 'FOMO'],
+    ['revenge', 'Revenge trade'], ['stop', 'Moved stop'], ['big', 'Too big'], ['news', 'News / event']];
+  var tagName = function (k) { var t = TAGS.filter(function (x) { return x[0] === k; })[0]; return t ? t[1] : k; };
+  var validTag = function (k) { return TAGS.some(function (x) { return x[0] === k; }); };
+  var done = function (t) { return !!((t.note && String(t.note).trim()) || (t.tags && t.tags.length) || t.rate); };
+  var stars = function (n) { var s = ''; for (var i = 1; i <= 5; i++) s += i <= n ? '\u2605' : '\u2606'; return s; };
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? d + 'd ' + (h % 24) + 'h' : h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  /* ---------- tab label: how many trades from the last 7 days still have no note ---------- */
+  function todo(acc) { var cut = Date.now() - 7 * DAY; return acc.trades.filter(function (t) { return t.closed >= cut && !done(t); }).length; }
+  function label() {
+    var n = todo(P.acc()), text = 'Journal' + (n ? ' (' + (n > 99 ? '99+' : n) + ')' : '');
+    P.addTab('journal', text, 32, view);
+    var b = $('[data-act="tab"][data-id="journal"]'); if (b) b.textContent = text;
+  }
+
+  /* ---------- editor state ---------- */
+  function close() { J.open = null; J.d = null; if (/^jn:/.test(P.ui.edit || '')) P.ui.edit = null; }
+  function sync() { var el = document.getElementById('x11-note'); if (el && J.d) J.d.note = el.value; }
+  var findT = function (id) { return P.acc().trades.filter(function (t) { return t.id === id; })[0]; };
+
+  /* ---------- Journal tab ---------- */
+  function row(t) {
+    var L = t.side === 'LONG', open = J.open === t.id;
+    var main = '<div class="pt-hi-m"><div><b>' + base(t.symbol) + '</b><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + esc(t.side) + ' ' + esc(t.lev) + 'x</span><span class="pt-rs">' + esc(t.reason) + '</span><small>' + fdate(t.closed) + ' &middot; held ' + dur(t.closed - t.opened) + (t.src && t.src !== 'manual' ? ' &middot; ' + esc(t.src) : '') + '</small></div>' +
+      '<div style="text-align:right"><b class="' + cls(t.pnl) + '" style="font-size:15px">' + money(t.pnl, 1) + '</b><small>' + (t.r === null || t.r === undefined ? '' : (t.r >= 0 ? '+' : '') + Number(t.r).toFixed(2) + 'R') + '</small></div></div>';
+    var note = '';
+    if (!open && done(t)) {
+      var tx = String(t.note || '');
+      note = '<div style="margin-top:6px;font-size:12px">' + (t.rate ? '<span class="pt-warn">' + stars(t.rate) + '</span> ' : '') + (t.tags || []).map(function (k) { return '<span class="pt-rs">' + esc(tagName(k)) + '</span>'; }).join('') +
+        (tx ? '<div class="pt-mut" style="margin-top:4px;white-space:pre-wrap;word-break:break-word">' + esc(tx.slice(0, 160)) + (tx.length > 160 ? '...' : '') + '</div>' : '') + '</div>';
+    }
+    var btn = open ? '' : '<div class="pt-row" style="margin:6px 0 0"><button class="pt-btn sm" data-act="x11-edit" data-id="' + esc(t.id) + '">' + (done(t) ? 'Edit note' : 'Add note') + '</button></div>';
+    return '<div class="pt-hi" style="cursor:default">' + main + note + (open ? editor() : btn) + '</div>';
+  }
+  function editor() {
+    var d = J.d; if (!d) return '';
+    return '<div style="margin-top:8px"><textarea class="pt-in" id="x11-note" rows="3" maxlength="500" style="width:100%" placeholder="Why did you take it? What went right or wrong?">' + esc(d.note) + '</textarea>' +
+      '<div class="pt-mut" style="font-size:11px;margin:8px 0 3px">What describes this trade?</div><div class="pt-seg">' +
+      TAGS.map(function (t) { return '<button class="pt-chip' + (d.tags.indexOf(t[0]) >= 0 ? ' on' : '') + '" data-act="x11-tag" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="pt-mut" style="font-size:11px;margin:8px 0 3px">How well did you follow your plan?</div><div class="pt-seg">' +
+      [1, 2, 3, 4, 5].map(function (n) { return '<button class="pt-chip' + (d.rate === n ? ' on' : '') + '" data-act="x11-rate" data-v="' + n + '">' + n + ' ' + '\u2605' + '</button>'; }).join('') + '</div>' +
+      '<div class="pt-row"><button class="pt-btn grn sm" data-act="x11-save">Save</button><button class="pt-btn sm" data-act="x11-cancel">Cancel</button>' +
+      (done(findT(d.id) || {}) ? '<button class="pt-btn red sm" data-act="x11-del">Remove note</button>' : '') + '</div></div>';
+  }
+  function insights(acc) {
+    var map = {}, hi = [], lo = [];
+    acc.trades.forEach(function (t) {
+      (t.tags || []).forEach(function (k) { var m = map[k] = map[k] || { n: 0, w: 0, net: 0 }; m.n++; if (t.pnl > 0) m.w++; m.net += t.pnl; });
+      if (t.rate >= 4) hi.push(t.pnl); else if (t.rate && t.rate <= 2) lo.push(t.pnl);
+    });
+    var keys = Object.keys(map).sort(function (a, b) { return map[b].net - map[a].net; });
+    if (!keys.length && !hi.length && !lo.length) return '';
+    var avg = function (a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; };
+    return '<div class="pt-box"><h3>What your notes show</h3>' +
+      (hi.length && lo.length ? '<div class="pt-hint" style="margin-bottom:8px">Trades where you followed the plan well (4-5 stars) average <b class="' + cls(avg(hi)) + '">' + money(avg(hi), 1) + '</b>. Poorly followed (1-2 stars): <b class="' + cls(avg(lo)) + '">' + money(avg(lo), 1) + '</b>.</div>' : '') +
+      '<div class="pt-list">' + keys.map(function (k) {
+        var m = map[k];
+        return '<div class="pt-li"><div><b>' + esc(tagName(k)) + '</b><small>' + m.n + ' trade' + (m.n > 1 ? 's' : '') + ' &middot; ' + Math.round(m.w / m.n * 100) + '% win</small></div><b class="' + cls(m.net) + '">' + money(m.net, 1) + '</b></div>';
+      }).join('') + '</div></div>';
+  }
+  function view(acc) {
+    var all = acc.trades, doneN = all.filter(done).length, td = todo(acc);
+    var rows = all.filter(function (t) { return J.f === 'all' || (J.f === 'todo' ? !done(t) : done(t)); });
+    var seg = [['todo', 'Need a note'], ['done', 'With notes'], ['all', 'All']].map(function (o) { return '<button class="pt-chip' + (J.f === o[0] ? ' on' : '') + '" data-act="x11-f" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('');
+    var list = rows.slice(0, J.limit).map(row).join('') || '<div class="pt-mut">' + (all.length ? (J.f === 'todo' ? 'Every trade has a note. Nice.' : 'Nothing here yet.') : 'No closed trades yet. Close a trade and write what you learned.') + '</div>';
+    return '<div class="pt-grid">' + H8.card('Trades', all.length, 'Closed, this account') + H8.card('With notes', doneN, all.length ? Math.round(doneN / all.length * 100) + '%' : '-') + H8.card('To review', td, 'Last 7 days', td ? 'pt-warn' : '') + '</div>' +
+      '<div class="pt-seg">' + seg + '</div>' +
+      '<div class="pt-box"><h3>Trade Journal</h3><div>' + list + '</div>' + (rows.length > J.limit ? '<div class="pt-row" style="justify-content:center"><button class="pt-btn" data-act="x11-more">Show more (' + (rows.length - J.limit) + ' left)</button></div>' : '') +
+      '<div class="pt-mut" style="font-size:11px;margin-top:8px">Notes are saved on this device with the trade. Each partial close is its own row.</div></div>' +
+      insights(acc) + exportBox(acc);
+  }
+
+  /* ---------- CSV export ---------- */
+  var iso = function (t) { return t ? new Date(t).toISOString() : ''; };
+  function cell(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return isFinite(v) ? String(v) : '';
+    var s = String(v);
+    if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;          /* stops spreadsheet formula injection */
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  X.csv = function (head, rows) { return [head].concat(rows).map(function (r) { return r.map(cell).join(','); }).join('\r\n') + '\r\n'; };
+  var XR = [['7d', 7, '7 days'], ['30d', 30, '30 days'], ['all', 0, 'All']];
+  var cutoff = function () { var r = XR.filter(function (x) { return x[0] === J.xr; })[0]; return r && r[1] ? Date.now() - r[1] * DAY : 0; };
+  var tradeHead = ['closed_at', 'opened_at', 'symbol', 'side', 'leverage', 'quantity', 'entry', 'exit', 'gross_pnl', 'fees', 'net_pnl', 'r_multiple', 'exit_reason', 'source', 'stop_loss', 'take_profit', 'held_minutes', 'plan_rating', 'tags', 'note'];
+  var tradeRow = function (t) {
+    return [iso(t.closed), iso(t.opened), t.symbol, t.side, t.lev, t.qty, t.entry, t.exit, t.gross, t.fees, t.pnl, t.r, t.reason, t.src || 'manual', t.sl, t.tp, Math.round((t.closed - t.opened) / 60000), t.rate || '', (t.tags || []).map(tagName).join('; '), t.note || ''];
+  };
+  X.exports.push(
+    { id: 'trades', label: 'Trades (with journal)', build: function (acc, cut) { return { head: tradeHead, rows: acc.trades.filter(function (t) { return t.closed >= cut; }).map(tradeRow) }; } },
+    { id: 'journal', label: 'Journal notes only', build: function (acc, cut) { return { head: tradeHead, rows: acc.trades.filter(function (t) { return t.closed >= cut && done(t); }).map(tradeRow) }; } },
+    { id: 'orders', label: 'Orders', build: function (acc, cut) {
+      return { head: ['ended_at', 'created_at', 'symbol', 'side', 'type', 'trigger_price', 'limit_price', 'quantity', 'leverage', 'stop_loss', 'take_profit', 'source', 'status', 'fill_price', 'note'],
+        rows: (acc.oh || []).filter(function (o) { return o.t >= cut; }).map(function (o) { return [iso(o.t), iso(o.created), o.symbol, o.side, o.kind, o.trig, o.lim, o.qty, o.lev, o.sl, o.tp, o.src || 'manual', o.status, o.fill, o.why || '']; }) };
+    } },
+    { id: 'wallet', label: 'Wallet history', build: function (acc, cut) {
+      var run = acc.balance, out = [];
+      acc.txns.forEach(function (x) { var v = H8.signed(x), after = run; run -= v; if (x.t >= cut) out.push([iso(x.t), x.type, v, after, x.note || '']); });
+      return { head: ['time', 'type', 'amount', 'balance_after', 'note'], rows: out };
+    } },
+    { id: 'activity', label: 'Activity log', build: function (acc, cut) { return { head: ['time', 'message'], rows: acc.log.filter(function (l) { return l.t >= cut; }).map(function (l) { return [iso(l.t), l.msg]; }) }; } }
+  );
+  function exportBox(acc) {
+    var cut = cutoff(), lines = X.exports.map(function (d) {
+      var n = 0; try { n = d.build(acc, cut).rows.length; } catch (e) { n = 0; }
+      return '<div class="pt-li"><div><b>' + esc(d.label) + '</b><small>' + n + ' row' + (n === 1 ? '' : 's') + '</small></div><div class="pt-row" style="margin:0">' +
+        '<button class="pt-btn sm grn" data-act="x11-dl" data-id="' + d.id + '"' + (n ? '' : ' disabled') + '>Download</button><button class="pt-btn sm" data-act="x11-cp" data-id="' + d.id + '"' + (n ? '' : ' disabled') + '>Copy</button></div></div>';
+    }).join('');
+    return '<div class="pt-box"><h3>Export CSV</h3><div class="pt-seg">' + XR.map(function (r) { return '<button class="pt-chip' + (J.xr === r[0] ? ' on' : '') + '" data-act="x11-xr" data-v="' + r[0] + '">' + r[2] + '</button>'; }).join('') + '</div>' +
+      '<div class="pt-list">' + lines + '</div><div class="pt-hint" style="margin-top:8px">Opens in Excel or Google Sheets. Exports the active account only. If Download does nothing on your phone, use Copy and paste into a sheet.</div></div>';
+  }
+  function fname(id) {
+    var a = P.acc(), nm = String(a.name || 'account').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account', d = new Date(), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    return 'paper-' + id + '-' + nm + '-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '.csv';
+  }
+  function csvOf(id) {
+    var d = X.exports.filter(function (x) { return x.id === id; })[0]; if (!d) return null;
+    var b = d.build(P.acc(), cutoff()); return b.rows.length ? X.csv(b.head, b.rows) : null;
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise(function (ok, no) {
+      var ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0'; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? ok() : no(new Error('copy blocked')); } catch (e) { no(e); } ta.remove();
+    });
+  }
+
+  /* ---------- actions ---------- */
+  var A = P.acts;
+  A['x11-f'] = function (el) { close(); J.f = el.dataset.v; J.limit = 15; P.render(); };
+  A['x11-more'] = function () { J.limit += 15; P.render(); };
+  A['x11-edit'] = function (el) {
+    var t = findT(el.dataset.id); if (!t) return;
+    J.open = t.id; J.d = { id: t.id, note: String(t.note || ''), tags: (t.tags || []).filter(validTag), rate: Number(t.rate) || 0 }; P.ui.edit = 'jn:' + t.id; P.render();
+  };
+  A['x11-tag'] = function (el) { sync(); if (!J.d) return; var i = J.d.tags.indexOf(el.dataset.v); if (i >= 0) J.d.tags.splice(i, 1); else if (validTag(el.dataset.v)) J.d.tags.push(el.dataset.v); P.render(); };
+  A['x11-rate'] = function (el) { sync(); if (!J.d) return; var n = Number(el.dataset.v); J.d.rate = J.d.rate === n ? 0 : n; P.render(); };
+  A['x11-cancel'] = function () { close(); P.render(); };
+  A['x11-save'] = function () {
+    sync(); var d = J.d, t = d && findT(d.id);
+    if (!t) { close(); P.render(); return P.toast('Trade not found'); }
+    t.note = d.note.trim().slice(0, 500); t.tags = d.tags.filter(validTag); t.rate = d.rate >= 1 && d.rate <= 5 ? d.rate : 0; t.jt = Date.now();
+    P.save(); close(); label(); P.render(); P.toast('Note saved');
+  };
+  A['x11-del'] = function () {
+    var t = J.d && findT(J.d.id); if (!t) return;
+    if (!window.confirm('Remove the note, tags and rating from this trade?')) return;
+    t.note = ''; t.tags = []; t.rate = 0; delete t.jt; P.save(); close(); label(); P.render();
+  };
+  A['x11-xr'] = function (el) { J.xr = el.dataset.v; P.render(); };
+  A['x11-dl'] = function (el) {
+    var id = el.dataset.id, text = csvOf(id); if (!text) return P.toast('Nothing to export');
+    try {
+      var blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = fname(id); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+      P.toast('CSV downloaded');
+    } catch (e) { P.toast('Download failed. Use Copy instead.'); }
+  };
+  A['x11-cp'] = function (el) {
+    var text = csvOf(el.dataset.id); if (!text) return P.toast('Nothing to export');
+    copyText(text).then(function () { P.toast('CSV copied. Paste it in a sheet.'); }, function () { P.toast('Copy blocked. Try Download.'); });
+  };
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'x11-note' && J.d) J.d.note = e.target.value; });
+  A.tab = (function (tb) { return function () { if (J.open) close(); return tb.apply(null, arguments); }; })(A.tab || function () {});
+
+  /* keep typing focus when the screen re-renders, and drop the editor if you leave the tab */
+  var r0 = P.render;
+  P.render = function () {
+    var el = document.activeElement, keep = el && el.id === 'x11-note', s = keep ? el.selectionStart : 0, e2 = keep ? el.selectionEnd : 0;
+    if (P.ui.tab !== 'journal' && J.open) close();
+    label();
+    var r = r0.apply(P, arguments);
+    if (keep) { var n = document.getElementById('x11-note'); if (n) { n.focus(); try { n.setSelectionRange(s, e2); } catch (x) { /* ignore */ } } }
+    return r;
+  };
+  P.on('position', label);
+  label();
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
+<script>
+/* ===== PAPER PART 11B: Alerts (price, near SL/TP, fills, daily loss, new signals) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x11 || P.x11.b) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, fp = P.fp, fdate = P.fdate;
+  var BIN = 'https://data-api.binance.vision/api/v3', KEY = 'cg_paper_al', MAX_PRICE = 20, MAX_HIST = 100;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var X = P.x11; X.b = true; X.version = '11B';
+  var AL = P.x11b = { px: {}, near: {}, known: null, msg: '' };
+
+  /* ---------- saved on this device, shared by all accounts ---------- */
+  var DEF = { sl: true, tp: true, near: 0.5, loss: true, fill: true, close: true, sig: false, minScore: 70, sound: true, vib: true, notify: false };
+  function load() {
+    var s = null; try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
+    if (!s || typeof s !== 'object') s = {};
+    if (!Array.isArray(s.price)) s.price = [];
+    if (!Array.isArray(s.hist)) s.hist = [];
+    if (!s.seen || typeof s.seen !== 'object') s.seen = {};
+    if (!s.o || typeof s.o !== 'object') s.o = {};
+    Object.keys(DEF).forEach(function (k) { if (s.o[k] === undefined) s.o[k] = DEF[k]; });
+    return s;
+  }
+  var S = load();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } }
+  var unread = function () { return S.hist.filter(function (h) { return !h.read; }).length; };
+
+  /* ---------- tab ---------- */
+  function label() {
+    var n = unread(), text = 'Alerts' + (n ? ' (' + (n > 99 ? '99+' : n) + ')' : '');
+    P.addTab('alerts', text, 34, view);
+    var b = $('[data-act="tab"][data-id="alerts"]'); if (b) b.textContent = text;
+  }
+
+  /* ---------- how an alert reaches you ---------- */
+  var ac = null;
+  function beep() {
+    try {
+      var C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      ac = ac || new C(); if (ac.state === 'suspended') ac.resume();
+      var o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.08;
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.18);
+    } catch (e) { /* sound blocked */ }
+  }
+  function fire(kind, msg, go, sym) {
+    S.hist.unshift({ t: Date.now(), k: kind, msg: msg, go: go || '', sym: sym || '', read: false });
+    if (S.hist.length > MAX_HIST) S.hist.length = MAX_HIST;
+    save(); label();
+    P.toast(msg);
+    if (S.o.sound) beep();
+    if (S.o.vib && navigator.vibrate) { try { navigator.vibrate(200); } catch (e) { /* ignore */ } }
+    if (S.o.notify && document.hidden && window.Notification && Notification.permission === 'granted') {
+      try { new Notification('Paper Trading', { body: msg, tag: kind + ':' + msg }); } catch (e) { /* ignore */ }
+    }
+    if (P.ui.tab === 'alerts' && $('#paperRoot .pt')) P.render();
+  }
+
+  /* ---------- prices for alert coins (works when the Paper page is closed) ---------- */
+  function activeSyms() { var o = {}; S.price.forEach(function (a) { if (a.on) o[a.symbol] = 1; }); return Object.keys(o); }
+  function pull(syms) {
+    if (!syms.length) return Promise.resolve();
+    var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(BIN + '/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal }).then(function (r) {
+      clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    }).then(function (rows) {
+      (rows || []).forEach(function (r) { var p = Number(r.price); if (r.symbol && p > 0) AL.px[r.symbol] = p; });
+      checkPrices();
+    }, function () { clearTimeout(to); });
+  }
+  var px = function (s) { var p = P.price(s); return p !== null ? p : (AL.px[s] || null); };
+
+  /* ---------- 1. price alerts ---------- */
+  function checkPrices() {
+    var hit = false;
+    S.price.forEach(function (a) {
+      if (!a.on) return;
+      var p = px(a.symbol); if (p === null) return;
+      if (a.dir === 'above' ? p >= a.price : p <= a.price) {
+        a.on = false; a.fired = Date.now(); hit = true;
+        fire('price', base(a.symbol) + ' is ' + (a.dir === 'above' ? 'above ' : 'below ') + fp(a.price) + ' (now ' + fp(p) + ')' + (a.note ? ' - ' + a.note : ''), 'trade', a.symbol);
+      }
+    });
+    if (hit) save();
+  }
+
+  /* ---------- 2. positions near stop / target, daily loss ---------- */
+  function checkPositions() {
+    var st = P.state(), o = S.o, accs = Object.keys(st.accounts), multi = accs.length > 1, alive = {};
+    accs.forEach(function (id) {
+      var a = st.accounts[id], tag = multi ? ' [' + a.name + ']' : '';
+      a.positions.forEach(function (p) {
+        var m = P.price(p.symbol); if (m === null) return;
+        var L = p.side === 'LONG';
+        [['sl', p.sl, 'stop loss', o.sl], ['tp', p.tp, 'take profit', o.tp]].forEach(function (c) {
+          if (!c[3] || !(c[1] > 0)) return;
+          var key = c[0] + ':' + p.id + ':' + c[1]; alive[key] = 1;
+          var d = (c[0] === 'sl' ? (L ? m - c[1] : c[1] - m) : (L ? c[1] - m : m - c[1])) / m * 100;      /* % left to travel */
+          if (d > Number(o.near) * 2) { delete AL.near[key]; return; }
+          if (d <= Number(o.near) && !AL.near[key]) {
+            AL.near[key] = 1;
+            fire('near', base(p.symbol) + ' ' + p.side + ' is ' + (d <= 0 ? 'at' : d.toFixed(2) + '% from') + ' its ' + c[2] + ' (' + fp(c[1]) + ')' + tag, 'positions');
+          }
+        });
+      });
+      if (o.loss && P.riskStatus) {
+        var rs = P.riskStatus(a);
+        if (rs.limit > 0) {
+          var k80 = 'loss80:' + a.id + ':' + rs.key, k100 = 'loss100:' + a.id + ':' + rs.key;
+          if (rs.locked && !S.seen[k100]) { S.seen[k100] = Date.now(); S.seen[k80] = Date.now(); save(); fire('loss', 'Daily loss limit reached. New orders are blocked until midnight.' + tag, 'risk'); }
+          else if (rs.usedPct >= 80 && !S.seen[k80]) { S.seen[k80] = Date.now(); save(); fire('loss', 'Daily loss is at ' + Math.round(rs.usedPct) + '% of your limit (' + money(Math.max(0, -rs.pnl)) + ' of ' + money(rs.limit) + ').' + tag, 'risk'); }
+        }
+      }
+    });
+    Object.keys(AL.near).forEach(function (k) { if (!alive[k]) delete AL.near[k]; });
+  }
+
+  /* ---------- 3. order filled / trade closed ---------- */
+  function snapshot() {
+    var st = P.state(), k = { pos: {}, ord: {}, tr: {} };
+    Object.keys(st.accounts).forEach(function (id) {
+      var a = st.accounts[id];
+      a.positions.forEach(function (p) { k.pos[p.id] = 1; });
+      a.orders.forEach(function (o) { k.ord[o.id] = { symbol: o.symbol, side: o.side, acc: id }; });
+      a.trades.forEach(function (t) { k.tr[t.id] = 1; });
+    });
+    return k;
+  }
+  function checkEvents() {
+    var st = P.state(), prev = AL.known, now = snapshot(); AL.known = now;
+    if (!prev) return;
+    var multi = Object.keys(st.accounts).length > 1;
+    Object.keys(st.accounts).forEach(function (id) {
+      var a = st.accounts[id], tag = multi ? ' [' + a.name + ']' : '';
+      if (S.o.fill) a.positions.forEach(function (p) {
+        if (prev.pos[p.id]) return;
+        var gone = Object.keys(prev.ord).filter(function (oid) { var o = prev.ord[oid]; return o.acc === id && o.symbol === p.symbol && o.side === p.side && !now.ord[oid]; });
+        if (gone.length) fire('fill', 'Order filled: ' + p.side + ' ' + base(p.symbol) + ' @ ' + fp(p.entry) + tag, 'positions');
+      });
+      if (S.o.close) a.trades.forEach(function (t) {
+        if (prev.tr[t.id] || t.reason === 'MANUAL') return;
+        fire('close', (t.reason === 'LIQ' ? 'LIQUIDATED ' : t.reason + ' hit: ') + base(t.symbol) + ' ' + t.side + ' ' + money(t.pnl, 1) + tag, 'history');
+      });
+    });
+  }
+
+  /* ---------- 4. new signals ---------- */
+  function checkSignals() {
+    var x = P.x10; if (!x || !x.at) return;
+    var live = x.sigs.filter(function (s) { return s.status === 'ACTIVE'; });
+    if (!S.o.sig) return;
+    live.forEach(function (s) {
+      if (S.seen['sig:' + s.id]) return;
+      S.seen['sig:' + s.id] = Date.now(); save();
+      if (s.score >= S.o.minScore && Date.now() - s.at < 2 * 3600000) fire('sig', 'New ' + s.side + ' signal: ' + base(s.symbol) + ' ' + s.tf + ' (score ' + s.score + ')', 'signals');
+    });
+    var ks = Object.keys(S.seen);
+    if (ks.length > 400) { ks.sort(function (a, b) { return S.seen[a] - S.seen[b]; }).slice(0, ks.length - 400).forEach(function (k) { delete S.seen[k]; }); save(); }
+  }
+  if (P.x10 && P.x10.load) {
+    var ol = P.x10.load;
+    P.x10.load = function () { var r = ol.apply(P.x10, arguments); return Promise.resolve(r).then(function () { try { checkSignals(); } catch (e) { console.error('Part 11B', e); } }); };
+  }
+
+  /* ---------- run all checks ---------- */
+  var lastT = 0;
+  function run(force) {
+    var t = Date.now(); if (!force && t - lastT < 2000) return; lastT = t;
+    try { checkPrices(); checkPositions(); checkEvents(); } catch (e) { console.error('Part 11B', e); }
+  }
+  P.on('prices', function () { run(false); });
+  P.on('position', function () { run(true); });
+  setInterval(function () { pull(activeSyms()); run(true); }, 15000);
+  AL.known = snapshot();
+
+  /* ---------- Alerts tab ---------- */
+  var KIND = { price: 'Price', near: 'Near stop/target', fill: 'Order filled', close: 'Trade closed', loss: 'Risk', sig: 'Signal' };
+  var seg = function (act, cur, opts) { return '<div class="pt-seg">' + opts.map(function (o) { return '<button class="pt-chip' + (String(cur) === String(o[0]) ? ' on' : '') + '" data-act="' + act + '" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>'; };
+  var tog = function (k, name, hint) {
+    return '<div class="pt-li"><div><b style="font-weight:600">' + name + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</div><button class="pt-chip' + (S.o[k] ? ' on' : '') + '" data-act="x11b-t" data-v="' + k + '">' + (S.o[k] ? 'ON' : 'OFF') + '</button></div>';
+  };
+  function priceBox() {
+    var cur = base(P.symbol ? P.symbol() : 'BTCUSDT');
+    var rows = S.price.map(function (a) {
+      var p = px(a.symbol), d = p ? (a.price - p) / p * 100 : null;
+      return '<div class="pt-li"><div><b>' + base(a.symbol) + ' ' + (a.dir === 'above' ? '&uarr; above ' : '&darr; below ') + fp(a.price) + '</b><small>' +
+        (a.on ? (p ? 'Now ' + fp(p) + ' (' + (d >= 0 ? '+' : '') + d.toFixed(2) + '% away)' : 'Waiting for price') : 'Triggered ' + fdate(a.fired)) + (a.note ? ' &middot; ' + esc(a.note) : '') + '</small></div>' +
+        '<div class="pt-row" style="margin:0">' + (a.on ? '' : '<button class="pt-btn sm" data-act="x11b-re" data-id="' + a.id + '">Re-arm</button>') + '<button class="pt-btn sm red" data-act="x11b-rm" data-id="' + a.id + '">Delete</button></div></div>';
+    }).join('') || '<div class="pt-mut">No price alerts yet.</div>';
+    return '<div class="pt-box"><h3>Price Alerts (' + S.price.filter(function (a) { return a.on; }).length + ' active)</h3>' +
+      '<div class="pt-row"><input class="pt-in" id="x11b-sym" maxlength="15" placeholder="Coin e.g. BTC" value="' + esc(cur) + '" autocomplete="off" style="max-width:130px"><input class="pt-in" id="x11b-px" type="number" step="any" inputmode="decimal" placeholder="Alert price"></div>' +
+      '<div class="pt-row"><input class="pt-in" id="x11b-note" maxlength="60" placeholder="Note (optional)"><button class="pt-btn grn" data-act="x11b-add">Set alert</button></div>' +
+      '<div class="pt-msg' + (AL.bad ? ' pt-dn' : ' pt-up') + '" id="x11b-msg">' + esc(AL.msg) + '</div><div class="pt-list">' + rows + '</div></div>';
+  }
+  function settingsBox() {
+    return '<div class="pt-box"><h3>Automatic Alerts</h3>' +
+      tog('sl', 'Near stop loss', 'Open positions close to their stop') + tog('tp', 'Near take profit', 'Open positions close to their target') +
+      '<div class="pt-mut" style="font-size:11px;margin:8px 0 3px">"Near" means within</div>' + seg('x11b-near', S.o.near, [[0.25, '0.25%'], [0.5, '0.5%'], [1, '1%'], [2, '2%']]) +
+      tog('fill', 'Order filled', 'A pending order became a position') + tog('close', 'Trade closed by SL / TP / liquidation', 'Not for closes you do yourself') + tog('loss', 'Daily loss warning', 'At 80% of your limit, and when trading locks') +
+      tog('sig', 'New signal', 'Any new active signal at or above the score below') +
+      (S.o.sig ? '<div class="pt-mut" style="font-size:11px;margin:8px 0 3px">Minimum signal score</div>' + seg('x11b-score', S.o.minScore, [[0, 'Any'], [60, '60'], [70, '70'], [80, '80'], [90, '90']]) : '') + '</div>' +
+      '<div class="pt-box"><h3>How to alert me</h3>' + tog('sound', 'Sound', 'Short beep') + tog('vib', 'Vibrate', 'Phones that support it') +
+      tog('notify', 'Phone / desktop notification', notePerm()) +
+      '<div class="pt-row"><button class="pt-btn sm" data-act="x11b-test">Send test alert</button></div>' +
+      '<div class="pt-hint">Alerts are checked only while this page is open in your browser (a background tab is fine). Nothing is sent when the page is closed.</div></div>';
+  }
+  function notePerm() {
+    if (!window.Notification) return 'Not supported in this browser';
+    return Notification.permission === 'granted' ? 'Shown when this tab is in the background' : Notification.permission === 'denied' ? 'Blocked in browser settings' : 'Asks for permission when you turn it on';
+  }
+  function centerBox() {
+    var n = unread(), rows = S.hist.slice(0, 30).map(function (h) {
+      return '<div class="pt-li" style="cursor:pointer" data-act="x11b-go" data-id="' + h.t + '"><div><b style="font-weight:' + (h.read ? 400 : 700) + '">' + esc(h.msg) + '</b><small>' + fdate(h.t) + ' &middot; ' + (KIND[h.k] || 'Alert') + '</small></div>' + (h.read ? '' : '<span class="pt-up" style="font-size:18px">&bull;</span>') + '</div>';
+    }).join('') || '<div class="pt-mut">Nothing yet. Alerts you receive will be listed here.</div>';
+    return '<div class="pt-box"><h3>Alert Center' + (n ? ' (' + n + ' new)' : '') + '</h3><div class="pt-list">' + rows + '</div>' +
+      (S.hist.length ? '<div class="pt-row"><button class="pt-btn sm" data-act="x11b-read">Mark all read</button><button class="pt-btn sm red" data-act="x11b-clr">Clear</button></div>' : '') + '<div class="pt-mut" style="font-size:11px;margin-top:6px">Tap an alert to open the related screen. Keeps the latest ' + MAX_HIST + '.</div></div>';
+  }
+  function view() { setTimeout(function () { pull(activeSyms()); }, 0); return centerBox() + priceBox() + settingsBox(); }
+
+  /* ---------- actions ---------- */
+  var A = P.acts, say = function (t, bad) { AL.msg = t; AL.bad = !!bad; var m = $('#x11b-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } };
+  var one = function (sym) {
+    var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) { clearTimeout(to); if (r.status === 400) throw new Error('nf'); if (!r.ok) throw new Error('net'); return r.json(); }, function () { clearTimeout(to); throw new Error('net'); })
+      .then(function (d) { var p = Number(d.price); if (!(p > 0)) throw new Error('net'); AL.px[sym] = p; return p; });
+  };
+  A['x11b-add'] = function () {
+    var raw = ($('#x11b-sym') || {}).value || '', target = Number(($('#x11b-px') || {}).value), note = String(($('#x11b-note') || {}).value || '').trim().slice(0, 60);
+    var sym = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''); if (sym && !/USDT$/.test(sym)) sym += 'USDT';
+    if (!/^[A-Z0-9]{2,15}USDT$/.test(sym)) return say('Enter a coin like BTC or SOL', true);
+    if (!(target > 0)) return say('Enter a price above 0', true);
+    if (S.price.filter(function (a) { return a.on; }).length >= MAX_PRICE) return say('Maximum ' + MAX_PRICE + ' active alerts. Delete one first.', true);
+    say('Checking price...', false);
+    one(sym).then(function (p) {
+      if (target === p) return say('That is the current price. Pick a different one.', true);
+      var dir = target > p ? 'above' : 'below';
+      if (S.price.some(function (a) { return a.on && a.symbol === sym && a.dir === dir && a.price === target; })) return say('You already have this alert.', true);
+      S.price.unshift({ id: P.uid('al'), symbol: sym, dir: dir, price: target, note: note, on: true, created: Date.now(), fired: null });
+      save(); say('Alert set: ' + base(sym) + ' ' + dir + ' ' + fp(target) + ' (now ' + fp(p) + ')', false); P.render();
+    }, function (e) { say(e && e.message === 'nf' ? 'Coin not found on Binance' : 'Network error. Try again.', true); });
+  };
+  A['x11b-rm'] = function (el) { S.price = S.price.filter(function (a) { return a.id !== el.dataset.id; }); save(); P.render(); };
+  A['x11b-re'] = function (el) {
+    var a = S.price.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!a) return;
+    one(a.symbol).then(function (p) {
+      if (a.price === p) return P.toast('Price is exactly at the alert level');
+      a.dir = a.price > p ? 'above' : 'below'; a.on = true; a.fired = null; save(); P.render();
+    }, function () { P.toast('Could not get price'); });
+  };
+  A['x11b-t'] = function (el) {
+    var k = el.dataset.v; if (!(k in DEF) || typeof DEF[k] !== 'boolean') return;
+    if (k === 'notify' && !S.o.notify) {
+      if (!window.Notification) return P.toast('Notifications are not supported here');
+      if (Notification.permission === 'denied') return P.toast('Notifications are blocked in browser settings');
+      var go = function (perm) { if (perm === 'granted') { S.o.notify = true; save(); P.render(); } else P.toast('Permission not given'); };
+      try { var r = Notification.requestPermission(go); if (r && r.then) r.then(go); } catch (e) { P.toast('Could not ask for permission'); }
+      return;
+    }
+    S.o[k] = !S.o[k];
+    if (k === 'sig' && S.o.sig) { var x = P.x10; if (x) x.sigs.forEach(function (s) { S.seen['sig:' + s.id] = Date.now(); }); }   /* only NEW signals alert */
+    save(); P.render();
+  };
+  A['x11b-near'] = function (el) { var v = Number(el.dataset.v); if (v > 0 && v <= 5) { S.o.near = v; AL.near = {}; save(); P.render(); } };
+  A['x11b-score'] = function (el) { S.o.minScore = Number(el.dataset.v) || 0; save(); P.render(); };
+  A['x11b-test'] = function () { fire('price', 'Test alert. This is how an alert will look.', '', ''); };
+  A['x11b-read'] = function () { S.hist.forEach(function (h) { h.read = true; }); save(); label(); P.render(); };
+  A['x11b-clr'] = function () { if (!window.confirm('Clear all alert history?')) return; S.hist = []; save(); label(); P.render(); };
+  A['x11b-go'] = function (el) {
+    var h = S.hist.filter(function (x) { return String(x.t) === el.dataset.id; })[0]; if (!h) return;
+    h.read = true; save();
+    if (h.go === 'trade' && h.sym && P.selectSymbol) return P.selectSymbol(h.sym);
+    if (h.go && P.tabs.some(function (t) { return t.id === h.go; })) P.ui.tab = h.go;
+    P.render();
+  };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target && (e.target.id === 'x11b-px' || e.target.id === 'x11b-note')) A['x11b-add'](); });
+
+  /* alert history also goes in the CSV export from 11A */
+  X.exports.push({ id: 'alerts', label: 'Alert history', build: function (acc, cut) {
+    return { head: ['time', 'type', 'message'], rows: S.hist.filter(function (h) { return h.t >= cut; }).map(function (h) { return [new Date(h.t).toISOString(), KIND[h.k] || h.k, h.msg]; }) };
+  } });
+
+  /* keep inputs while the screen re-renders on price ticks */
+  var r0 = P.render;
+  P.render = function () {
+    var el = document.activeElement, id = el && el.id, keep = id === 'x11b-sym' || id === 'x11b-px' || id === 'x11b-note', s = 0, e2 = 0, vals = {};
+    if (keep) { s = el.selectionStart; e2 = el.selectionEnd; }
+    ['x11b-sym', 'x11b-px', 'x11b-note'].forEach(function (i) { var n = document.getElementById(i); if (n) vals[i] = n.value; });
+    var r = r0.apply(P, arguments);
+    Object.keys(vals).forEach(function (i) { var n = document.getElementById(i); if (n && P.ui.tab === 'alerts') n.value = vals[i]; });
+    if (keep) { var n2 = document.getElementById(id); if (n2) { n2.focus(); try { n2.setSelectionRange(s, e2); } catch (x) { /* ignore */ } } }
+    return r;
+  };
+
+  label();
+  setTimeout(function () { pull(activeSyms()); }, 1500);
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
