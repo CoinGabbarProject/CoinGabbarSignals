@@ -5739,7 +5739,7 @@ var bd = $("posCalcBackdrop");
     X.busy = true;
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 10000);
     return fetch(API + '/signals?limit=40', { signal: c.signal }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
-      clearTimeout(to); X.sigs = (d.signals || []).map(clean).filter(Boolean); X.at = Date.now(); X.err = '';
+      clearTimeout(to);X.sigs = (d.signals || []).map(clean).filter(Boolean); X.at = Date.now(); X.err = ''; setTimeout(function () { X.fetchPx(); }, 0);
     }).catch(function (e) { clearTimeout(to); X.err = e && e.name === 'AbortError' ? 'Signal server is slow. Try again.' : 'Could not load signals (' + (e && e.message ? e.message : 'network') + ').'; })
       .then(function () { X.busy = false; badge(); paint(); heroBtn(); });
   };
