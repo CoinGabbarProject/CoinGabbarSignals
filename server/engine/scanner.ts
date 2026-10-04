@@ -224,6 +224,29 @@ export class EngineService {
     }
   }
 
+  /**
+   * Manual exit (admin button). ACTIVE (TP1 not hit yet) -> CANCELLED.
+   * TP1_HIT / TP2_HIT -> closed at the live price, keeping its TP hits.
+   */
+  async exitSignal(id: string): Promise<{ id: string; symbol: string; status: string; exit: number | null }> {
+    const s = (await this.deps.store.listTrackable()).find((x) => x.id === id);
+    if (!s || s.outcome?.closed) throw new SignalNotOpenError();
+    const atIso = new Date(this.now).toISOString();
+    if (s.status === "ACTIVE") {
+      await this.deps.store.setStatus(id, "CANCELLED", atIso);
+      this.log.info(`[exit] ${s.symbol} ${s.direction}: signal withdrawn manually`);
+      return { id, symbol: s.symbol, status: "CANCELLED", exit: null };
+    }
+    const exec = EXECUTION_TF[s.timeframe.primary as Timeframe];
+    const candles = await this.deps.market.getCandles(s.symbol, exec, 2, this.now, true);
+    const price = candles[candles.length - 1]?.close;
+    if (typeof price !== "number" || !Number.isFinite(price)) throw new Error("Live price unavailable");
+    const status = s.status === "TP2_HIT" ? "TP2_HIT" : "TP1_HIT";
+    await this.deps.store.setOutcome(id, { status, exit: price, closed: true, hits: s.outcome?.hits ?? {} }, atIso);
+    this.log.info(`[exit] ${s.symbol} ${s.direction}: closed manually at ${price} (${status})`);
+    return { id, symbol: s.symbol, status, exit: price };
+  }
+
   /** Runs one scan after `firstDelayMs`, then keeps scheduling the next one only after the previous finished. */
   start(intervalMs: number, firstDelayMs = 5000): void {
     if (this.timer || this.intervalMs > 0) return;
