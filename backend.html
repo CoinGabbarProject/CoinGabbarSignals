@@ -699,7 +699,8 @@ function settingsView() {
   const cur = ls.get("cg_refresh", 10000);
   host.innerHTML = panel("Settings", "Saved in this browser",
     `<label>Live refresh interval <select id="sr" class="btn">${[5, 10, 30, 60].map(s => `<option value="${s * 1000}" ${s * 1000 === cur ? "selected" : ""}>${s}s</option>`).join("")}</select></label><br><br><label>Theme <select id="st" class="btn"><option value="light" ${ls.get("cg_theme", "light") !== "dark" ? "selected" : ""}>Light</option><option value="dark" ${ls.get("cg_theme", "light") === "dark" ? "selected" : ""}>Dark</option></select></label><br><br><button id="sx" class="btn">Reset watchlist and alerts</button> <span id="sm" class="green"></span>`);
-  $("sr").onchange = () => { ls.set("cg_refresh", +$("sr").value); $("sm").textContent = "Saved"; };
+$("sr").onchange = () => { ls.set("cg_refresh", +$("sr").value); $("sm").textContent = "Saved"; };
+  $("st").onchange = () => { ls.set("cg_theme", $("st").value); document.documentElement.setAttribute("data-theme", $("st").value); $("sm").textContent = "Saved"; };
   $("sx").onclick = () => { if (confirm("Reset watchlist and alerts?")) { localStorage.removeItem("cg_watch"); localStorage.removeItem("cg_alerts"); $("sm").textContent = "Reset done"; } };
 }
 
