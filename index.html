@@ -3109,7 +3109,7 @@ var bd = $("posCalcBackdrop");
   var $ = function (s) { return document.querySelector(s); };
   var esc = P.esc, money = P.money, cls = P.cls;
   var BASE = 'https://data-api.binance.vision/api/v3';
-  var COINS = 'BTC ETH BNB SOL XRP DOGE ADA TRX LINK AVAX SUI XLM LTC TON DOT UNI AAVE NEAR BCH HBAR'.split(' ').map(function (c) { return c + 'USDT'; });
+  var COINS = 'BTC ETH BNB SOL XRP DOGE ADA TRX LINK AVAX SUI XLM LTC TON DOT UNI AAVE NEAR BCH HBAR ATOM APT ARB OP SEI INJ TIA FIL ETC ICP VET ALGO MKR LDO RUNE SAND MANA AXS GALA APE CRV SNX DYDX IMX STX THETA EGLD FLOW KAVA ENJ CHZ 1INCH COMP SHIB PEPE WIF BONK FLOKI JUP PYTH WLD FET TAO ONDO ENA POL RENDER GRT QNT NEO IOTA XTZ EOS ZEC DASH KSM ZIL BAT ZRX ONT QTUM SUSHI YFI CAKE PENDLE JTO STRK ZK W ALT ORDI BLUR TRUMP PENGU VIRTUAL S BERA IP WLFI HYPE PUMP KAITO PNUT NEIRO TURBO JASMY ROSE CELO AR MINA ANKR CFX AKT RSR ENS DEXE MASK LRC TWT HOT'.split(' ').map(function (c) { return c + 'USDT'; });
   var TFS = ['1m', '5m', '15m', '1h', '4h', '1d'];
   var UIKEY = 'cg_paper_ui', SYM_RE = /^[A-Z0-9]{2,15}USDT$/, MIN_NOTIONAL = 5, MAX_LEV = 50;
   var validSym = function (s) { return typeof s === 'string' && SYM_RE.test(s); };
