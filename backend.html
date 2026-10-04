@@ -403,7 +403,15 @@ async function signalsView() {
       <td>${s.source === "engine" && ["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(s.status) && !s.outcomeClosed ? `<button class="btn" data-exit="${esc(s.id)}">Exit</button>` : ""}</td></tr>`).join("");
     host.innerHTML = `<div class="panel"><div class="ph"><b>Signals</b><span>${d.count} records</span></div>
       <div class="pb" style="overflow:auto"><table class="table"><thead><tr><th>Symbol</th><th>Side</th><th>TF</th><th>Score</th><th>Entry</th><th>Stop</th><th>Targets</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="9">No signals yet</td></tr>'}</tbody></table></div></div>`;
+      <tbody>${rows || '<tr><td colspan="10">No signals yet</td></tr>'}</tbody></table></div></div>`;
+    host.querySelectorAll("[data-exit]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm("Exit this signal?")) return;
+      b.disabled = true; b.textContent = "...";
+      try {
+        await api("/engine/signals/" + encodeURIComponent(b.dataset.exit) + "/exit", { method: "POST" });
+        signalsView();
+      } catch (e) { alert(e.message); b.disabled = false; b.textContent = "Exit"; }
+    }));
   } catch (e) {
     host.innerHTML = `<div class="panel"><div class="pb red">${esc(e.message)}</div></div>`;
   }
