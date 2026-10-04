@@ -3640,7 +3640,7 @@ var bd = $("posCalcBackdrop");
       (recent ? '<div class="pt-box"><h3>Recently Closed</h3><div class="pt-list">' + recent + '</div></div>' : '') +
       '<div class="pt-mut" style="font-size:11px">Each order opens its own position with isolated margin. Stop loss uses market exit with slippage; take profit and limit fills use maker fees.</div>';
   }
-  function posView() { return '<div id="pt-pos">' + posHtml() + '</div>'; }
+  function posView() { return P.posView ? P.posView() : '<div id="pt-pos">' + posHtml() + '</div>'; }
   labelTab();
   var r0 = P.render;
   P.render = function () { labelTab(); return r0.apply(P, arguments); };
