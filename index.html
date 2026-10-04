@@ -5899,6 +5899,63 @@ X.badge = badge; X.notes = notes;
 })();
 </script>
 <script>
+/* ===== PAPER: coin dropdown on "Add coin" box ===== */
+(function () {
+  var FALLBACK = "BTC ETH BNB SOL XRP ADA DOGE TRX TON AVAX LINK DOT LTC BCH ATOM NEAR SHIB PEPE WIF BONK".split(" ");
+  var drop = document.createElement("div");
+  drop.id = "paperCoinDrop";
+  drop.style.cssText = "position:fixed;display:none;z-index:99999;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#0b2036;border:1px solid #2b4d73;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.7);min-width:170px;color-scheme:dark;forced-color-adjust:none;opacity:1";
+  document.body.appendChild(drop);
+
+  var inp = function () { return document.getElementById("pt-addsym"); };
+  function coins() { var c = window.__CG_COINS; return c && c.length ? c : FALLBACK; }
+  function hide() { drop.style.display = "none"; }
+  function show(el) {
+    var q = (el.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/USDT$/, "");
+    var m = coins().filter(function (c) { return !q || c.indexOf(q) === 0; });
+    if (!m.length) { hide(); return; }
+    drop.innerHTML = m.map(function (c) {
+      return '<div class="pa-item" data-c="' + c + '" style="padding:11px 14px;font-size:14px;font-weight:600;color:#ffffff;cursor:pointer;border-bottom:1px solid #1c3552;forced-color-adjust:none">' + c + '<span style="color:#9fb6cf;font-weight:400">/USDT</span></div>';
+    }).join("");
+    var r = el.getBoundingClientRect(), w = Math.max(r.width, 170);
+    drop.style.width = w + "px";
+    drop.style.display = "block";
+    drop.style.top = (r.bottom + 4) + "px";
+    drop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - w - 4)) + "px";
+    drop.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 20) + "px";
+  }
+  function pick(c) {
+    var el = inp(); if (!el || !c) return;
+    el.value = c; hide(); el.blur();
+    var P = window.PAPER;
+    if (P && P.acts && P.acts.addsym) P.acts.addsym();
+  }
+
+  document.addEventListener("focusin", function (e) { if (e.target.id === "pt-addsym") show(e.target); });
+  document.addEventListener("input", function (e) { if (e.target.id === "pt-addsym") show(e.target); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target.id !== "pt-addsym") return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      var first = drop.style.display !== "none" ? drop.querySelector(".pa-item") : null;
+      pick(first ? first.dataset.c : e.target.value);
+    } else if (e.key === "Escape") hide();
+  });
+  document.addEventListener("pointerdown", function (e) {
+    var it = e.target.closest && e.target.closest(".pa-item");
+    if (it) { e.preventDefault(); pick(it.dataset.c); return; }
+    if (e.target.id !== "pt-addsym") hide();
+  });
+  window.addEventListener("scroll", function (e) {
+    if (e.target === drop || drop.style.display === "none") return;
+    var el = inp(); if (el && document.activeElement === el) show(el); else hide();
+  }, true);
+  setInterval(function () {
+    if (drop.style.display !== "none" && (!inp() || document.activeElement !== inp())) hide();
+  }, 600);
+})();
+</script>
+<script>
 /* ===== PAPER PART 10B: Auto-follow + Accept / Skip inbox ===== */
 (function () {
   var P = window.PAPER, X0 = P && P.x10;
