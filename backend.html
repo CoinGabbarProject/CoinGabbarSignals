@@ -399,7 +399,8 @@ async function signalsView() {
       <td>${esc(s.entry)}</td><td>${esc(s.stop)}</td>
       <td>${esc((s.targets || []).join(", "))}</td>
       <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span></td>
-      <td>${new Date(s.createdAt).toLocaleString()}</td></tr>`).join("");
+      <td>${new Date(s.createdAt).toLocaleString()}</td>
+      <td>${s.source === "engine" && ["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(s.status) && !s.outcomeClosed ? `<button class="btn" data-exit="${esc(s.id)}">Exit</button>` : ""}</td></tr>`).join("");
     host.innerHTML = `<div class="panel"><div class="ph"><b>Signals</b><span>${d.count} records</span></div>
       <div class="pb" style="overflow:auto"><table class="table"><thead><tr><th>Symbol</th><th>Side</th><th>TF</th><th>Score</th><th>Entry</th><th>Stop</th><th>Targets</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="9">No signals yet</td></tr>'}</tbody></table></div></div>`;
