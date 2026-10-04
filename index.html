@@ -3356,7 +3356,7 @@ var bd = $("posCalcBackdrop");
       (T.type === 'LIMIT' ? '<label class="pt-lbl">Limit price</label><input class="pt-in" id="pt-t-limit" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="Price in USDT" value="' + esc(T.limit) + '">' : '') +
       '<label class="pt-lbl">Size</label><div class="pt-seg">' + chip('t-mode', 'usdt', 'Value (USDT)', T.mode === 'usdt') + chip('t-mode', 'qty', 'Quantity', T.mode === 'qty') + chip('t-mode', 'pct', '% of balance', T.mode === 'pct') + '</div>' + sizeBlock +
       '<label class="pt-lbl">Leverage (1x = spot style)</label><div class="pt-seg">' + [1, 2, 3, 5, 10, 20].map(function (v) { return chip('t-lev', v, v + 'x', Number(T.lev) === v); }).join('') + '</div>' +
-      '<input class="pt-in" id="pt-t-lev" type="number" min="1" max="' + MAX_LEV + '" step="1" inputmode="numeric" style="width:100%" value="' + esc(T.lev) + '">' +
+      '<input class="pt-in" id="pt-t-lev" type="number" min="1" max="' + MAX_LEV + '" step="1" inputmode="numeric" style="width:100%" value="' + esc(T.lev) + '">' + (P.levHtml ? P.levHtml() : '') +
       '<div class="pt-two"><div><label class="pt-lbl">Stop loss (optional)</label><input class="pt-in" id="pt-t-sl" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.sl) + '"></div>' +
       '<div><label class="pt-lbl">Take profit (optional)</label><input class="pt-in" id="pt-t-tp" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.tp) + '"></div></div>' +
       (P.ticketXHtml ? P.ticketXHtml() : '') + '<div class="pt-prev" id="pt-prev"></div>' +
