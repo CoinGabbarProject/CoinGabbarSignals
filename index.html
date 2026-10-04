@@ -5453,6 +5453,202 @@ var bd = $("posCalcBackdrop");
   if (document.querySelector('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 9A: Dashboard tab (summary, equity curve, drawdown, win rate, stats) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x8 || P.x9) return;
+  var esc = P.esc, money = P.money, cls = P.cls, fdate = P.fdate, card = P.x8.card;
+  var DAY = 86400000;
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var sum = function (a, f) { return a.reduce(function (s, x) { return s + f(x); }, 0); };
+  var X = P.x9 = { version: '9A', secs: [] };
+  var D = P.ui.d = X.D = { range: 'all' };
+  var RANGES = [['24h', DAY, '24h'], ['7d', 7 * DAY, '7 days'], ['30d', 30 * DAY, '30 days'], ['all', 0, 'All']];
+  X.cutoff = function () { var r = RANGES.filter(function (x) { return x[0] === D.range; })[0]; return r && r[1] ? Date.now() - r[1] : 0; };
+  var pct = function (n, d) { return (n >= 0 ? '' : '-') + Math.abs(n).toFixed(d === undefined ? 1 : d) + '%'; };
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? d + 'd ' + (h % 24) + 'h' : h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  /* ---------- data: everything the sections need, built once per render ---------- */
+  function groupTrades(acc) {
+    var map = {}, out = [];
+    acc.trades.forEach(function (t) {
+      var k = t.opened + '|' + t.symbol + '|' + t.side, g = map[k];
+      if (!g) { g = map[k] = { symbol: t.symbol, side: t.side, lev: t.lev, opened: t.opened, closed: t.closed, pnl: 0, fees: 0, rows: [] }; out.push(g); }
+      g.pnl += t.pnl; g.fees += t.fees; g.rows.push(t); if (t.closed > g.closed) g.closed = t.closed;
+    });
+    return out.sort(function (a, b) { return a.closed - b.closed; });
+  }
+  function buildSeries(acc, cut) {
+    var signed = P.x8.signed, run = acc.balance, rows = acc.txns.map(function (x) { var v = signed(x); run -= v; return { t: x.t, fund: x.type === 'DEPOSIT' || x.type === 'WITHDRAW', v: v }; }).reverse();
+    var bal = run, dep = 0, dep0 = null, pts = [], last = 0;
+    rows.forEach(function (r, i) {
+      bal += r.v; if (r.fund) dep += r.v;
+      if (dep0 === null) dep0 = r.fund ? dep : 0;
+      last = bal - (dep - dep0);
+      if (i === 0 || !r.fund) pts.push({ t: r.t, v: last });
+    });
+    var c = P.calc(acc), now = Date.now();
+    pts.push({ t: now, v: last + c.unreal });
+    if (cut) {
+      var before = pts.filter(function (p) { return p.t < cut; }), after = pts.filter(function (p) { return p.t >= cut; });
+      if (before.length) after.unshift({ t: cut, v: before[before.length - 1].v });
+      pts = after;
+    }
+    if (pts.length < 2) pts = [{ t: pts.length ? pts[0].t - 60000 : now - 60000, v: pts.length ? pts[0].v : 0 }, pts[pts.length - 1] || { t: now, v: 0 }];
+    return pts;
+  }
+  function drawdown(pts) {
+    var peak = -Infinity, max = 0, maxPct = 0, series = [];
+    pts.forEach(function (p) {
+      if (p.v > peak) peak = p.v;
+      var dd = peak - p.v, pc = peak > 0 ? dd / peak * 100 : 0;
+      if (dd > max) max = dd; if (pc > maxPct) maxPct = pc;
+      series.push({ t: p.t, v: -pc });
+    });
+    var lastDD = series[series.length - 1].v;
+    return { series: series, max: max, maxPct: maxPct, curPct: -lastDD, peak: peak };
+  }
+  function stats(tg, rowsAll) {
+    var n = tg.length, w = tg.filter(function (g) { return g.pnl > 0; }), l = tg.filter(function (g) { return g.pnl < 0; });
+    var gw = sum(w, function (g) { return g.pnl; }), gl = sum(l, function (g) { return g.pnl; }), net = sum(tg, function (g) { return g.pnl; });
+    var best = 0, worst = 0, sw = 0, sl = 0, cw = 0, cl = 0;
+    tg.forEach(function (g) {
+      if (g.pnl > best) best = g.pnl; if (g.pnl < worst) worst = g.pnl;
+      if (g.pnl > 0) { cw++; cl = 0; } else if (g.pnl < 0) { cl++; cw = 0; } else { cw = 0; cl = 0; }
+      if (cw > sw) sw = cw; if (cl > sl) sl = cl;
+    });
+    var rr = rowsAll.filter(function (t) { return t.r !== null && t.r !== undefined && isFinite(t.r); });
+    return {
+      n: n, wins: w.length, losses: l.length, rate: n ? w.length / n * 100 : 0, gw: gw, gl: gl, net: net,
+      pf: gl < 0 ? gw / -gl : (gw > 0 ? Infinity : null), avgW: w.length ? gw / w.length : 0, avgL: l.length ? gl / l.length : 0,
+      exp: n ? net / n : 0, best: best, worst: worst, streakW: sw, streakL: sl, cur: cw ? cw : -cl,
+      hold: n ? sum(tg, function (g) { return g.closed - g.opened; }) / n : 0, fees: sum(tg, function (g) { return g.fees; }),
+      avgR: rr.length ? sum(rr, function (t) { return t.r; }) / rr.length : null, nR: rr.length
+    };
+  }
+  X.ctx = function (acc) {
+    var cut = X.cutoff(), all = groupTrades(acc);
+    var tg = all.filter(function (g) { return g.closed >= cut; });
+    var rows = acc.trades.filter(function (t) { return t.closed >= cut; });
+    var pts = buildSeries(acc, cut);
+    return { acc: acc, calc: P.calc(acc), cut: cut, tg: tg, rows: rows, pts: pts, dd: drawdown(pts), st: stats(tg, rows) };
+  };
+
+  /* ---------- SVG charts ---------- */
+  var CW = 320;
+  function scale(pts, H, pad, lo, hi) {
+    var t0 = pts[0].t, t1 = pts[pts.length - 1].t, span = (t1 - t0) || 1;
+    var xs = function (t) { return pad + (t - t0) / span * (CW - 2 * pad); };
+    var ys = function (v) { return pad + (hi - v) / ((hi - lo) || 1) * (H - 2 * pad); };
+    return { t0: t0, t1: t1, xs: xs, ys: ys };
+  }
+  function equityChart(ctx) {
+    var pts = ctx.pts, H = 150, pad = 10, lo = Infinity, hi = -Infinity;
+    pts.forEach(function (p) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; });
+    var m = (hi - lo) * 0.1 || Math.max(1, Math.abs(hi) * 0.005); lo -= m; hi += m;
+    var S = scale(pts, H, pad, lo, hi), up = pts[pts.length - 1].v >= pts[0].v, col = up ? 'var(--green)' : 'var(--red)';
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + S.xs(p.t).toFixed(1) + ' ' + S.ys(p.v).toFixed(1); }).join('');
+    var area = line + 'L' + S.xs(S.t1).toFixed(1) + ' ' + (H - pad) + 'L' + S.xs(S.t0).toFixed(1) + ' ' + (H - pad) + 'Z';
+    var y0 = S.ys(pts[0].v).toFixed(1);
+    X.cv = { pts: pts, S: S, H: H };
+    return '<svg id="x9-eq" data-x9="eq" viewBox="0 0 ' + CW + ' ' + H + '" style="width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair" role="img" aria-label="Equity curve">' +
+      '<defs><linearGradient id="x9g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:' + col + ';stop-opacity:.35"/><stop offset="1" style="stop-color:' + col + ';stop-opacity:0"/></linearGradient></defs>' +
+      '<line x1="' + pad + '" x2="' + (CW - pad) + '" y1="' + y0 + '" y2="' + y0 + '" style="stroke:var(--muted);stroke-width:.6;stroke-dasharray:3 3"/>' +
+      '<path d="' + area + '" fill="url(#x9g)"/><path d="' + line + '" fill="none" style="stroke:' + col + ';stroke-width:1.8;stroke-linejoin:round"/>' +
+      '<text x="' + pad + '" y="' + (pad + 3) + '" style="fill:var(--muted);font-size:9px">' + money(hi - m) + '</text>' +
+      '<text x="' + pad + '" y="' + (H - 2) + '" style="fill:var(--muted);font-size:9px">' + money(lo + m) + '</text>' +
+      '<line id="x9-cur" x1="0" x2="0" y1="' + pad + '" y2="' + (H - pad) + '" style="stroke:var(--text);stroke-width:.8;opacity:0"/>' +
+      '<circle id="x9-dot" r="3.5" cx="0" cy="0" style="fill:' + col + ';stroke:var(--panel);stroke-width:1.5;opacity:0"/></svg>';
+  }
+  function ddChart(ctx) {
+    var s = ctx.dd.series, H = 70, pad = 8, lo = Math.min(-1, Math.min.apply(null, s.map(function (p) { return p.v; }))), S = scale(s, H, pad, lo, 0);
+    var line = s.map(function (p, i) { return (i ? 'L' : 'M') + S.xs(p.t).toFixed(1) + ' ' + S.ys(p.v).toFixed(1); }).join('');
+    var area = line + 'L' + S.xs(S.t1).toFixed(1) + ' ' + S.ys(0).toFixed(1) + 'L' + S.xs(S.t0).toFixed(1) + ' ' + S.ys(0).toFixed(1) + 'Z';
+    return '<svg viewBox="0 0 ' + CW + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Drawdown">' +
+      '<line x1="' + pad + '" x2="' + (CW - pad) + '" y1="' + S.ys(0) + '" y2="' + S.ys(0) + '" style="stroke:var(--muted);stroke-width:.6"/>' +
+      '<path d="' + area + '" style="fill:var(--red);fill-opacity:.25"/><path d="' + line + '" fill="none" style="stroke:var(--red);stroke-width:1.4"/>' +
+      '<text x="' + pad + '" y="' + (H - 2) + '" style="fill:var(--muted);font-size:9px">' + pct(lo, 1) + '</text></svg>';
+  }
+
+  /* ---------- sections (9B adds more with X.secs.push) ---------- */
+  function secHero(ctx) {
+    var c = ctx.calc, first = ctx.pts[0].v, lastV = ctx.pts[ctx.pts.length - 1].v, ch = lastV - first, rl = RANGES.filter(function (r) { return r[0] === D.range; })[0][2];
+    return '<div class="pt-box"><label class="pt-mut" style="font-size:11px">Equity (live)</label>' +
+      '<div id="x9-live" class="' + cls(c.net) + '" style="font-size:26px;font-weight:800">' + money(c.equity) + '</div>' +
+      '<div class="pt-mut" style="font-size:12px;margin-top:2px"><span id="x9-net" class="' + cls(c.net) + '">' + money(c.net, 1) + ' (' + pct(c.roi, 2) + ')</span> since start &middot; ' + c.days + ' day' + (c.days > 1 ? 's' : '') + '</div>' +
+      '<div class="pt-mut" style="font-size:12px;margin-top:4px">Last ' + rl.toLowerCase() + ': <b class="' + cls(ch) + '">' + money(ch, 1) + '</b></div></div>';
+  }
+  function secEquity(ctx) {
+    var hasDep = ctx.acc.txns.some(function (x) { return (x.type === 'DEPOSIT' || x.type === 'WITHDRAW') && x.note !== 'Initial balance'; });
+    return '<div class="pt-box"><h3>Equity Curve</h3><div id="x9-rd" class="pt-mut" style="font-size:12px;min-height:16px;margin-bottom:4px">Touch the chart to see values</div>' + equityChart(ctx) +
+      '<div class="pt-mut" style="font-size:11px;margin-top:6px">Includes open P&amp;L at the end.' + (hasDep ? ' Deposits and withdrawals are left out so they do not look like profit or loss.' : '') + '</div></div>';
+  }
+  function secDD(ctx) {
+    var d = ctx.dd;
+    return '<div class="pt-box"><h3>Drawdown</h3><div class="pt-grid" style="margin-bottom:8px">' +
+      card('Max drawdown', '<span class="pt-dn">' + (d.max ? '-' + money(d.max) : '$0.00') + '</span>', pct(d.maxPct) + ' from peak') +
+      card('Current drawdown', '<span class="' + (d.curPct > 0.005 ? 'pt-dn' : 'pt-up') + '">' + (d.curPct > 0.005 ? '-' + d.curPct.toFixed(1) + '%' : 'At peak') + '</span>', 'Peak ' + money(d.peak)) + '</div>' + ddChart(ctx) + '</div>';
+  }
+  function secWin(ctx) {
+    var s = ctx.st, wp = s.n ? s.wins / s.n * 100 : 0, lp = s.n ? s.losses / s.n * 100 : 0;
+    var mx = Math.max(s.avgW, -s.avgL, 0.0001);
+    var bar = function (lbl, v, k) { return '<div style="display:grid;grid-template-columns:62px 1fr 74px;gap:8px;align-items:center;font-size:12px;margin:6px 0"><span class="pt-mut">' + lbl + '</span><i style="display:block;height:8px;border-radius:4px;background:var(--panel2)"><b style="display:block;height:100%;width:' + Math.min(100, Math.abs(v) / mx * 100).toFixed(0) + '%;border-radius:4px;background:var(--' + k + ')"></b></i><b class="pt-' + (k === 'green' ? 'up' : 'dn') + '" style="text-align:right">' + money(v, 1) + '</b></div>'; };
+    return '<div class="pt-box"><h3>Win Rate</h3>' + (s.n ? '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--panel2)"><div style="width:' + wp + '%;background:var(--green)"></div><div style="width:' + lp + '%;background:var(--red)"></div></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0 10px"><span class="pt-up">' + s.wins + ' wins &middot; ' + wp.toFixed(0) + '%</span><span class="pt-dn">' + s.losses + ' losses &middot; ' + lp.toFixed(0) + '%</span></div>' + bar('Avg win', s.avgW, 'green') + bar('Avg loss', s.avgL, 'red') :
+      '<div class="pt-mut">No closed trades in this range yet.</div>') + '<div class="pt-mut" style="font-size:11px;margin-top:6px">A trade with partial closes (TP1, TP2, manual %) counts once, with all its parts added together.</div></div>';
+  }
+  function secStats(ctx) {
+    var s = ctx.st, none = !s.n;
+    var pf = s.pf === null ? '-' : s.pf === Infinity ? '&infin;' : s.pf.toFixed(2);
+    return '<div class="pt-grid">' +
+      card('Trades', s.n, none ? 'None yet' : s.wins + 'W / ' + s.losses + 'L') +
+      card('Net P&amp;L', money(s.net, 1), 'Fees ' + money(s.fees), cls(s.net)) +
+      card('Profit factor', pf, 'Gross win / gross loss', s.pf === null ? '' : s.pf >= 1 ? 'pt-up' : 'pt-dn') +
+      card('Expectancy', money(s.exp, 1), 'Average per trade', cls(s.exp)) +
+      card('Best / Worst', '<span class="pt-up">' + money(s.best, 1) + '</span> <span class="pt-mut">/</span> <span class="pt-dn">' + money(s.worst, 1) + '</span>', 'Single trade') +
+      card('Average R', s.avgR === null ? '-' : (s.avgR >= 0 ? '+' : '') + s.avgR.toFixed(2) + 'R', s.nR + ' with a stop loss', s.avgR === null ? '' : cls(s.avgR)) +
+      card('Win / Loss streak', '<span class="pt-up">' + s.streakW + '</span> <span class="pt-mut">/</span> <span class="pt-dn">' + s.streakL + '</span>', 'Now: ' + (s.cur > 0 ? s.cur + ' win' + (s.cur > 1 ? 's' : '') : s.cur < 0 ? -s.cur + ' loss' + (s.cur < -1 ? 'es' : '') : '-')) +
+      card('Avg hold time', none ? '-' : dur(s.hold), 'Per trade') + '</div>';
+  }
+  X.secs.push({ id: 'hero', order: 10, render: secHero }, { id: 'equity', order: 20, render: secEquity }, { id: 'dd', order: 30, render: secDD },
+    { id: 'win', order: 40, render: secWin }, { id: 'stats', order: 50, render: secStats });
+
+  /* ---------- tab ---------- */
+  P.addTab('dashboard', 'Dashboard', 1, function (acc) {
+    var ctx = X.ctx(acc);
+    return '<div class="pt-seg">' + RANGES.map(function (r) { return '<button class="pt-chip' + (r[0] === D.range ? ' on' : '') + '" data-act="x9-range" data-v="' + r[0] + '">' + r[2] + '</button>'; }).join('') + '</div>' +
+      X.secs.slice().sort(function (a, b) { return a.order - b.order; }).map(function (s) { try { return s.render(ctx, acc); } catch (e) { console.error(e); return ''; } }).join('');
+  });
+  P.acts['x9-range'] = function (el) { D.range = el.dataset.v; P.render(); };
+
+  /* ---------- touch / mouse scrub on the equity curve ---------- */
+  function scrub(e) {
+    var svg = e.target && e.target.closest && e.target.closest('svg[data-x9="eq"]'), cv = X.cv; if (!svg || !cv) return;
+    var r = svg.getBoundingClientRect(); if (!r.width) return;
+    var fx = (e.clientX - r.left) / r.width * CW, t = cv.S.t0 + (fx - 10) / (CW - 20) * (cv.S.t1 - cv.S.t0), best = cv.pts[0], bd = Infinity;
+    cv.pts.forEach(function (p) { var d = Math.abs(p.t - t); if (d < bd) { bd = d; best = p; } });
+    var x = cv.S.xs(best.t), y = cv.S.ys(best.v), ln = document.getElementById('x9-cur'), dot = document.getElementById('x9-dot'), rd = document.getElementById('x9-rd');
+    if (ln) { ln.setAttribute('x1', x); ln.setAttribute('x2', x); ln.style.opacity = 1; }
+    if (dot) { dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.style.opacity = 1; }
+    if (rd) rd.innerHTML = fdate(best.t) + ' &middot; <b style="color:var(--text)">' + money(best.v) + '</b>';
+  }
+  document.addEventListener('pointermove', scrub);
+  document.addEventListener('pointerdown', scrub);
+
+  /* ---------- live refresh (only the headline numbers) ---------- */
+  P.on('prices', function () {
+    if (P.ui.tab !== 'dashboard') return;
+    var el = document.getElementById('x9-live'); if (!el) return;
+    var c = P.calc(P.acc()), nt = document.getElementById('x9-net');
+    el.textContent = money(c.equity); el.className = cls(c.net);
+    if (nt) { nt.textContent = money(c.net, 1) + ' (' + pct(c.roi, 2) + ')'; nt.className = cls(c.net); }
+  });
+  P.on('position', function () { if (P.ui.tab === 'dashboard') P.render(); });
+
+  if (document.querySelector('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
