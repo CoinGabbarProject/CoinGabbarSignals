@@ -4777,6 +4777,245 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<style id="paper-css-8">
+.pt-rk{border:1px solid var(--line);border-radius:8px;padding:10px;margin:10px 0;background:var(--panel2)}
+.pt-rk-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.pt-rk-h b{font-size:13px}
+.pt-rk-n{font-size:12px;margin-top:6px;color:var(--soft);min-height:15px}
+.pt-rf{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.pt-rf:first-of-type{border-top:0}
+.pt-rf>div:first-child{min-width:0}
+.pt-rf small{display:block;color:var(--muted);font-size:11px;margin-top:2px;line-height:1.4}
+</style>
+<script>
+/* ===== PAPER PART 7A: risk rules, risk % sizing, R/R preview ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x6b || P.x7) return;
+  if (!P.redrawTicket || !P.updPreview) { console.error('Part 7A: Part 2 edits missing'); return; }
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, T = P.ticket;
+  var RK_KEY = 'cg_paper_rk';
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var row = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
+  var X = P.x7 = {
+    version: '7A',
+    defs: { pct: 1, maxRisk: 2, minRR: 0, needSL: false },
+    fields: [
+      { k: 'pct', t: 'num', label: 'Risk per trade', hint: 'Used by "Size by risk" in the Trade ticket. % of your equity.', min: 0.1, max: 10, step: 0.1, unit: '%' },
+      { k: 'maxRisk', t: 'num', label: 'Max risk per trade', hint: 'Blocks an order if its loss at the stop is higher. 0 = off.', min: 0, max: 25, step: 0.1, unit: '%' },
+      { k: 'minRR', t: 'num', label: 'Minimum risk : reward', hint: 'Blocks an order if stop and target are both set and R:R is lower. 0 = off.', min: 0, max: 20, step: 0.1, unit: ': 1' },
+      { k: 'needSL', t: 'bool', label: 'Require a stop loss', hint: 'Blocks orders that have no stop loss.' }
+    ],
+    top: []
+  };
+  try { T.rk = localStorage.getItem(RK_KEY) === '1'; } catch (e) { T.rk = false; }
+  if (T.rkp === undefined) T.rkp = '';
+  if (T.rk) T.mode = 'usdt';
+
+  /** Rules are saved per account. Missing keys get the defaults. */
+  X.rules = function (acc) {
+    acc = acc || P.acc();
+    if (!acc.risk || typeof acc.risk !== 'object') acc.risk = {};
+    Object.keys(X.defs).forEach(function (k) { if (acc.risk[k] === undefined) acc.risk[k] = X.defs[k]; });
+    return acc.risk;
+  };
+  var riskPct = function () { return String(T.rkp).trim() === '' ? Number(X.rules().pct) : Number(T.rkp); };
+  function say(t, bad) { var m = $('#pt-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } }
+
+  /* ---------- maths (same rules the engine uses: stop = market exit with slippage + taker fee) ---------- */
+  function lossAt(acc, side, entry, qty, entryFee, px) {
+    var L = side === 'LONG', slip = acc.fees.slip / 100, tk = acc.fees.taker / 100, ex = px * (1 - (L ? 1 : -1) * slip);
+    return (L ? entry - ex : ex - entry) * qty + entryFee + ex * qty * tk;
+  }
+  function legsOf(spec, acc) {
+    var tk = acc.fees.taker / 100;
+    var mk1 = function (l) {
+      var e = Number(l.entry || spec.entry || spec.limit || spec.ref || P.price(spec.symbol)), q = Number(l.qty);
+      return { side: l.side || spec.side, entry: e, qty: q, fee: l.fee !== undefined && l.fee !== null ? Number(l.fee) : e * q * tk };
+    };
+    return spec.type === 'OCO' && spec.legs ? spec.legs.map(mk1) : [mk1(spec)];
+  }
+  /** Risk and reward of an order spec (also works for a half-built ticket). Returns numbers in USDT. */
+  X.calc = function (spec, acc) {
+    acc = acc || P.acc();
+    var eq = P.calc(acc).equity, mkr = acc.fees.maker / 100, sl = Number(spec.sl) > 0 ? Number(spec.sl) : null, best = null;
+    var parts = spec.tps && spec.tps.length ? spec.tps.map(function (t) { return { price: Number(t.price), f: Number(t.pct) / 100 }; }) : (Number(spec.tp) > 0 ? [{ price: Number(spec.tp), f: 1 }] : []);
+    legsOf(spec, acc).forEach(function (l) {
+      var r = { side: l.side, entry: l.entry, qty: l.qty, risk: null, reward: null, rr: null };
+      if (sl !== null) { var ls = lossAt(acc, l.side, l.entry, l.qty, l.fee, sl); if (ls > 0) r.risk = ls; }
+      if (parts.length) {
+        var g = 0, fs = 0;
+        parts.forEach(function (p) { var q = l.qty * p.f; g += (p.price - l.entry) * dir(l.side) * q - p.price * q * mkr; fs += p.f; });
+        r.reward = g - l.fee * Math.min(1, fs);
+      }
+      if (r.risk > 0 && r.reward !== null) r.rr = r.reward / r.risk;
+      if (!best || (r.risk || 0) > (best.risk || 0)) best = r;
+    });
+    best = best || { risk: null, reward: null, rr: null };
+    return { hasSL: best.risk !== null, risk: best.risk || 0, riskPct: eq > 0 && best.risk ? best.risk / eq * 100 : 0, reward: best.reward, rr: best.rr, equity: eq, entry: best.entry, qty: best.qty };
+  };
+  P.riskOf = X.calc;
+
+  /** Account-level block (daily loss lock, trade limits). Empty here, filled by Part 7B. */
+  X.block = function () { return ''; };
+
+  /** Order checks. Returns an error text, or '' when the order is fine. */
+  X.vet = function (spec) {
+    var bk = X.block(); if (bk) return bk;
+    var acc = P.acc(), R = X.rules(acc), c = X.calc(spec, acc);
+    if (R.needSL && !c.hasSL) return 'Rule: a stop loss is required. Add one, or turn this rule off in the Risk tab.';
+    if (c.hasSL && R.maxRisk > 0 && c.riskPct > R.maxRisk + 0.0005) return 'Risk at stop is ' + c.riskPct.toFixed(2) + '% of equity (' + money(c.risk) + '), above your ' + R.maxRisk + '% limit. Reduce size or move the stop closer.';
+    if (R.minRR > 0 && c.rr !== null && c.rr < R.minRR - 1e-9) return 'Risk : reward is 1 : ' + c.rr.toFixed(2) + ', below your minimum 1 : ' + R.minRR + '. Move the target further or the stop closer.';
+    return '';
+  };
+
+  /* ---------- size by risk % ---------- */
+  function entryFor(acc) {
+    var mk = P.price(P.symbol()); if (mk === null) return { error: 'Waiting for live price...' };
+    var L = T.side === 'LONG', slip = acc.fees.slip / 100, e, f, tg;
+    if (T.type === 'MARKET') { e = mk * (1 + dir(T.side) * slip); f = acc.fees.taker; }
+    else if (T.type === 'LIMIT') { e = Number(T.limit); f = acc.fees.maker; if (!(e > 0)) return { error: 'Enter a limit price to size by risk' }; }
+    else if (T.type === 'STOP') { tg = Number(T.trig); if (!(tg > 0)) return { error: 'Enter a trigger price to size by risk' }; e = tg * (1 + dir(T.side) * slip); f = acc.fees.taker; }
+    else if (T.type === 'STOPLIMIT') { e = Number(T.limit); if (!(e > 0)) return { error: 'Enter a limit price to size by risk' }; f = acc.fees.taker; }
+    else return { error: 'Risk sizing does not work with OCO. Turn it off or pick another order type.' };
+    return { entry: e, feePct: f, long: L };
+  }
+  function riskSize() {
+    var acc = P.acc(), pct = riskPct(), eq = P.calc(acc).equity;
+    T.mode = 'usdt';
+    if (!(pct > 0)) return { error: 'Risk % must be above 0' };
+    var en = entryFor(acc); if (en.error) return en;
+    var sl = T.sl === '' ? null : Number(T.sl);
+    if (!(sl > 0)) return { error: 'Set a stop loss to size by risk' };
+    if (en.long ? sl >= en.entry : sl <= en.entry) return { error: en.long ? 'Stop loss must be below entry for a LONG' : 'Stop loss must be above entry for a SHORT' };
+    var riskAmt = eq * pct / 100, lu = lossAt(acc, T.side, en.entry, 1, en.entry * en.feePct / 100, sl);
+    if (!(lu > 0) || !(riskAmt > 0)) return { error: 'Cannot size this order' };
+    var notional = Math.floor(riskAmt / lu * en.entry * 100) / 100;
+    T.size = String(notional);
+    return { pct: pct, eq: eq, riskAmt: riskAmt, notional: notional, qty: notional / en.entry, entry: en.entry };
+  }
+
+  var pb = P.buildOrder;
+  P.buildOrder = function () {
+    var sz = null;
+    if (T.rk) { sz = riskSize(); if (sz.error) T.size = ''; }
+    var out = pb.apply(P, arguments);
+    X.sz = sz;
+    var bk = X.block();
+    if (bk) { out.ok = false; out.spec = null; out.error = bk; return out; }
+    if (sz && sz.error) { out.ok = false; out.spec = null; out.error = sz.error; return out; }
+    if (!out.ok) { if (sz && /Not enough/.test(out.error)) out.error += '. Lower the risk % or raise leverage.'; return out; }
+    var v = X.vet(out.spec);
+    if (v) { out.ok = false; out.error = v; out.spec = null; }
+    return out;
+  };
+  var op = P.placeOrder;
+  P.placeOrder = function (spec) {
+    var v = X.vet(spec);
+    if (v) { say(v, true); return { ok: false, error: v }; }
+    return op.apply(P, arguments);
+  };
+
+  /* ---------- ticket box + preview ---------- */
+  function riskHtml() {
+    var cur = riskPct(), chips = [0.5, 1, 2, 3].map(function (v) { return '<button class="pt-chip' + (cur === v ? ' on' : '') + '" data-act="x7-rp" data-v="' + v + '">' + v + '%</button>'; }).join('');
+    return '<div class="pt-rk"><div class="pt-rk-h"><b>Size by risk</b><button class="pt-chip' + (T.rk ? ' on' : '') + '" data-act="x7-rk">' + (T.rk ? 'ON' : 'OFF') + '</button></div>' +
+      (T.rk ? '<div class="pt-seg">' + chips + '</div><input class="pt-in" id="pt-x7-pct" type="number" min="0.1" step="any" inputmode="decimal" style="width:100%" placeholder="Risk % of equity" value="' + esc(String(T.rkp).trim() === '' ? X.rules().pct : T.rkp) + '">' : '<div class="pt-hint">Turn on to set the order size from your stop loss and a risk %.</div>') +
+      '<div class="pt-rk-n" id="pt-x7-note"></div></div>';
+  }
+  var tx = P.ticketXHtml;
+  P.ticketXHtml = function () { return riskHtml() + (tx ? tx() : ''); };
+
+  X.preview = function (b) {
+    var acc = P.acc(), R = X.rules(acc), p = b.prev, sz = X.sz;
+    var el = $('#pt-t-size');
+    if (el) { el.readOnly = !!T.rk; if (T.rk) { el.placeholder = 'Auto (from risk %)'; el.value = T.size || ''; } }
+    var note = $('#pt-x7-note');
+    if (note) note.innerHTML = !T.rk ? '' : (sz && sz.error ? '<span class="pt-dn">' + esc(sz.error) + '</span>' : (sz ? 'Risk ' + sz.pct + '% of ' + money(sz.eq) + ' = <b>' + money(sz.riskAmt) + '</b>. Size ' + money(sz.notional) + ' (' + Number(sz.qty.toPrecision(5)) + ' ' + P.symbol().replace(/USDT$/, '') + ')' : ''));
+    if (!p) return '';
+    var slN = Number(T.sl) > 0 ? Number(T.sl) : null, tpN = Number(T.tp) > 0 ? Number(T.tp) : null;
+    var spec = b.spec || { side: T.side, entry: p.entry, qty: p.qty, fee: p.fee, sl: slN, tp: tpN };
+    var c = X.calc(spec, acc), out = '';
+    if (!c.hasSL) return row('Risk at stop', '<span class="pt-warn">No stop loss</span>');
+    out += row('Risk at stop', '<span class="pt-dn">-' + money(c.risk) + ' (' + c.riskPct.toFixed(2) + '%)</span>');
+    if (c.reward !== null) out += row('Reward at target', '<span class="' + cls(c.reward) + '">' + money(c.reward, 1) + '</span>');
+    if (c.rr !== null) {
+      var bad = (R.minRR > 0 && c.rr < R.minRR) || c.rr < 1, k = bad ? 'pt-dn' : c.rr >= 2 ? 'pt-up' : 'pt-warn';
+      out += row('Risk : Reward', '<span class="' + k + '">1 : ' + c.rr.toFixed(2) + '</span>');
+      out += row('Break-even win rate', (100 / (1 + c.rr)).toFixed(0) + '%');
+    }
+    return out;
+  };
+  var pv = P.previewX;
+  P.previewX = function (b) {
+    var out = pv ? pv(b) : '';
+    try { out += X.preview(b); } catch (e) { console.error('Part 7A preview', e); }
+    return out;
+  };
+
+  /* ---------- actions ---------- */
+  var A = P.acts;
+  A['x7-rk'] = function () {
+    if (!T.rk && T.type === 'OCO') return say('Risk sizing does not work with OCO. Choose Market, Limit, Stop or Stop-Limit.', true);
+    T.rk = !T.rk; if (T.rk) T.mode = 'usdt';
+    try { localStorage.setItem(RK_KEY, T.rk ? '1' : '0'); } catch (e) { /* ignore */ }
+    P.redrawTicket();
+  };
+  A['x7-rp'] = function (el) { T.rkp = String(el.dataset.v); P.redrawTicket(); };
+  var tm = A['t-mode'];
+  if (tm) A['t-mode'] = function () { T.rk = false; try { localStorage.setItem(RK_KEY, '0'); } catch (e) { /* ignore */ } return tm.apply(null, arguments); };
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'pt-x7-pct') { T.rkp = e.target.value; P.updPreview(); }
+  });
+
+  /* ---------- Risk tab ---------- */
+  var rmsg = function (t, bad) { var m = $('#pt-x7-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } };
+  P.addTab('risk', 'Risk', 25, function (acc) {
+    var R = X.rules(acc), eq = P.calc(acc).equity;
+    var card = function (l, v, s) { return '<div class="pt-card"><label>' + l + '</label><strong>' + v + '</strong><small>' + s + '</small></div>'; };
+    var top = X.top.map(function (f) { try { return f(acc); } catch (e) { return ''; } }).join('');
+    var grid = '<div class="pt-grid">' + card('Equity', money(eq), 'Risk base') + card('Risk per trade', money(eq * R.pct / 100), R.pct + '% of equity') +
+      card('Max risk cap', R.maxRisk > 0 ? money(eq * R.maxRisk / 100) : 'Off', R.maxRisk > 0 ? R.maxRisk + '% of equity' : 'No cap') + card('Min R:R', R.minRR > 0 ? '1 : ' + R.minRR : 'Off', 'Needs stop + target') + '</div>';
+    var rows = X.fields.map(function (f) {
+      var v = R[f.k], id = 'pt-x7f-' + f.k;
+      var ctl = f.t === 'bool' ? '<input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + ' style="width:22px;height:22px">' :
+        '<div style="display:flex;align-items:center;gap:5px"><input class="pt-in" id="' + id + '" type="number" min="' + f.min + '" max="' + f.max + '" step="' + (f.step || 1) + '" inputmode="decimal" value="' + esc(v) + '" style="width:90px;min-width:0;flex:none;padding:8px"><span class="pt-mut" style="font-size:11px;min-width:22px">' + esc(f.unit || '') + '</span></div>';
+      return '<div class="pt-rf"><div><b>' + f.label + '</b><small>' + f.hint + '</small></div>' + ctl + '</div>';
+    }).join('');
+    return top + grid +
+      '<div class="pt-box"><h3>Trade rules (this account)</h3>' + rows +
+      '<div class="pt-row"><button class="pt-btn pri" data-act="x7-save">Save rules</button><button class="pt-btn" data-act="x7-def">Defaults</button></div><div class="pt-msg" id="pt-x7-msg"></div></div>' +
+      '<div class="pt-box"><h3>How risk sizing works</h3><div class="pt-mut" style="line-height:1.6">Risk amount = equity &times; risk %. Order size = risk amount &divide; loss per coin at your stop (price distance + fees + slippage). If the stop is hit you lose about the risk amount, whatever the leverage. Leverage only decides how much margin is locked. Turn on <b>Size by risk</b> in the Trade ticket and add a stop loss.</div></div>';
+  });
+  A['x7-save'] = function () {
+    var acc = P.acc(), R = X.rules(acc), next = {}, i, f, el, v;
+    for (i = 0; i < X.fields.length; i++) {
+      f = X.fields[i]; el = document.getElementById('pt-x7f-' + f.k); if (!el) continue;
+      if (f.t === 'bool') { next[f.k] = !!el.checked; continue; }
+      v = el.value === '' ? NaN : Number(el.value);
+      if (!(v >= f.min && v <= f.max)) return rmsg(f.label + ' must be ' + f.min + ' to ' + f.max, true);
+      if (f.int && v !== Math.floor(v)) return rmsg(f.label + ' must be a whole number', true);
+      next[f.k] = v;
+    }
+    Object.keys(next).forEach(function (k) { R[k] = next[k]; });
+    T.rkp = '';
+    if (X.afterSave) X.afterSave(acc);
+    P.addLog(acc, 'Risk rules updated');
+    P.save(); P.render(); P.toast('Risk rules saved');
+  };
+  A['x7-def'] = function () {
+    if (!window.confirm('Restore the default risk rules for this account?')) return;
+    var acc = P.acc(), R = X.rules(acc);
+    Object.keys(X.defs).forEach(function (k) { R[k] = X.defs[k]; });
+    T.rkp = '';
+    if (X.afterSave) X.afterSave(acc);
+    P.save(); P.render(); P.toast('Defaults restored');
+  };
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
