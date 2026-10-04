@@ -4567,6 +4567,216 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 6B: funding fee + add/remove margin + change leverage ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x6a || P.x6b) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var money = P.money, cls = P.cls, r8 = P.r8, E = P.engine, T = P.ticket, X6 = P.x6a, tier = X6.tier;
+  var FAPI = 'https://fapi.binance.com/fapi/v1', H8 = 28800000, GRACE = 45000, FALL = 1800000, DEF = 0.0001, BUF = 0.005;
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  var nextMin = function (t) { return Math.ceil(t / 60000) * 60000; };
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  var findPos = function (id) { return P.acc().positions.filter(function (x) { return x.id === id; })[0]; };
+  var row = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
+  var X = P.x6b = { version: '6B', pi: {}, fr: {}, tried: {}, bad: {}, nofut: {} };
+
+  function getF(path) {
+    var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(FAPI + path, { signal: c.signal }).then(function (r) {
+      clearTimeout(t);
+      if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      return r.json();
+    }, function (e) { clearTimeout(t); throw e; });
+  }
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60); return h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  /* ---------- live funding rate (Binance perpetual) ---------- */
+  function symsNow() {
+    var set = {}, st = P.state();
+    Object.keys(st.accounts).forEach(function (id) { st.accounts[id].positions.forEach(function (p) { set[p.symbol] = 1; }); });
+    if ($('#paperRoot .pt')) set[P.symbol()] = 1;
+    return Object.keys(set).filter(function (s) { return !X.nofut[s]; });
+  }
+  function infoTick() {
+    if (document.hidden) return;
+    var now = Date.now();
+    symsNow().forEach(function (s) {
+      var i = X.pi[s]; if (i && now - i.at < 60000) return;
+      if (X.tried['i' + s] && now - X.tried['i' + s] < 30000) return;
+      X.tried['i' + s] = now;
+      getF('/premiumIndex?symbol=' + s).then(function (d) {
+        var rate = Number(d.lastFundingRate), next = Number(d.nextFundingTime);
+        if (isFinite(rate)) X.pi[s] = { rate: rate, next: next > 0 ? next : null, at: Date.now() };
+      }, function (e) { if (e && e.status === 400) X.nofut[s] = true; });
+    });
+  }
+  setInterval(infoTick, 5000); setTimeout(infoTick, 1200);
+  var nextB = function (t) { return (Math.floor(t / H8) + 1) * H8; };
+  function rateOf(sym) { var i = X.pi[sym]; return i ? { rate: i.rate, next: i.next || nextB(Date.now()), live: true } : { rate: DEF, next: nextB(Date.now()), live: false }; }
+  function fundTxt(sym) {
+    if (X.nofut[sym]) return 'None (no futures market)';
+    var r = rateOf(sym);
+    return (r.rate * 100).toFixed(4) + '% / 8h &middot; in ' + dur(r.next - Date.now()) + (r.live ? '' : ' (est.)');
+  }
+
+  /* ---------- settle funding on open positions ---------- */
+  function minFrom(sym) {
+    var m = Infinity, st = P.state();
+    Object.keys(st.accounts).forEach(function (id) { st.accounts[id].positions.forEach(function (p) { if (p.symbol === sym) m = Math.min(m, p.fchk == null ? p.opened : p.fchk); }); });
+    return m;
+  }
+  function need(sym) {
+    var now = Date.now(), k = 'f' + sym; if (X.tried[k] && now - X.tried[k] < 60000) return;
+    X.tried[k] = now;
+    var from = minFrom(sym); if (!isFinite(from)) return;
+    getF('/fundingRate?symbol=' + sym + '&startTime=' + (from + 1) + '&limit=1000').then(function (rows) {
+      var c = X.fr[sym] = X.fr[sym] || { rows: [] };
+      (rows || []).forEach(function (r) {
+        var t = Number(r.fundingTime), rt = Number(r.fundingRate);
+        if (t > 0 && isFinite(rt) && !c.rows.some(function (x) { return x.t === t; })) c.rows.push({ t: t, rate: rt, mark: Number(r.markPrice) || 0 });
+      });
+      c.rows.sort(function (a, b) { return a.t - b.t; });
+      if (c.rows.length > 400) c.rows.splice(0, c.rows.length - 400);
+      X.bad[sym] = c.rows.some(function (x) { return x.t > from; }) ? 0 : (X.bad[sym] || 0) + 1;
+      try { settle(); } catch (e) { console.error('Part 6B', e); }
+    }, function (e) { if (e && e.status === 400) X.nofut[sym] = true; else X.bad[sym] = (X.bad[sym] || 0) + 1; });
+  }
+  /** Long pays short when the rate is above 0 (and the other way round when it is below 0). */
+  function charge(acc, p, rate, mark, tag) {
+    var amt = r8(p.qty * mark * rate * dir(p.side));
+    if (amt === 0) return '';
+    acc.balance = r8(acc.balance - amt); p.fund = r8((p.fund || 0) - amt);
+    P.addTxn(acc, 'FUNDING', -amt, 'Funding ' + base(p.symbol) + ' ' + (rate * 100).toFixed(4) + '%' + tag);
+    P.addLog(acc, 'Funding ' + p.side + ' ' + base(p.symbol) + ' ' + (amt > 0 ? 'paid ' : 'received ') + money(Math.abs(amt)) + ' (' + (rate * 100).toFixed(4) + '%)' + tag);
+    return 'Funding ' + base(p.symbol) + ' ' + money(-amt, 1);
+  }
+  function settle() {
+    var st = P.state(), now = Date.now(), changed = false, last = '';
+    Object.keys(st.accounts).forEach(function (id) {
+      var acc = st.accounts[id];
+      acc.positions.slice().forEach(function (p) {
+        if (p.fchk == null) p.fchk = p.opened;
+        var nb = nextB(p.fchk);
+        if (now < nb + GRACE) return;
+        if (X.nofut[p.symbol]) { p.fchk = Math.floor(now / H8) * H8; changed = true; return; }
+        var c = X.fr[p.symbol], rows = c ? c.rows.filter(function (r) { return r.t > p.fchk && r.t <= now; }) : [];
+        if (rows.length) {
+          rows.forEach(function (r) { last = charge(acc, p, r.rate, r.mark > 0 ? r.mark : (P.price(p.symbol) || p.entry), '') || last; p.fchk = r.t; });
+          changed = true; return;
+        }
+        need(p.symbol);
+        if ((X.bad[p.symbol] || 0) >= 2 && now - nb > FALL) {
+          for (var t = nb; t <= now; t += H8) { last = charge(acc, p, DEF, P.price(p.symbol) || p.entry, ' (default rate)') || last; p.fchk = t; }
+          changed = true;
+        }
+      });
+    });
+    if (changed) {
+      P.save(); if (last) P.toast(last);
+      if ($('#paperRoot .pt') && !P.ui.edit) P.render();
+      P.emit('position');
+    }
+    return changed;
+  }
+  X.settle = settle;
+  var c0 = E.check;
+  E.check = function () {
+    var a = c0.apply(E, arguments);
+    try { settle(); } catch (e) { console.error('Part 6B engine', e); }
+    return a;
+  };
+
+  /* ---------- show funding in the ticket and on position cards ---------- */
+  var pv = P.previewX;
+  P.previewX = function (b) {
+    var out = pv ? pv(b) : '';
+    try {
+      var p = b.prev, sym = P.symbol(); if (!p) return out;
+      if (X.nofut[sym]) return out + row('Funding', 'None');
+      var r = rateOf(sym), cost = p.notional * r.rate * (T.side === 'LONG' ? 1 : -1);
+      return out + row('Funding rate', (r.rate * 100).toFixed(4) + '% / 8h') + row('Funding est. / 8h', '<span class="' + cls(-cost) + '">' + money(-cost, 1) + '</span>') + row('Next funding', 'in ' + dur(r.next - Date.now()));
+    } catch (e) { return out; }
+  };
+  X6.rows.push(function (p) {
+    var paid = p.fund || 0;
+    return row('Funding', '<span data-x6="fund">' + fundTxt(p.symbol) + '</span>') + row('Funding paid / received', '<span class="' + cls(paid) + '">' + money(paid, 1) + '</span>');
+  });
+  X6.live.push(function (p, card) { var el = card.querySelector('[data-x6="fund"]'); if (el) el.innerHTML = fundTxt(p.symbol); });
+
+  /* ---------- add / remove margin (isolated) and change leverage ---------- */
+  function maxRemove(p) {
+    var mk = P.price(p.symbol) || p.entry, u = (mk - p.entry) * p.qty * dir(p.side);
+    return Math.max(0, Math.min(p.margin - p.qty * p.entry / p.lev, p.margin + u - p.qty * mk / p.lev));
+  }
+  /** After the change an isolated position must stay at least 0.5% away from liquidation and keep its stop loss on the safe side. */
+  function safe(p) {
+    var mk = P.price(p.symbol); if (mk === null) return false;
+    var liq = X6.isoLiq(p), L = p.side === 'LONG';
+    if (L ? liq > mk * (1 - BUF) : liq < mk * (1 + BUF)) return false;
+    if (p.sl && liq > 0 && (L ? p.sl <= liq : p.sl >= liq)) return false;
+    return true;
+  }
+  X6.tools.push(function (p) {
+    var iso = p.mode !== 'CROSS', id = p.id, ed = P.ui.edit, h;
+    h = '<div class="pt-row">' + (iso ? '<button class="pt-btn sm" data-act="x6-mrg" data-id="' + id + '">Margin +/-</button>' : '') + '<button class="pt-btn sm" data-act="x6-lev" data-id="' + id + '">Leverage</button></div>';
+    if (ed === 'mrg:' + id) {
+      h += '<div class="pt-ed"><label class="pt-lbl">Amount (USDT)</label><input class="pt-in" id="pt-x6-amt" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="e.g. 50">' +
+        '<div class="pt-hint">Free balance ' + money(P.calc(P.acc()).available) + ' &middot; can remove up to ' + money(maxRemove(p)) + '. More margin moves the liquidation price further away.</div>' +
+        '<div class="pt-row"><button class="pt-btn pri sm" data-act="x6-madd" data-id="' + id + '">Add</button><button class="pt-btn sm" data-act="x6-mrem" data-id="' + id + '">Remove</button><button class="pt-btn sm" data-act="x6-ex">Cancel</button></div><div class="pt-msg" id="pt-x6-msg"></div></div>';
+    }
+    if (ed === 'lev:' + id) {
+      h += '<div class="pt-ed"><label class="pt-lbl">New leverage (max ' + tier(p.qty * p.entry).max + 'x for this size)</label><input class="pt-in" id="pt-x6-nlev" type="number" min="1" max="50" step="1" inputmode="numeric" style="width:100%" value="' + p.lev + '">' +
+        '<div class="pt-hint">Margin held now ' + money(p.margin) + '. Lower leverage locks more margin. Higher leverage frees margin but brings liquidation closer.</div>' +
+        '<div class="pt-row"><button class="pt-btn pri sm" data-act="x6-lsave" data-id="' + id + '">Save</button><button class="pt-btn sm" data-act="x6-ex">Cancel</button></div><div class="pt-msg" id="pt-x6-msg"></div></div>';
+    }
+    return h;
+  });
+
+  var A = P.acts;
+  var xmsg = function (t) { var m = $('#pt-x6-msg'); if (m) { m.className = 'pt-msg pt-dn'; m.textContent = t; } };
+  var done = function (t) { P.ui.edit = null; P.save(); P.render(); P.emit('position'); P.toast(t); };
+  var toggle = function (k) { return function (el) { var key = k + ':' + el.dataset.id; P.ui.edit = P.ui.edit === key ? null : key; P.render(); }; };
+  A['x6-mrg'] = toggle('mrg'); A['x6-lev'] = toggle('lev');
+  A['x6-ex'] = function () { P.ui.edit = null; P.render(); };
+  A['x6-madd'] = function (el) {
+    var p = findPos(el.dataset.id); if (!p) return;
+    var amt = Number(val('pt-x6-amt')), av = P.calc(P.acc()).available;
+    if (!(amt > 0)) return xmsg('Enter an amount above 0');
+    if (amt > av + 1e-9) return xmsg('Only ' + money(av) + ' is free');
+    p.margin = r8(p.margin + amt); p.chk = nextMin(Date.now());
+    P.addLog(P.acc(), 'Added ' + money(amt) + ' margin to ' + p.side + ' ' + base(p.symbol));
+    done('Margin added ' + money(amt));
+  };
+  A['x6-mrem'] = function (el) {
+    var p = findPos(el.dataset.id); if (!p) return;
+    var amt = Number(val('pt-x6-amt')), mx = maxRemove(p);
+    if (!(amt > 0)) return xmsg('Enter an amount above 0');
+    if (amt > mx + 1e-9) return xmsg('You can remove up to ' + money(mx));
+    if (!safe(Object.assign({}, p, { margin: p.margin - amt }))) return xmsg('Too close to liquidation. Remove less.');
+    p.margin = r8(p.margin - amt); p.chk = nextMin(Date.now());
+    P.addLog(P.acc(), 'Removed ' + money(amt) + ' margin from ' + p.side + ' ' + base(p.symbol));
+    done('Margin removed ' + money(amt));
+  };
+  A['x6-lsave'] = function (el) {
+    var p = findPos(el.dataset.id); if (!p) return;
+    var nl = Number(val('pt-x6-nlev')), t = tier(p.qty * p.entry);
+    if (!(nl >= 1 && nl <= 50) || nl !== Math.floor(nl)) return xmsg('Enter a whole number from 1 to 50');
+    if (nl > t.max) return xmsg('Max leverage for this position size is ' + t.max + 'x');
+    if (nl === p.lev) return xmsg('Leverage is already ' + nl + 'x');
+    var extra = Math.max(0, p.margin - p.qty * p.entry / p.lev), nm = p.qty * p.entry / nl + extra, delta = nm - p.margin, av = P.calc(P.acc()).available;
+    if (delta > 1e-9 && delta > av + 1e-9) return xmsg('Need ' + money(delta) + ' more free balance (have ' + money(av) + ')');
+    if (p.mode !== 'CROSS' && !safe(Object.assign({}, p, { lev: nl, margin: nm }))) return xmsg('Too close to liquidation at the current price. Choose a lower leverage.');
+    var old = p.lev; p.lev = nl; p.margin = r8(nm); p.chk = nextMin(Date.now());
+    P.addLog(P.acc(), 'Leverage ' + old + 'x to ' + nl + 'x on ' + p.side + ' ' + base(p.symbol));
+    done('Leverage set to ' + nl + 'x');
+  };
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
