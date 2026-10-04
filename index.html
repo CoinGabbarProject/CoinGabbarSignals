@@ -5758,6 +5758,171 @@ var bd = $("posCalcBackdrop");
   if (document.querySelector('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+/* ===== PAPER PART 10A: Signals tab + "Trade this signal" ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.prefill || !P.redrawTicket || P.x10) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, T = P.ticket;
+  var API = 'https://coingabbarsignals.onrender.com/api/v1';
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var num = function (n) { n = Number(n); return isFinite(n) && n > 0 ? n : null; };
+  var X = P.x10 = { version: '10A', sigs: [], at: 0, err: '', busy: false, sig: null, filter: 'ACTIVE' };
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? d + 'd ' + (h % 24) + 'h' : h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+
+  /* ---------- signals feed ---------- */
+  function clean(s) {
+    if (!s || (s.side !== 'LONG' && s.side !== 'SHORT') || !/^[A-Z0-9]{2,20}USDT$/.test(String(s.symbol || ''))) return null;
+    var entry = num(s.entry), stop = num(s.stop), t = (s.targets || []).map(num).filter(Boolean);
+    return { id: String(s.id), symbol: s.symbol, side: s.side, status: String(s.status || ''), tf: s.timeframe || '', score: Number(s.score) || 0, entry: entry, lo: num(s.entryMin) || entry, hi: num(s.entryMax) || entry,
+      stop: stop, targets: t, entered: !!s.entered, why: String(s.rationale || ''), at: Number(s.createdAt) || Date.now() };
+  }
+  X.load = function (force) {
+    if (X.busy || (!force && Date.now() - X.at < 20000)) return Promise.resolve();
+    X.busy = true;
+    var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 10000);
+    return fetch(API + '/signals?limit=40', { signal: c.signal }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      clearTimeout(to); X.sigs = (d.signals || []).map(clean).filter(Boolean); X.at = Date.now(); X.err = '';
+    }).catch(function (e) { clearTimeout(to); X.err = e && e.name === 'AbortError' ? 'Signal server is slow. Try again.' : 'Could not load signals (' + (e && e.message ? e.message : 'network') + ').'; })
+      .then(function () { X.busy = false; badge(); paint(); heroBtn(); });
+  };
+  var taken = function (id) { var a = P.acc(); return !!(a.sigs && a.sigs[id]); };
+  var live = function () { return X.sigs.filter(function (s) { return s.status === 'ACTIVE'; }); };
+  function badge() {
+    var n = live().filter(function (s) { return !taken(s.id); }).length, label = 'Signals' + (n ? ' (' + n + ')' : '');
+    P.addTab('signals', label, 2, view);
+    var b = $('[data-act="tab"][data-id="signals"]'); if (b) b.textContent = label;
+  }
+
+  /* ---------- checks shown on each signal and in the ticket banner ---------- */
+  function notes(s) {
+    var out = [], L = s.side === 'LONG', mk = P.price(s.symbol);
+    if (!s.entry || !s.stop || !s.targets.length) return [['r', 'Signal has no complete entry / stop / target']];
+    if (L ? !(s.stop < s.entry && s.targets[0] > s.entry) : !(s.stop > s.entry && s.targets[0] < s.entry)) out.push(['r', 'Levels look wrong for a ' + s.side]);
+    if (mk !== null) {
+      if (L ? mk <= s.stop : mk >= s.stop) out.push(['r', 'Price is already past the stop loss']);
+      else if (L ? mk >= s.targets[0] : mk <= s.targets[0]) out.push(['y', 'Price already reached TP1']);
+      else if (L ? mk < s.lo * 0.9985 : mk > s.hi * 1.0015) out.push(['y', 'Price is beyond the entry zone, in the stop direction']);
+    }
+    return out;
+  }
+  var rr = function (s) { return s.entry && s.stop && s.targets[0] ? Math.abs(s.targets[0] - s.entry) / Math.abs(s.entry - s.stop) : null; };
+  var NC = { r: 'pt-dn', y: 'pt-mut' };
+
+  /* ---------- Signals tab ---------- */
+  function card(s) {
+    var L = s.side === 'LONG', mk = P.price(s.symbol), r = rr(s), tk = taken(s.id), ok = s.status === 'ACTIVE';
+    var zone = s.lo && s.hi && s.lo !== s.hi ? fp(s.lo) + ' - ' + fp(s.hi) : fp(s.entry);
+    var inZ = mk !== null && s.lo && mk >= s.lo * 0.9985 && mk <= s.hi * 1.0015;
+    var dist = mk !== null && s.entry ? (mk - s.entry) / s.entry * 100 : null;
+    var state = !ok ? s.status : s.entered ? 'Running' : inZ ? 'In entry zone' : 'Waiting';
+    var nt = ok ? notes(s).map(function (n) { return '<div class="' + NC[n[0]] + '" style="font-size:12px;margin-top:4px">&#9888; ' + esc(n[1]) + '</div>'; }).join('') : '';
+    return '<div class="pt-box" style="margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:15px">' + base(s.symbol) + '/USDT</b><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + s.side + '</span><span class="pt-rs">' + esc(s.tf) + '</span></div>' +
+      '<div style="text-align:right"><b class="' + (s.score >= 75 ? 'pt-up' : '') + '" style="font-size:15px">' + s.score + '<small class="pt-mut">/100</small></b></div></div>' +
+      '<div class="pt-mut" style="font-size:11px;margin:3px 0 8px">' + esc(state) + ' &middot; ' + dur(Date.now() - s.at) + ' ago' + (tk ? ' &middot; <b class="pt-up">Taken in paper</b>' : '') + '</div>' +
+      '<div class="pt-kv"><div><span>Entry</span><b>' + zone + '</b></div><div><span>Stop loss</span><b class="pt-dn">' + (s.stop ? fp(s.stop) : '-') + '</b></div>' +
+      s.targets.map(function (t, i) { return '<div><span>TP' + (i + 1) + '</span><b class="pt-up">' + fp(t) + '</b></div>'; }).join('') +
+      '<div><span>Reward : Risk (TP1)</span><b>' + (r === null ? '-' : '1 : ' + r.toFixed(2)) + '</b></div>' +
+      '<div><span>Live price</span><b>' + (mk === null ? '--' : fp(mk) + (dist === null ? '' : ' <small class="pt-mut">(' + (dist >= 0 ? '+' : '') + dist.toFixed(2) + '%)</small>')) + '</b></div></div>' +
+      (s.why ? '<div class="pt-mut" style="font-size:12px;margin-top:8px">' + esc(s.why.slice(0, 160)) + (s.why.length > 160 ? '...' : '') + '</div>' : '') + nt +
+      (ok ? '<div class="pt-row" style="margin-top:10px"><button class="pt-btn grn" data-act="x10-trade" data-id="' + esc(s.id) + '">' + (tk ? 'Trade again' : 'Trade this signal') + '</button></div>' : '') + '</div>';
+  }
+  function listHtml() {
+    var rows = X.filter === 'ACTIVE' ? live() : X.sigs;
+    if (X.err && !X.sigs.length) return '<div class="pt-box pt-dn">' + esc(X.err) + '</div>';
+    if (!X.at) return '<div class="pt-box pt-mut">Loading signals...</div>';
+    return (X.err ? '<div class="pt-dn" style="font-size:12px;margin-bottom:8px">' + esc(X.err) + ' Showing the last result.</div>' : '') +
+      (rows.map(card).join('') || '<div class="pt-box pt-mut">' + (X.filter === 'ACTIVE' ? 'No active signals right now.' : 'No signals found.') + '</div>');
+  }
+  function view() {
+    setTimeout(function () { X.load(false); }, 0);
+    return '<div class="pt-seg">' + [['ACTIVE', 'Active'], ['ALL', 'Recent']].map(function (o) { return '<button class="pt-chip' + (X.filter === o[0] ? ' on' : '') + '" data-act="x10-f" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+      '<button class="pt-chip" data-act="x10-ref">&#8635; Refresh</button></div>' +
+      '<div class="pt-mut" style="font-size:12px;margin:2px 0 10px">Tap "Trade this signal" to fill the order ticket. You still review and press Place. Paper money only.</div>' +
+      '<div id="x10-list">' + listHtml() + '</div>';
+  }
+  function paint() { var el = $('#x10-list'); if (el && P.ui.tab === 'signals') el.innerHTML = listHtml(); }
+  badge();
+
+  /* ---------- Trade this signal: fill the order ticket ---------- */
+  P.tradeSignal = function (s) {
+    if (typeof s === 'string') s = X.sigs.filter(function (x) { return x.id === s; })[0];
+    if (!s) return P.toast('Signal not found');
+    if (s.status !== 'ACTIVE') return P.toast('This signal is not active');
+    var bad = notes(s).filter(function (n) { return n[0] === 'r'; })[0];
+    if (bad) return P.toast(bad[1]);
+    if (taken(s.id) && !window.confirm('You already traded this signal in paper. Trade it again?')) return;
+    var mk = P.price(s.symbol), L = s.side === 'LONG', inZ = mk !== null && mk >= s.lo * 0.9985 && mk <= s.hi * 1.0015;
+    ['trail', 'tact', 'tp1', 'tp1p', 'tp2', 'tp2p', 'tp3', 'tp3p'].forEach(function (k) { if (T[k] !== undefined) T[k] = ''; });
+    T.be1 = false; T.rk = true; T.mode = 'usdt'; T.size = '';
+    T.type = inZ ? 'MARKET' : 'LIMIT'; T.limit = inZ ? '' : String(s.entry);
+    X.sig = { id: s.id, symbol: s.symbol, side: s.side, tf: s.tf, score: s.score, entry: s.entry, stop: s.stop, targets: s.targets.slice(), pick: 0 };
+    P.prefill({ symbol: s.symbol, side: s.side, sl: s.stop, tp: s.targets[0] });
+    T.sl = String(s.stop); T.tp = String(s.targets[0]);
+    P.toast(inZ ? 'Ticket ready: market order' : 'Ticket ready: limit at ' + fp(s.entry));
+  };
+
+  /* banner on top of the Trade tab */
+  var tt = P.tabs.filter(function (t) { return t.id === 'trade'; })[0];
+  if (tt) {
+    var r0 = tt.render;
+    P.addTab('trade', tt.label, tt.order, function (acc) { return banner() + r0(acc); });
+  }
+  function banner() {
+    var g = X.sig; if (!g) return '';
+    var live1 = X.sigs.filter(function (x) { return x.id === g.id; })[0], nt = live1 ? notes(live1) : [];
+    var match = P.symbol() === g.symbol && T.side === g.side;
+    var rrv = g.entry && g.stop && g.targets[g.pick] ? Math.abs(g.targets[g.pick] - g.entry) / Math.abs(g.entry - g.stop) : null;
+    return '<div class="pt-box" style="border-color:var(--cyan)"><div style="display:flex;justify-content:space-between;align-items:center"><b>Signal trade</b><button class="pt-chip" data-act="x10-clear">Clear</button></div>' +
+      '<div style="font-size:13px;margin-top:6px"><b>' + base(g.symbol) + '</b> <span class="pt-tag ' + (g.side === 'LONG' ? 'L' : 'S') + '">' + g.side + '</span> <span class="pt-mut">' + esc(g.tf) + ' &middot; score ' + g.score + '</span></div>' +
+      '<div class="pt-mut" style="font-size:12px;margin:4px 0">Entry ' + fp(g.entry) + ' &middot; Stop ' + fp(g.stop) + (rrv === null ? '' : ' &middot; R:R 1 : ' + rrv.toFixed(2)) + '</div>' +
+      '<div class="pt-seg">' + g.targets.map(function (t, i) { return '<button class="pt-chip' + (i === g.pick ? ' on' : '') + '" data-act="x10-tp" data-v="' + i + '">TP' + (i + 1) + ' ' + fp(t) + '</button>'; }).join('') + '</div>' +
+      (match ? '<div class="pt-mut" style="font-size:12px">Size is set by risk %. Check the preview below, then press Place. This trade is tagged "signal" in History.</div>' : '<div class="pt-dn" style="font-size:12px">You changed the coin or side, so this order will not be tagged as a signal trade.</div>') +
+      nt.map(function (n) { return '<div class="' + NC[n[0]] + '" style="font-size:12px;margin-top:4px">&#9888; ' + esc(n[1]) + '</div>'; }).join('') + '</div>';
+  }
+
+  /* tag the order and remember that this signal was taken */
+  var op = P.placeOrder;
+  P.placeOrder = function (spec, extra) {
+    var g = X.sig, tag = !!(g && spec && spec.symbol === g.symbol && spec.side === g.side);
+    var res = op.call(P, spec, tag ? Object.assign({}, extra || {}, { src: 'signal' }) : extra);
+    if (tag && res && res.ok) {
+      var a = P.acc(); a.sigs = a.sigs || {}; a.sigs[g.id] = Date.now();
+      P.addLog(a, 'Signal trade ' + g.side + ' ' + base(g.symbol) + ' (' + g.tf + ', score ' + g.score + ')');
+      X.sig = null; P.save(); badge();
+    }
+    return res;
+  };
+
+  var A = P.acts;
+  A['x10-trade'] = function (el) { P.tradeSignal(el.dataset.id); };
+  A['x10-f'] = function (el) { X.filter = el.dataset.v; P.render(); };
+  A['x10-ref'] = function () { X.at = 0; X.load(true); P.toast('Refreshing signals'); };
+  A['x10-clear'] = function () { X.sig = null; P.render(); };
+  A['x10-tp'] = function (el) { var g = X.sig; if (!g) return; g.pick = Number(el.dataset.v); T.tp = String(g.targets[g.pick]); T.tp1 = T.tp2 = T.tp3 = ''; P.render(); };
+
+  /* ---------- hero card on the home page: "Trade in Paper" ---------- */
+  function heroBtn() {
+    var st = document.getElementById('liveStatus'), box = st && st.closest('.kpi') && st.closest('.kpi').parentNode, s = live()[0];
+    if (!box || !s || window.__userPair) return;
+    var b = document.getElementById('x10-hero');
+    if (!b) {
+      b = document.createElement('button'); b.id = 'x10-hero'; b.type = 'button'; b.textContent = 'Trade in Paper';
+      b.style.cssText = 'margin:8px 0 0;padding:8px 14px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-weight:700;cursor:pointer;grid-column:1/-1';
+      b.addEventListener('click', function () { var cur = live()[0]; if (cur) P.tradeSignal(cur); });
+      box.appendChild(b);
+    }
+  }
+
+  /* ---------- keep it fresh ---------- */
+  var last = 0;
+  P.on('prices', function () { if (P.ui.tab === 'signals' && Date.now() - last > 5000) { last = Date.now(); paint(); } });
+  setInterval(function () { if (!document.hidden) X.load(false); }, 60000);
+  setTimeout(function () { X.load(true); }, 1500);
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
