@@ -39,7 +39,7 @@ export interface BuilderConfig {
   staleAfterCandles: number; // last candle older than this many candles -> DELAYED
 }
 
-export const DEFAULT_MIN_SCORE = 65;
+export const DEFAULT_MIN_SCORE = 75;
 
 export const DEFAULT_CONFIG: BuilderConfig = {
   minScore: DEFAULT_MIN_SCORE,
