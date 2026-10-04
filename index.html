@@ -3369,8 +3369,7 @@ var bd = $("posCalcBackdrop");
       (b.ok ? '' : '<div class="pt-dn" style="display:block;padding-top:4px">' + esc(b.error) + '</div>');
   }
   P.redrawTicket = redrawTicket; P.updPreview = updPreview;
-  function redrawTicket() { var el = $('#pt-ticketbox');
-
+  function redrawTicket() { var el = $('#pt-ticketbox'); if (el) el.innerHTML = '<h3>Order Ticket</h3>' + ticketHtml(); updPreview(); }
   /* ---------- Trade tab ---------- */
   P.addTab('trade', 'Trade', 5, function () {
     var opts = allSyms().map(function (s) { return '<option value="' + s + '"' + (s === U.symbol ? ' selected' : '') + '>' + base(s) + '/USDT</option>'; }).join('');
