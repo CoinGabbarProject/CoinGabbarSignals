@@ -3151,7 +3151,8 @@ var bd = $("posCalcBackdrop");
     Object.keys(st.accounts).forEach(function (id) {
       st.accounts[id].positions.concat(st.accounts[id].orders).forEach(function (x) { if (x.symbol) set[x.symbol] = 1; });
     });
-    return Object.keys(set).filter(function (s) { return !F.bad[s]; }).slice(0, 40);
+    if (typeof P.extraSyms === 'function') { try { P.extraSyms().forEach(function (s) { set[s] = 1; }); } catch (e) { /* ignore */ } }
+    return Object.keys(set).filter(function (s) { return !F.bad[s]; }).slice(0, 60);
   }
   function setPrices(rows) {
     rows.forEach(function (r) { var p = Number(r.price !== undefined ? r.price : r.lastPrice); if (p > 0) P.prices[r.symbol] = p; });
