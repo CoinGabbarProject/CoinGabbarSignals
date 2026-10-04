@@ -185,9 +185,11 @@ function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
   if (cost === null) return { ok: false, error: "cost must be 0-2 (percent)" };
   if (hold === null) return { ok: false, error: "hold must be 1-500" };
   if (cluster === null) return { ok: false, error: "cluster must be 0-50" };
+  const top = num(one(q["top"]), 20, 1, 50);
+  if (top === null) return { ok: false, error: "top must be 1-50" };
   const rawSyms = one(q["symbols"]);
-  const symbols = rawSyms ? [...new Set(rawSyms.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))] : scan.symbols;
-  if (symbols.length < 1 || symbols.length > 30 || symbols.some((s) => !SYMBOL_RE.test(s))) return { ok: false, error: "symbols: 1-30 valid symbols" };
+  const symbols = rawSyms ? [...new Set(rawSyms.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))] : scan.symbols.slice(0, Math.trunc(top));
+  if (symbols.length < 1 || symbols.length > 50 || symbols.some((s) => !SYMBOL_RE.test(s))) return { ok: false, error: "symbols: 1-50 valid symbols" };
   return {
     ok: true, symbols, days, json: one(q["format"]) === "json",
     opts: {
