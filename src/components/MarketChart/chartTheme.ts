@@ -74,7 +74,8 @@ export function baseChartOptions(height: number): DeepPartial<ChartOptions> {
     crosshair: { mode: CrosshairMode.Normal },
     rightPriceScale: { visible: true, ...t.rightPriceScale },
     leftPriceScale: { visible: false },
-    timeScale: { ...t.timeScale, timeVisible: true, secondsVisible: false, rightOffset: 4 },
+    timeScale: { ...t.timeScale, timeVisible: true, secondsVisible: false, rightOffset: 4, tickMarkFormatter: istTickFormatter },
+    localization: { timeFormatter: istCrosshairFormatter },
     handleScroll: true,
     handleScale: true,
   };
