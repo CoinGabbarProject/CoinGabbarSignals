@@ -45,6 +45,62 @@ async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): 
   return out;
 }
 
+const MAX_OPEN_PER_DIRECTION = 3;
+
+// Persist one signal at a time so the per-direction limit below cannot be raced by the worker pool.
+let persistLock: Promise<unknown> = Promise.resolve();
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const run = persistLock.then(fn, fn);
+  persistLock = run.catch(() => undefined);
+  return run;
+}
+
+/** BTC trend on the scan timeframe: 1 = up, -1 = down, 0 = unclear or unavailable. */
+async function btcBias(deps: EngineDeps, tf: Timeframe, s: ScanSettings, now: number): Promise<1 | -1 | 0> {
+  try {
+    const c = await deps.market.getCandles("BTCUSDT", tf, s.candleLimit, now);
+    const ind = calcIndicators(c);
+    const k = c[c.length - 1];
+    if (!ind || !k) return 0;
+    if (ind.ema20 > ind.ema50 && k.close > ind.ema50) return 1;
+    if (ind.ema20 < ind.ema50 && k.close < ind.ema50) return -1;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Downgrades a LONG/SHORT to WAIT when entering right now is not sensible (BTC against it, or price left the entry zone). */
+async function guardEntry(signal: FinalSignal, tf: Timeframe, deps: EngineDeps, now: number, btc: 1 | -1 | 0): Promise<FinalSignal> {
+  if (signal.direction !== "LONG" && signal.direction !== "SHORT") return signal;
+  let reason: string | null = null;
+  if (btc !== 0 && signal.symbol !== "BTCUSDT" && (signal.direction === "LONG" ? -1 : 1) === btc) {
+    reason = `BTC trend is against this ${signal.direction}`;
+  }
+  if (reason === null) {
+    try {
+      const live = await deps.market.getCandles(signal.symbol, EXECUTION_TF[tf], 2, now, true);
+      const price = live[live.length - 1]?.close;
+      if (typeof price === "number" && Number.isFinite(price) && (price < signal.entry.min || price > signal.entry.max)) {
+        reason = `Live price ${price} is outside the entry zone ${signal.entry.min}-${signal.entry.max}`;
+      }
+    } catch {
+      /* live price unavailable: keep the signal */
+    }
+  }
+  if (reason === null) return signal;
+  return {
+    ...signal,
+    direction: "WAIT",
+    status: "INACTIVE",
+    entry: { ...signal.entry, trigger: `No entry: ${reason}` },
+    stopLoss: { price: null, method: "NONE", reason },
+    takeProfit: { tp1: null, tp2: null, tp3: null },
+    riskReward: { tp1: 0, tp2: 0, tp3: 0, weighted: 0 },
+    reasoning: { ...signal.reasoning, primaryReason: reason, invalidation: "No active setup" },
+  };
+}
+
 /** Fetch everything for one symbol and build the signal. Primary-candle failure yields a NO_TRADE/UNAVAILABLE signal. */
 export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
