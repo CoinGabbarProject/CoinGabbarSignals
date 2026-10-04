@@ -3359,7 +3359,7 @@ var bd = $("posCalcBackdrop");
       '<input class="pt-in" id="pt-t-lev" type="number" min="1" max="' + MAX_LEV + '" step="1" inputmode="numeric" style="width:100%" value="' + esc(T.lev) + '">' +
       '<div class="pt-two"><div><label class="pt-lbl">Stop loss (optional)</label><input class="pt-in" id="pt-t-sl" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.sl) + '"></div>' +
       '<div><label class="pt-lbl">Take profit (optional)</label><input class="pt-in" id="pt-t-tp" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.tp) + '"></div></div>' +
-      '<div class="pt-prev" id="pt-prev"></div>' +
+      (P.ticketXHtml ? P.ticketXHtml() : '') + '<div class="pt-prev" id="pt-prev"></div>' +
       '<button class="pt-btn pt-go ' + (T.side === 'LONG' ? 'grn' : 'red') + '" data-act="t-place">' + (T.side === 'LONG' ? 'Place Long Order' : 'Place Short Order') + '</button><div class="pt-msg" id="pt-msg"></div>';
   }
   function updPreview() {
