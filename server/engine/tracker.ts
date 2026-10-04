@@ -40,7 +40,7 @@ let best = 0;
   };
   const done = (closed: boolean, exit?: number): Evaluation => {
  if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true, hits } } : { kind: "entered" };
-    return { kind: "outcome", outcome: { status: label(best), exit: tps[best - 1] as number, closed, hits } };
+    return { kind: "outcome", outcome: { status: label(best), exit: exit ?? (tps[best - 1] as number), closed, hits } };
   };
 
   for (const c of candles) {
