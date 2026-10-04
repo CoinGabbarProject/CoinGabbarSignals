@@ -3366,7 +3366,7 @@ var bd = $("posCalcBackdrop");
     var el = $('#pt-prev'); if (!el) return;
     var b = P.buildOrder(), p = b.prev, row = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
     el.innerHTML = (p ? row('Entry (est.)', '$' + fp(p.entry)) + row('Quantity', p.qty + ' ' + base(U.symbol)) + row('Position value', money(p.notional)) + row('Margin', money(p.margin)) + row('Fee (est.)', money(p.fee)) + row('Available after', money(p.left)) : '') +
-      (b.ok ? '' : '<div class="pt-dn" style="display:block;padding-top:4px">' + esc(b.error) + '</div>');
+      (P.previewX ? P.previewX(b) : '') + (b.ok ? '' : '<div class="pt-dn" style="display:block;padding-top:4px">' + esc(b.error) + '</div>');
   }
   P.redrawTicket = redrawTicket; P.updPreview = updPreview;
   function redrawTicket() { var el = $('#pt-ticketbox'); if (el) el.innerHTML = '<h3>Order Ticket</h3>' + ticketHtml(); updPreview(); }
