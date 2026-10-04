@@ -45,7 +45,7 @@ export function loadScanConfig(env: NodeJS.ProcessEnv = process.env): ScanConfig
     intervalMs: clampInt(env.SCAN_INTERVAL_MS, 300_000, 60_000, 86_400_000),
     symbols: [...new Set(symbols)],
     timeframe: tf,
-    minScore: clampInt(env.SCAN_MIN_SCORE, 65, 0, 100),
+    minScore: clampInt(env.SCAN_MIN_SCORE, 75, 0, 100),
     concurrency: clampInt(env.SCAN_CONCURRENCY, 4, 1, 5),
     spotUrl: env.BINANCE_SPOT_URL || "https://data-api.binance.vision",
     futuresUrl: env.BINANCE_FUTURES_URL || "https://fapi.binance.com",
