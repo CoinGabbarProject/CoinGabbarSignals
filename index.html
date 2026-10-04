@@ -3770,7 +3770,7 @@ var bd = $("posCalcBackdrop");
       '<div class="pt-card"><label>Available</label><strong id="pt-s-av">' + money(c.available) + '</strong></div></div>' +
       (tools ? '<div class="pt-bar">' + tools + '</div>' : '') +
       (a.positions.length ? '<h3 style="margin:4px 0 8px;font-size:14px">Open Positions</h3>' + a.positions.slice().reverse().map(posCard).join('') : '') +
-      (a.orders.length ? '<h3 style="margin:4px 0 8px;font-size:14px">Pending Orders</h3>' + a.orders.slice().reverse().map(ordCard).join('') : '') +
+      (a.orders.length ? '<h3 style="margin:4px 0 8px;font-size:14px">Pending Orders</h3>' + a.orders.slice().reverse().map(P.ordCard5 || ordCard).join('') : '') +
       (!a.positions.length && !a.orders.length ? '<div class="pt-box pt-mut">No open positions or orders. Use the Trade tab to place one.</div>' : '') +
       (recent ? '<div class="pt-box"><h3>Recently Closed</h3><div class="pt-list">' + recent + '</div></div>' : '') +
       '<div class="pt-mut" style="font-size:11px">Each order opens its own position with isolated margin. "Add more" opens a new position. Stop loss uses market exit with slippage; take profit and limit fills use maker fees.</div>';
