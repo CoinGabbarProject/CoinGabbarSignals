@@ -157,7 +157,10 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   const r = s > 0 ? ind.rsi.value : 100 - ind.rsi.value;
   if (r >= 50 && r <= 70) vm += 4;
   else if ((r >= 40 && r < 50) || (r > 70 && r <= 75)) vm += 2;
-  else if (r > 75) warnings.push(`RSI ${ind.rsi.value.toFixed(0)} is stretched for a ${side}`);
+  else if (r > 72) {
+    warnings.push(`RSI ${ind.rsi.value.toFixed(0)} is stretched for a ${side}`);
+    critical = critical ?? `RSI ${ind.rsi.value.toFixed(0)} is overextended for a ${side}`;
+  }
   if (ind.macd.histogram * s > 0) vm += ind.macd.histogramState === "expanding" ? 4 : 2;
   else conflicts.push("MACD histogram against the setup");
   if (ind.macd.crossover === want.bias) conf.push("Fresh MACD crossover in the setup direction");
