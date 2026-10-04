@@ -177,7 +177,7 @@ export class EngineService {
         const now = this.now;
         try {
           const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc);
-          const outcome = await persistSignal(signal, this.deps.store, now);
+          const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
           return error === undefined
             ? { symbol, direction: signal.direction, score: signal.score.total, outcome }
             : { symbol, direction: signal.direction, score: signal.score.total, outcome: "error", error };
