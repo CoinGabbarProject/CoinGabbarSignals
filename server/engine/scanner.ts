@@ -47,6 +47,26 @@ async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): 
 
 const MAX_OPEN_PER_DIRECTION = 3;
 
+// Score-weak exit: if a coin's fresh score stays below EXIT_WEAK_SCORE for EXIT_WEAK_SCANS scans in a row,
+// its ACTIVE signal (TP1 not hit yet) is withdrawn (CANCELLED). Set EXIT_WEAK_SCORE=0 to turn off.
+const WEAK_SCORE = Number(process.env.EXIT_WEAK_SCORE ?? 50);
+const WEAK_SCANS = Math.max(1, Number(process.env.EXIT_WEAK_SCANS ?? 2));
+const weakCount = new Map<string, number>();
+async function exitIfWeak(signal: FinalSignal, store: SignalStore, now: number, log: Pick<Console, "info">): Promise<void> {
+  if (!(WEAK_SCORE > 0)) return;
+  const q = signal.dataQuality.status;
+  if (q !== "FRESH" && q !== "PARTIAL") return; // a data failure must never cancel a live signal
+  const key = `${signal.symbol}:${signal.timeframe.primary}`;
+  if (signal.score.total >= WEAK_SCORE) { weakCount.delete(key); return; }
+  const n = (weakCount.get(key) ?? 0) + 1;
+  if (n < WEAK_SCANS) { weakCount.set(key, n); return; }
+  weakCount.delete(key);
+  const open = (await store.findActive(signal.symbol, signal.timeframe.primary)).filter((o) => o.status === "ACTIVE" && !o.outcome?.closed);
+  for (const o of open) {
+    await store.setStatus(o.id, "CANCELLED", new Date(now).toISOString());
+    log.info(`[scan] ${o.symbol} ${o.direction}: score fell to ${signal.score.total} (< ${WEAK_SCORE}) for ${WEAK_SCANS} scans, signal withdrawn`);
+  }
+}
 // Persist one signal at a time so the per-direction limit below cannot be raced by the worker pool.
 let persistLock: Promise<unknown> = Promise.resolve();
 function serial<T>(fn: () => Promise<T>): Promise<T> {
