@@ -102,7 +102,7 @@ async function guardEntry(signal: FinalSignal, tf: Timeframe, deps: EngineDeps, 
 }
 
 /** Fetch everything for one symbol and build the signal. Primary-candle failure yields a NO_TRADE/UNAVAILABLE signal. */
-export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number): Promise<{ signal: FinalSignal; error?: string }> {
+export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
   const primary = deps.market.getCandles(symbol, tf, s.candleLimit, now);
