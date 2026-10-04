@@ -3842,7 +3842,272 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
-<!-- PAPER_NEXT_PART -->
+<style id="paper-css-5">
+.pt-hint{color:var(--muted);font-size:11px;margin:4px 0 6px}
+.pt-ed{border:1px dashed var(--cyan);border-radius:8px;padding:10px;margin-top:10px}
+</style>
+<script>
+/* ===== PAPER PART 5A: Stop, Stop-Limit, OCO, pending order edit/cancel ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.engine || !P.posView || P.x5a) return;
+  if (!P.redrawTicket) { console.error('Part 5A: Edit B (Part 2) not applied'); return; }
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, r8 = P.r8, E = P.engine, T = P.ticket;
+  var MIN = 60000, MAXLEV = 50, MIN_NOTIONAL = 5;
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  var q6 = function (n) { return Number(Number(n).toPrecision(6)); };
+  var nextMin = function (t) { return Math.ceil(t / MIN) * MIN; };
+  var X = P.x5a = { version: '5A' };
+  ['trig', 'oa', 'ob'].forEach(function (k) { if (T[k] === undefined) T[k] = ''; });
+  if (!T.obs) T.obs = 'SAME';
+  var KIND = { LIMIT: 'LIMIT', STOP: 'STOP', STOPLIMIT: 'STOP-LIMIT' };
+  var label = function (o) { return (o.grp ? 'OCO ' : '') + (KIND[o.type] || 'LIMIT'); };
+  var isExt = function (t) { return t === 'STOP' || t === 'STOPLIMIT' || t === 'OCO'; };
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  function say(t, bad) { var m = $('#pt-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } }
+
+  /* ---------- ticket fields for the new order types ---------- */
+  P.ticketTypeHtml = function () {
+    var inp = function (id, lbl, v) { return '<label class="pt-lbl">' + lbl + '</label><input class="pt-in" id="' + id + '" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="Price in USDT" value="' + esc(v) + '">'; };
+    if (T.type === 'STOP') return inp('pt-x-trig', 'Trigger price', T.trig) + '<div class="pt-hint">When price reaches the trigger, a market order is placed. Long: trigger above price. Short: below price.</div>';
+    if (T.type === 'STOPLIMIT') return inp('pt-x-trig', 'Trigger price', T.trig) + inp('pt-t-limit', 'Limit price (used after trigger)', T.limit) + '<div class="pt-hint">At the trigger a limit order is placed at your limit price.</div>';
+    if (T.type === 'OCO') {
+      var sb = function (v, t) { return '<button class="pt-chip' + (T.obs === v ? ' on' : '') + '" data-act="x-obs" data-v="' + v + '">' + t + '</button>'; };
+      return inp('pt-x-oa', 'Order A price', T.oa) + '<label class="pt-lbl">Order B side</label><div class="pt-seg">' + sb('SAME', 'Same side') + sb('OPP', 'Opposite side') + '</div>' + inp('pt-x-ob', 'Order B price', T.ob) +
+        '<div class="pt-hint">Two orders, only one can fill. The other is cancelled automatically. Limit or stop is chosen from where your price is versus the market.</div>';
+    }
+    return '';
+  };
+
+  /* ---------- order maths for the new types ---------- */
+  function buildExt() {
+    var acc = P.acc(), c = P.calc(acc), sym = P.symbol(), mk = P.price(sym), typ = T.type;
+    var out = { ok: false, error: '', prev: null, spec: null };
+    var fail = function (m) { out.error = m; return out; };
+    if (mk === null) return fail('Waiting for live price...');
+    var lev = Number(T.lev); if (!(lev >= 1 && lev <= MAXLEV)) return fail('Leverage must be 1x to ' + MAXLEV + 'x');
+    var slip = acc.fees.slip / 100, tk = acc.fees.taker, mkr = acc.fees.maker, legs = [], trig = null, lim = null;
+    var mk1 = function (side, price, kind) {
+      var entry = kind === 'LIMIT' ? price : kind === 'STOP' ? price * (1 + dir(side) * slip) : lim;
+      return { side: side, kind: kind, price: price, entry: entry, feePct: kind === 'LIMIT' ? mkr : tk };
+    };
+    if (typ === 'STOP' || typ === 'STOPLIMIT') {
+      trig = Number(T.trig); if (!(trig > 0)) return fail('Enter a trigger price');
+      if (T.side === 'LONG' ? trig <= mk : trig >= mk) return fail('Trigger must be ' + (T.side === 'LONG' ? 'above' : 'below') + ' the current price (' + fp(mk) + ')');
+      if (typ === 'STOPLIMIT') { lim = Number(T.limit); if (!(lim > 0)) return fail('Enter a limit price'); }
+      legs.push(mk1(T.side, trig, typ));
+    } else {
+      var pa = Number(T.oa), pb = Number(T.ob), sb = T.obs === 'OPP' ? (T.side === 'LONG' ? 'SHORT' : 'LONG') : T.side;
+      if (!(pa > 0)) return fail('Enter price for order A');
+      if (!(pb > 0)) return fail('Enter price for order B');
+      if (pa === pb) return fail('Order A and B need different prices');
+      if (pa === mk || pb === mk) return fail('Price must differ from the current price (' + fp(mk) + ')');
+      var kd = function (side, p) { return (side === 'LONG' ? p < mk : p > mk) ? 'LIMIT' : 'STOP'; };
+      legs.push(mk1(T.side, pa, kd(T.side, pa)), mk1(sb, pb, kd(sb, pb)));
+    }
+    var maxFee = Math.max.apply(null, legs.map(function (l) { return l.feePct; }));
+    var N = null, qf = null;
+    if (T.mode === 'usdt') N = Number(T.size);
+    else if (T.mode === 'qty') qf = Number(T.size);
+    else N = c.available * Number(T.pct) / 100 / (1 / lev + maxFee / 100);
+    if (!(qf !== null ? qf > 0 : N > 0)) return fail('Enter order size');
+    legs.forEach(function (l) {
+      l.notional = qf !== null ? qf * l.entry : N; l.qty = qf !== null ? r8(qf) : r8(l.notional / l.entry);
+      l.margin = l.notional / lev; l.fee = l.notional * l.feePct / 100; l.need = l.margin + l.fee;
+    });
+    var big = legs.reduce(function (a, b) { return b.need > a.need ? b : a; }, legs[0]), rsv = big.need;
+    out.prev = { entry: big.entry, qty: big.qty, notional: big.notional, margin: big.margin, fee: big.fee, need: rsv, left: c.available - rsv };
+    if (legs.some(function (l) { return l.notional < MIN_NOTIONAL; })) return fail('Minimum order value is $' + MIN_NOTIONAL);
+    if (rsv > c.available + 1e-9) return fail('Not enough balance. Need ' + money(rsv) + ', available ' + money(c.available));
+    var sl = T.sl === '' ? null : Number(T.sl), tp = T.tp === '' ? null : Number(T.tp);
+    if (sl !== null && !(sl > 0)) return fail('Stop loss must be a price above 0');
+    if (tp !== null && !(tp > 0)) return fail('Take profit must be a price above 0');
+    if ((sl !== null || tp !== null) && legs.length > 1 && legs[0].side !== legs[1].side) return fail('For Long + Short OCO, set SL/TP after one order fills');
+    for (var i = 0; i < legs.length; i++) {
+      var L = legs[i].side === 'LONG', e = legs[i].entry;
+      if (sl !== null && (L ? sl >= e : sl <= e)) return fail(L ? 'Stop loss must be below entry for a LONG' : 'Stop loss must be above entry for a SHORT');
+      if (tp !== null && (L ? tp <= e : tp >= e)) return fail(L ? 'Take profit must be above entry for a LONG' : 'Take profit must be below entry for a SHORT');
+    }
+    out.ok = true;
+    out.spec = typ === 'OCO' ? { symbol: sym, side: T.side, type: 'OCO', lev: lev, legs: legs, sl: sl, tp: tp, rsv: rsv, ref: mk }
+      : { symbol: sym, side: T.side, type: typ, lev: lev, qty: big.qty, notional: big.notional, margin: big.margin, fee: big.fee, entry: big.entry, ref: mk, trig: trig, limit: lim, sl: sl, tp: tp, rsv: rsv };
+    return out;
+  }
+  var ob = P.buildOrder;
+  P.buildOrder = function () { return isExt(T.type) ? buildExt() : ob.apply(P, arguments); };
+
+  /* ---------- placing ---------- */
+  var op = P.placeOrder;
+  function finish(m) {
+    P.save(); T.size = ''; T.limit = ''; T.sl = ''; T.tp = ''; T.trig = ''; T.oa = ''; T.ob = '';
+    P.ui.tab = 'positions'; P.render(); P.emit('position'); P.toast(m);
+  }
+  P.placeOrder = function (spec, extra) {
+    if (!isExt(spec.type)) return op.apply(P, arguments);
+    var acc = P.acc(), c = P.calc(acc), mk = P.price(spec.symbol), now = Date.now(), src = (extra && extra.src) || 'manual';
+    var fail = function (m) { say(m, true); return { ok: false, error: m }; };
+    if (mk === null) return fail('No live price yet. Wait a moment.');
+    if (spec.rsv > c.available + 1e-9) return fail('Not enough available balance. Need ' + money(spec.rsv) + ', have ' + money(c.available));
+    var mkOrder = function (side, type, price, lim, qty, margin, grp) {
+      return { id: P.uid('o'), symbol: spec.symbol, side: side, type: type, price: price, lim: lim, qty: qty, lev: spec.lev, margin: margin, sl: spec.sl, tp: spec.tp, grp: grp || null, created: now, chk: nextMin(now), src: src };
+    };
+    if (spec.type === 'OCO') {
+      var grp = P.uid('g');
+      for (var i = 0; i < spec.legs.length; i++) {
+        var l = spec.legs[i], L = l.side === 'LONG';
+        if (l.kind === 'LIMIT' ? (L ? l.price >= mk : l.price <= mk) : (L ? l.price <= mk : l.price >= mk)) return fail('Price moved. Check the OCO prices again.');
+      }
+      spec.legs.forEach(function (l, i) { acc.orders.push(mkOrder(l.side, l.kind, l.price, null, l.qty, i === 0 ? spec.rsv : 0, grp)); });
+      P.addLog(acc, 'OCO ' + base(spec.symbol) + ' ' + spec.legs.map(function (l) { return l.side + ' ' + l.kind + ' @ ' + fp(l.price); }).join(' / '));
+      finish('OCO orders placed');
+      return { ok: true };
+    }
+    if (spec.side === 'LONG' ? spec.trig <= mk : spec.trig >= mk) return fail('Price already passed the trigger. Adjust it or use Market.');
+    acc.orders.push(mkOrder(spec.side, spec.type, spec.trig, spec.limit, spec.qty, spec.rsv));
+    P.addLog(acc, KIND[spec.type] + ' ' + spec.side + ' ' + base(spec.symbol) + ' ' + q6(spec.qty) + ' trigger ' + fp(spec.trig) + (spec.limit ? ' limit ' + fp(spec.limit) : ''));
+    finish(KIND[spec.type] + ' order placed @ ' + fp(spec.trig));
+    return { ok: true };
+  };
+
+  /* ---------- cancel (an OCO pair is cancelled together) ---------- */
+  P.cancelOrder = function (id) {
+    var acc = P.acc(), o = acc.orders.filter(function (x) { return x.id === id; })[0]; if (!o) return false;
+    acc.orders = acc.orders.filter(function (x) { return x !== o && !(o.grp && x.grp === o.grp); });
+    P.addLog(acc, 'Cancelled ' + label(o) + ' ' + o.side + ' ' + base(o.symbol) + ' @ ' + fp(o.price) + (o.grp ? ' (both OCO orders)' : ''));
+    if (/^ord:/.test(P.ui.edit || '')) P.ui.edit = null;
+    P.save(); P.emit('position'); return true;
+  };
+
+  /* ---------- trigger engine ---------- */
+  function rng(sym, chk) {
+    var p = P.price(sym), hi = p || -Infinity, lo = p || Infinity, upTo = chk, now = Date.now();
+    (P.k1[sym] || []).forEach(function (k) {
+      if (k.t >= chk && k.t + MIN <= now) { if (k.h > hi) hi = k.h; if (k.l < lo) lo = k.l; if (k.t + MIN > upTo) upTo = k.t + MIN; }
+    });
+    return isFinite(hi) && isFinite(lo) ? { hi: hi, lo: lo, p: p, upTo: upTo } : null;
+  }
+  X.check = function () {
+    var st = P.state(), changed = false, last = '';
+    Object.keys(st.accounts).forEach(function (id) {
+      var acc = st.accounts[id], slip = acc.fees.slip / 100;
+      acc.orders.slice().forEach(function (o) {
+        if (acc.orders.indexOf(o) < 0) return;
+        var stop = o.type === 'STOP' || o.type === 'STOPLIMIT';
+        if (!stop && !(o.type === 'LIMIT' && o.grp)) return;
+        var r = rng(o.symbol, o.chk); if (!r) return;
+        var L = o.side === 'LONG', d = dir(o.side), nm = base(o.symbol), pn = r.p;
+        var hit = stop ? (L ? r.hi >= o.price : r.lo <= o.price) : (L ? r.lo <= o.price : r.hi >= o.price);
+        if (!hit) { o.chk = Math.max(o.chk, r.upTo); return; }
+        var drop = function () { acc.orders = acc.orders.filter(function (x) { return x !== o && !(o.grp && x.grp === o.grp); }); };
+        if (o.type === 'LIMIT') {
+          drop(); E.openPosition(acc, o, o.price, acc.fees.maker, o.src);
+          last = 'OCO limit filled ' + o.side + ' ' + nm + ' @ ' + fp(o.price);
+        } else if (o.type === 'STOP') {
+          var ref = L ? (pn !== null && pn > o.price ? pn : o.price) : (pn !== null && pn < o.price ? pn : o.price), fill = ref * (1 + d * slip);
+          drop(); E.openPosition(acc, o, fill, acc.fees.taker, o.src);
+          last = 'Stop triggered ' + o.side + ' ' + nm + ' @ ' + fp(fill);
+        } else {
+          var now1 = pn !== null ? pn : o.price, mkt = L ? o.lim >= now1 : o.lim <= now1;
+          if (mkt) {
+            var f2 = L ? Math.min(o.lim, now1 * (1 + slip)) : Math.max(o.lim, now1 * (1 - slip));
+            drop(); E.openPosition(acc, o, f2, acc.fees.taker, o.src);
+            last = 'Stop-limit filled ' + o.side + ' ' + nm + ' @ ' + fp(f2);
+          } else {
+            o.type = 'LIMIT'; o.price = o.lim; o.lim = null; o.chk = nextMin(Date.now());
+            P.addLog(acc, 'Stop-limit triggered ' + o.side + ' ' + nm + ', limit order @ ' + fp(o.price));
+            last = 'Stop-limit triggered, limit order @ ' + fp(o.price);
+          }
+        }
+        changed = true;
+      });
+    });
+    if (changed) {
+      P.save(); P.toast(last);
+      if (!P.ui.edit && (P.ui.tab === 'positions' || P.ui.tab === 'wallet')) P.render();
+      P.emit('position');
+    }
+    return changed;
+  };
+  var c0 = E.check;
+  E.check = function () {
+    var a = c0.apply(E, arguments), b = false;
+    try { b = X.check(); } catch (e) { console.error('Part 5A engine', e); }
+    return a || b;
+  };
+
+  /* ---------- pending order card (used by Positions tab) ---------- */
+  P.ordCard5 = function (o) {
+    var mk = P.price(o.symbol), acc = P.acc(), L = o.side === 'LONG', editing = P.ui.edit === 'ord:' + o.id;
+    var sib = o.grp ? acc.orders.filter(function (x) { return x.grp === o.grp && x !== o; })[0] : null;
+    var cell = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
+    var dist = mk ? ' <small class="pt-mut">(' + (Math.abs(o.price - mk) / mk * 100).toFixed(2) + '%)</small>' : '';
+    var mixed = sib && sib.side !== o.side;
+    var h = '<div class="pt-pos" data-oid="' + o.id + '"><div class="pt-pos-h"><div><b>' + base(o.symbol) + '/USDT</b><span class="pt-tag O">' + label(o) + ' ' + o.side + ' ' + o.lev + 'x</span></div></div>' +
+      '<div class="pt-kv">' + cell(o.type === 'LIMIT' ? 'Limit price' : 'Trigger price', fp(o.price) + dist) +
+      '<div><span>Mark</span><b data-lv="omark">' + (mk === null ? '--' : fp(mk)) + '</b></div>' +
+      (o.type === 'STOPLIMIT' ? cell('Limit price', fp(o.lim)) : '') +
+      cell('Quantity', q6(o.qty) + ' ' + base(o.symbol)) + cell('Reserved', o.grp && !o.margin ? 'Shared with pair' : money(o.margin)) +
+      cell('Stop loss', o.sl ? fp(o.sl) : '-') + cell('Take profit', o.tp ? fp(o.tp) : '-') +
+      (sib ? cell('Linked order', sib.side + ' ' + label(sib).replace('OCO ', '') + ' @ ' + fp(sib.price)) : '') + '</div>';
+    if (editing) {
+      var inp = function (id, l, v) { return '<div><label class="pt-lbl">' + l + '</label><input class="pt-in" id="' + id + '" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(v) + '"></div>'; };
+      h += '<div class="pt-ed"><div class="pt-two">' + inp('pt-x-e-price', o.type === 'LIMIT' ? 'Limit price' : 'Trigger price', o.price) +
+        (o.type === 'STOPLIMIT' ? inp('pt-x-e-lim', 'Limit price', o.lim) : '') +
+        (o.grp ? '' : inp('pt-x-e-qty', 'Quantity (' + base(o.symbol) + ')', q6(o.qty))) +
+        (mixed ? '' : inp('pt-x-e-sl', 'Stop loss', o.sl || '') + inp('pt-x-e-tp', 'Take profit', o.tp || '')) + '</div>' +
+        '<div class="pt-hint">' + (o.grp ? 'Size is fixed for OCO. Cancel and place again to change it. ' : '') + 'Leave SL/TP empty to remove.</div>' +
+        '<div class="pt-row"><button class="pt-btn pri sm" data-act="x-osave" data-id="' + o.id + '">Save</button><button class="pt-btn sm" data-act="x-ox">Cancel</button></div><div class="pt-msg" id="pt-x-emsg"></div></div>';
+    }
+    return h + '<div class="pt-row" style="margin-top:10px"><button class="pt-btn sm" data-act="x-oedit" data-id="' + o.id + '">Edit order</button><button class="pt-btn sm red" data-act="ord-cancel" data-id="' + o.id + '">' + (o.grp ? 'Cancel both (OCO)' : 'Cancel order') + '</button></div></div>';
+  };
+
+  /* ---------- edit a pending order ---------- */
+  var resv = function (acc, o) {
+    var px = o.type === 'STOPLIMIT' ? o.lim : o.type === 'STOP' ? o.price * (1 + dir(o.side) * acc.fees.slip / 100) : o.price;
+    return o.qty * px / o.lev + o.qty * px * (o.type === 'LIMIT' ? acc.fees.maker : acc.fees.taker) / 100;
+  };
+  var A = P.acts;
+  A['x-obs'] = function (el) { T.obs = el.dataset.v === 'OPP' ? 'OPP' : 'SAME'; P.redrawTicket(); };
+  A['x-oedit'] = function (el) { var k = 'ord:' + el.dataset.id; P.ui.edit = P.ui.edit === k ? null : k; P.render(); };
+  A['x-ox'] = function () { P.ui.edit = null; P.render(); };
+  A['x-osave'] = function (el) {
+    var acc = P.acc(), c = P.calc(acc), o = acc.orders.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!o) return;
+    var m = $('#pt-x-emsg'), bad = function (t) { if (m) { m.className = 'pt-msg pt-dn'; m.textContent = t; } };
+    var mk = P.price(o.symbol); if (mk === null) return bad('No live price yet');
+    var L = o.side === 'LONG', group = o.grp ? acc.orders.filter(function (x) { return x.grp === o.grp; }) : [o];
+    var mixed = group.length > 1 && group[0].side !== group[1].side;
+    var price = Number(val('pt-x-e-price')), lim = o.type === 'STOPLIMIT' ? Number(val('pt-x-e-lim')) : null;
+    var qty = o.grp ? o.qty : r8(Number(val('pt-x-e-qty')));
+    var sv = mixed ? '' : val('pt-x-e-sl'), tv = mixed ? '' : val('pt-x-e-tp');
+    var sl = sv === '' ? null : Number(sv), tp = tv === '' ? null : Number(tv);
+    if (!(price > 0)) return bad('Enter a valid price');
+    if (o.type === 'LIMIT' && (L ? price >= mk : price <= mk)) return bad('Limit must be ' + (L ? 'below' : 'above') + ' the current price (' + fp(mk) + '). For an instant fill, cancel and use Market.');
+    if (o.type !== 'LIMIT' && (L ? price <= mk : price >= mk)) return bad('Trigger must be ' + (L ? 'above' : 'below') + ' the current price (' + fp(mk) + ')');
+    if (o.type === 'STOPLIMIT' && !(lim > 0)) return bad('Enter a limit price');
+    if (!(qty > 0)) return bad('Enter a quantity above 0');
+    var t = Object.assign({}, o, { price: price, lim: lim, qty: qty }), ref = o.type === 'STOPLIMIT' ? lim : price;
+    if (t.qty * ref < MIN_NOTIONAL) return bad('Minimum order value is $' + MIN_NOTIONAL);
+    if (sl !== null && (!(sl > 0) || (L ? sl >= ref : sl <= ref))) return bad('Stop loss must be ' + (L ? 'below' : 'above') + ' the order price');
+    if (tp !== null && (!(tp > 0) || (L ? tp <= ref : tp >= ref))) return bad('Take profit must be ' + (L ? 'above' : 'below') + ' the order price');
+    var need = Math.max.apply(null, group.map(function (x) { return resv(acc, x === o ? t : x); }));
+    var held = group.reduce(function (s, x) { return s + (x.margin || 0); }, 0);
+    if (need > c.available + held + 1e-9) return bad('Not enough balance. Need ' + money(need) + ', available ' + money(c.available + held));
+    o.price = price; o.lim = lim; o.qty = qty; o.chk = nextMin(Date.now());
+    group.forEach(function (x, i) { if (!mixed) { x.sl = sl; x.tp = tp; } x.margin = i === 0 ? need : 0; x.chk = nextMin(Date.now()); });
+    P.addLog(acc, 'Edited ' + label(o) + ' ' + o.side + ' ' + base(o.symbol) + ' @ ' + fp(price));
+    P.ui.edit = null; P.save(); P.render(); P.emit('position'); P.toast('Order updated');
+  };
+
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'pt-x-trig' || id === 'pt-x-oa' || id === 'pt-x-ob') { T[id.slice(5)] = e.target.value; P.updPreview(); }
+  });
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
