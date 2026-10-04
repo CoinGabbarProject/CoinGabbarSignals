@@ -3563,6 +3563,7 @@ var bd = $("posCalcBackdrop");
     Object.keys(st.accounts).forEach(function (id) {
       var acc = st.accounts[id];
       acc.orders.slice().forEach(function (o) {
+        if (o.type !== 'LIMIT' || o.grp) return;
         var r = rangeFor(o.symbol, o.chk); if (!r) return;
         if (o.side === 'LONG' ? r.lo <= o.price : r.hi >= o.price) {
           acc.orders = acc.orders.filter(function (x) { return x !== o; });
