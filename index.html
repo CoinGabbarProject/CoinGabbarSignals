@@ -5776,7 +5776,7 @@ var bd = $("posCalcBackdrop");
     var nt = ok ? notes(s).map(function (n) { return '<div class="' + NC[n[0]] + '" style="font-size:12px;margin-top:4px">&#9888; ' + esc(n[1]) + '</div>'; }).join('') : '';
     return '<div class="pt-box" style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:15px">' + base(s.symbol) + '/USDT</b><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + s.side + '</span><span class="pt-rs">' + esc(s.tf) + '</span></div>' +
-      '<div style="text-align:right"><b class="' + (s.score >= 75 ? 'pt-up' : '') + '" style="font-size:15px">' + s.score + '<small class="pt-mut">/100</small></b></div></div>' +
+      '</div>' +
       '<div class="pt-mut" style="font-size:11px;margin:3px 0 8px">' + esc(state) + ' &middot; ' + dur(Date.now() - s.at) + ' ago' + (tk ? ' &middot; <b class="pt-up">Taken in paper</b>' : '') + '</div>' +
       '<div class="pt-kv"><div><span>Entry</span><b>' + zone + '</b></div><div><span>Stop loss</span><b class="pt-dn">' + (s.stop ? fp(s.stop) : '-') + '</b></div>' +
       s.targets.map(function (t, i) { return '<div><span>TP' + (i + 1) + '</span><b class="pt-up">' + fp(t) + '</b></div>'; }).join('') +
