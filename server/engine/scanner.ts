@@ -140,7 +140,12 @@ export async function persistSignal(signal: FinalSignal, store: SignalStore, now
   // One signal at a time per pair + timeframe: nothing new until the open one is complete
   // (TP3 hit, SL hit, or entry window missed = EXPIRED).
   const open = await store.findActive(signal.symbol, signal.timeframe.primary);
-  if (open.length > 0) return "duplicate";
+if (open.length > 0) return "duplicate";
+  // Cluster limit: correlated coins hit their stops together, so cap open signals per direction.
+  const sameSide = (await store.listTrackable()).filter(
+    (x) => x.direction === signal.direction && x.timeframe.primary === signal.timeframe.primary && !x.outcome?.closed,
+  );
+  if (sameSide.length >= MAX_OPEN_PER_DIRECTION) return "not_emitted";
   await store.insertSignal(signal);
   return "emitted";
 }
