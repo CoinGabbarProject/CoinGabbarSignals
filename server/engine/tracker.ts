@@ -54,7 +54,8 @@ let best = 0;
       else continue;
     }
     if (beforeSignal) continue;
-    const slHit = long ? c.low <= sl : c.high >= sl;
+    const stop = stopNow(); // uses the TP progress up to the previous candle (conservative)
+    const slHit = long ? c.low <= stop : c.high >= stop;
  if (slHit) { hits.sl = c.timestamp; return done(true); }
     while (best < 3) {
       const tp = tps[best];
