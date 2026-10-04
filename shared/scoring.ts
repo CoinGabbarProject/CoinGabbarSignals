@@ -134,8 +134,11 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   else if (bb.context === "breakout") { if ((close > bb.upper ? 1 : -1) * s > 0) st += 3; else warnings.push("Bollinger breakout against the setup"); }
   else if (ext * s < 0) st += 2;
   else { st += 1; warnings.push("Price is at the band in the setup direction (chasing risk)"); }
-  const stretch = Math.abs(close - ind.ema20) / atr;
-  if (stretch <= 1.5) st += 2; else warnings.push(`Price is ${stretch.toFixed(1)} ATR away from EMA20`);
+  const stretch = Math.abs(close - ind.ema20) / atr;if (stretch <= 1.5) st += 2;
+  else {
+    warnings.push(`Price is ${stretch.toFixed(1)} ATR away from EMA20`);
+    if (stretch > 2) critical = critical ?? "Price is overextended from EMA20 (chasing risk)";
+  }
 
   // ---- 4. Liquidity / support-resistance (10) ----
   let lq = 0;
