@@ -198,6 +198,7 @@ export class EngineService {
         try {
           const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc);
           const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
+          await exitIfWeak(signal, this.deps.store, now, this.log).catch((e: unknown) => this.log.error(`[scan] weak-exit check failed: ${errMsg(e)}`));
           return error === undefined
             ? { symbol, direction: signal.direction, score: signal.score.total, outcome }
             : { symbol, direction: signal.direction, score: signal.score.total, outcome: "error", error };
