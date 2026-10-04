@@ -4339,6 +4339,234 @@ var bd = $("posCalcBackdrop");
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<style id="paper-css-7">
+.pt-rng{width:100%;margin:8px 0 2px;accent-color:var(--cyan)}
+.pt-lvh{font-size:11px;color:var(--muted);margin:2px 0 8px;min-height:15px}
+.pt-warn{color:var(--yellow)}
+</style>
+<script>
+/* ===== PAPER PART 6A: leverage tiers, Isolated / Cross margin, liquidation ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x5b || P.x6a) return;
+  if (!P.redrawTicket) { console.error('Part 6A: Part 2 Edit I (redrawTicket) not applied'); return; }
+  var $ = function (s) { return document.querySelector(s); };
+  var money = P.money, cls = P.cls, fp = P.fp, r8 = P.r8, E = P.engine, T = P.ticket;
+  var MM_KEY = 'cg_paper_mm', BUF = 0.005;
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  var X = P.x6a = { version: '6A', rows: [], tools: [] };
+
+  /* Bigger positions need more maintenance margin and allow less leverage: [max position value, maintenance rate, max leverage] */
+  var TIERS = [[50000, 0.005, 50], [250000, 0.01, 25], [1000000, 0.025, 10], [5000000, 0.05, 5], [Infinity, 0.1, 2]];
+  function tier(n) {
+    for (var i = 0; i < TIERS.length; i++) if (n <= TIERS[i][0]) return { r: TIERS[i][1], max: TIERS[i][2] };
+    return { r: 0.1, max: 2 };
+  }
+  X.tier = tier;
+  try { T.mm = localStorage.getItem(MM_KEY) === 'CROSS' ? 'CROSS' : 'ISO'; } catch (e) { T.mm = 'ISO'; }
+
+  var isCross = function (p) { return p.mode === 'CROSS'; };
+  var mkOf = function (p) { var m = P.price(p.symbol); return m === null ? p.entry : m; };
+  var uOf = function (p) { return (mkOf(p) - p.entry) * p.qty * dir(p.side); };
+  function owner(p) {
+    var st = P.state(), ids = Object.keys(st.accounts);
+    for (var i = 0; i < ids.length; i++) if (st.accounts[ids[i]].positions.indexOf(p) >= 0) return st.accounts[ids[i]];
+    return P.acc();
+  }
+
+  /* ---------- liquidation maths ---------- */
+  /** Isolated: the position's own margin is all that backs it. */
+  function isoLiq(p) {
+    var q = p.qty, e = p.entry, per = p.margin / q, r = tier(q * e).r;
+    return p.side === 'LONG' ? Math.max(0, (e - per) / (1 - r)) : (e + per) / (1 + r);
+  }
+  /** Cross: wallet balance (minus margin locked in isolated positions) plus open P&L of cross positions. `skip` is left out. */
+  function crossState(acc, skip) {
+    var iso = 0, w = acc.balance, mm = 0, n = 0;
+    acc.positions.forEach(function (p) {
+      if (!isCross(p)) { iso += p.margin || 0; return; }
+      n++;
+      if (p === skip) return;
+      var mk = mkOf(p);
+      w += (mk - p.entry) * p.qty * dir(p.side);
+      mm += tier(p.qty * mk).r * p.qty * mk;
+    });
+    return { w: w - iso, mm: mm, n: n, iso: iso };
+  }
+  /** Price where this cross position (other positions held at their current price) pushes the account to liquidation. 0 = none. */
+  function crossLiq(p, acc, feeAdj) {
+    var s = crossState(acc, p), q = p.qty, e = p.entry, r = tier(q * e).r, w = s.w - (feeAdj || 0);
+    var v = p.side === 'LONG' ? (q * e + s.mm - w) / (q * (1 - r)) : (w + q * e - s.mm) / (q * (1 + r));
+    return Math.max(0, v);
+  }
+  X.isoLiq = isoLiq; X.crossLiq = crossLiq; X.crossState = crossState;
+  P.liqPrice = function (p) { return isCross(p) ? crossLiq(p, owner(p)) : isoLiq(p); };
+  /** Used by the trigger engine: cross positions are liquidated by the account check below, never by a single price. */
+  P.liqCheck = function (p) { return isCross(p) ? (p.side === 'LONG' ? 0 : Infinity) : isoLiq(p); };
+
+  /** Isolated liquidation: position closes at the liquidation price and the margin that is left is taken as liquidation fee. */
+  P.liquidate = function (acc, pos, liq) {
+    var remain = Math.max(0, pos.margin + (liq - pos.entry) * pos.qty * dir(pos.side));
+    var tr = P.closePosition(acc, pos, liq, 0, 'LIQ', 1);
+    if (remain > 0) {
+      acc.balance = r8(acc.balance - remain);
+      P.addTxn(acc, 'FEE', -remain, 'Liquidation fee ' + base(pos.symbol));
+      tr.fees = r8(tr.fees + remain); tr.pnl = r8(tr.pnl - remain);
+      var risk = tr.sl ? Math.abs(tr.entry - tr.sl) * tr.qty : 0;
+      tr.r = risk > 0 ? r8(tr.pnl / risk) : null;
+    }
+    return tr;
+  };
+
+  /* ---------- ticket: leverage slider + margin mode ---------- */
+  P.levHtml = function () {
+    var lev = Math.min(50, Math.max(1, Number(T.lev) || 1)), cross = T.mm === 'CROSS';
+    var chip = function (v, t) { return '<button class="pt-chip' + (T.mm === v ? ' on' : '') + '" data-act="x6-mm" data-v="' + v + '">' + t + '</button>'; };
+    return '<input class="pt-rng" id="pt-x6-levs" type="range" min="1" max="50" step="1" value="' + lev + '" aria-label="Leverage">' +
+      '<div class="pt-lvh" id="pt-x6-levh"></div>' +
+      '<label class="pt-lbl">Margin mode</label><div class="pt-seg">' + chip('ISO', 'Isolated') + chip('CROSS', 'Cross') + '</div>' +
+      '<div class="pt-hint">' + (cross ? 'Cross: your free balance also backs this position. It liquidates later, but a big loss can use your whole balance.' : 'Isolated: only the margin of this position can be lost. Your other balance is safe.') + '</div>';
+  };
+  function syncLev() {
+    var s = $('#pt-x6-levs'), v = Math.min(50, Math.max(1, Number(T.lev) || 1));
+    if (s && Number(s.value) !== v) s.value = v;
+    document.querySelectorAll('[data-act="t-lev"]').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.v) === Number(T.lev)); });
+  }
+  P.acts['x6-mm'] = function (el) {
+    T.mm = el.dataset.v === 'CROSS' ? 'CROSS' : 'ISO';
+    try { localStorage.setItem(MM_KEY, T.mm); } catch (e) { /* ignore */ }
+    P.redrawTicket();
+  };
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'pt-x6-levs') { T.lev = Number(e.target.value); var n = $('#pt-t-lev'); if (n) n.value = T.lev; syncLev(); P.updPreview(); }
+    else if (id === 'pt-t-lev') syncLev();
+  });
+
+  /* ---------- ticket: checks + preview ---------- */
+  var pb = P.buildOrder;
+  P.buildOrder = function () {
+    var out = pb.apply(P, arguments); if (!out.ok) return out;
+    var spec = out.spec, acc = P.acc(), cross = T.mm === 'CROSS';
+    spec.mode = cross ? 'CROSS' : 'ISO';
+    var bad = function (m) { out.ok = false; out.error = m; out.spec = null; return out; };
+    var legs = spec.type === 'OCO' ? spec.legs : [{ side: spec.side, entry: spec.entry, qty: spec.qty, notional: spec.notional, fee: spec.fee }];
+    for (var i = 0; i < legs.length; i++) {
+      var l = legs[i], t = tier(l.notional);
+      if (spec.lev > t.max) return bad('Max leverage for a $' + Math.round(l.notional).toLocaleString('en-US') + ' position is ' + t.max + 'x. Lower the leverage or the size.');
+      if (spec.sl !== null && spec.sl !== undefined) {
+        var lp = { symbol: spec.symbol, side: l.side, qty: l.qty, entry: l.entry, lev: spec.lev, margin: l.notional / spec.lev, mode: spec.mode };
+        var liq = cross ? crossLiq(lp, acc, l.fee) : isoLiq(lp);
+        if (liq > 0 && (l.side === 'LONG' ? spec.sl <= liq : spec.sl >= liq)) return bad('Stop loss is beyond the liquidation price (' + fp(liq) + '). Lower the leverage or move the stop.');
+      }
+    }
+    return out;
+  };
+  P.previewX = function (b) {
+    try {
+      var h = $('#pt-x6-levh'), p = b.prev, lev = Number(T.lev), row = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
+      if (!p || !(lev >= 1)) { if (h) h.textContent = ''; return ''; }
+      var cross = T.mm === 'CROSS', lp = { symbol: P.symbol(), side: T.side, qty: p.qty, entry: p.entry, lev: lev, margin: p.notional / lev, mode: T.mm };
+      var liq = cross ? crossLiq(lp, P.acc(), p.fee) : isoLiq(lp), t = tier(p.notional), dist = liq > 0 ? Math.abs(liq - p.entry) / p.entry * 100 : 0;
+      if (h) h.innerHTML = 'Max ' + t.max + 'x for this size' + (lev > t.max ? ' &middot; <span class="pt-dn">too high, lower it</span>' : (liq > 0 && lev >= 20 ? ' &middot; <span class="pt-warn">High risk: a ' + dist.toFixed(2) + '% move against you liquidates</span>' : ''));
+      return row('Margin mode', cross ? 'Cross' : 'Isolated') + row('Liq. price (est.)', '<span class="pt-dn">' + (liq > 0 ? '$' + fp(liq) + ' (' + dist.toFixed(1) + '% away)' : 'None right now') + '</span>') + row('Maint. margin', (t.r * 100).toFixed(2) + '%');
+    } catch (e) { return ''; }
+  };
+
+  /* ---------- carry the margin mode to pending orders ---------- */
+  var op = P.placeOrder;
+  P.placeOrder = function (spec) {
+    var acc = P.acc(), before = {}; acc.orders.forEach(function (o) { before[o.id] = 1; });
+    var res = op.apply(P, arguments);
+    if (res && res.ok) {
+      acc.orders.forEach(function (o) { if (!before[o.id]) o.mode = (spec.mode || T.mm) === 'CROSS' ? 'CROSS' : 'ISO'; });
+      P.save();
+    }
+    return res;
+  };
+  var pa = P.acts['pos-add'];
+  if (pa) P.acts['pos-add'] = function (el) { var p = P.acc().positions.filter(function (x) { return x.id === el.dataset.id; })[0]; if (p) T.mm = isCross(p) ? 'CROSS' : 'ISO'; return pa.apply(null, arguments); };
+
+  /* ---------- cross liquidation (whole account, checked on every price) ---------- */
+  X.check = function () {
+    var st = P.state(), changed = false, names = [], total = 0;
+    Object.keys(st.accounts).forEach(function (id) {
+      var acc = st.accounts[id], s = crossState(acc, null);
+      if (!s.n || s.w > s.mm) return;
+      var cp = acc.positions.filter(isCross);
+      if (cp.some(function (p) { return P.price(p.symbol) === null; })) return;
+      var slip = acc.fees.slip / 100, mt = cp.reduce(function (a, p) { return a + p.margin; }, 0) || 1, out = [];
+      cp.forEach(function (p) {
+        var exit = P.price(p.symbol) * (1 - dir(p.side) * slip), m = p.margin;
+        out.push({ tr: P.closePosition(acc, p, exit, 0, 'LIQ', 1), m: m }); names.push(base(p.symbol));
+      });
+      var left = Math.max(0, acc.balance - s.iso);
+      if (left > 0) {
+        acc.balance = r8(acc.balance - left);
+        P.addTxn(acc, 'FEE', -left, 'Liquidation (cross)');
+        out.forEach(function (x) { var share = left * x.m / mt; x.tr.fees = r8(x.tr.fees + share); x.tr.pnl = r8(x.tr.pnl - share); });
+      }
+      if (acc.balance < 0) { P.addTxn(acc, 'LIQ', -acc.balance, 'Negative balance covered'); acc.balance = 0; }
+      var n0 = acc.orders.length; acc.orders = acc.orders.filter(function (o) { return o.mode !== 'CROSS'; });
+      P.addLog(acc, 'CROSS LIQUIDATION: ' + cp.length + ' position(s) closed' + (n0 !== acc.orders.length ? ', cross orders cancelled' : ''));
+      out.forEach(function (x) { total += x.tr.pnl; }); changed = true;
+    });
+    if (/^(mrg|lev):/.test(P.ui.edit || '') && !P.acc().positions.filter(function (p) { return p.id === P.ui.edit.split(':')[1]; })[0]) P.ui.edit = null;
+    if (changed) {
+      P.save(); P.toast('LIQUIDATED (Cross) ' + names.join(', ') + ' ' + money(total, 1));
+      if ($('#paperRoot .pt') && !P.ui.edit) P.render();
+      P.emit('position');
+    }
+    return changed;
+  };
+  var c6 = E.check;
+  E.check = function () {
+    var a = c6.apply(E, arguments), b = false;
+    try { b = X.check(); } catch (e) { console.error('Part 6A engine', e); }
+    return a || b;
+  };
+
+  /* ---------- position card: mode, liquidation distance, margin ratio ---------- */
+  function ratio(p) {
+    var mk = mkOf(p), bal, mm;
+    if (isCross(p)) { var s = crossState(owner(p), null); bal = s.w; mm = s.mm; }
+    else { bal = p.margin + uOf(p); mm = tier(p.qty * mk).r * p.qty * mk; }
+    return bal > 0 ? mm / bal * 100 : 999;
+  }
+  var ratioTxt = function (v) { return v >= 100 ? '100%+' : v.toFixed(2) + '%'; };
+  var ratioCls = function (v) { return v >= 80 ? 'pt-dn' : v >= 50 ? 'pt-warn' : 'pt-up'; };
+  X.ratio = ratio;
+  X.rows.push(function (p) {
+    var liq = P.liqPrice(p), mk = mkOf(p), d = liq > 0 ? Math.abs(mk - liq) / mk * 100 : null, rt = ratio(p);
+    return '<div><span>Margin mode</span><b>' + (isCross(p) ? 'Cross' : 'Isolated') + ' &middot; ' + p.lev + 'x</b></div>' +
+      '<div><span>Liq. distance</span><b data-x6="liqd">' + (d === null ? 'None' : d.toFixed(2) + '%') + '</b></div>' +
+      '<div><span>Margin ratio</span><b class="' + ratioCls(rt) + '" data-x6="mr">' + ratioTxt(rt) + '</b></div>';
+  });
+  var px0 = P.posExtra;
+  P.posExtra = function (p) {
+    var rows = X.rows.map(function (f) { try { return f(p); } catch (e) { return ''; } }).join('');
+    var tools = X.tools.map(function (f) { try { return f(p); } catch (e) { return ''; } }).join('');
+    return '<div class="pt-x5">' + rows + '</div>' + (px0 ? px0(p) : '') + tools;
+  };
+  X.live = [];
+  function updLive() {
+    if (P.ui.tab !== 'positions') return;
+    var root = $('#pt-pos'); if (!root) return;
+    P.acc().positions.forEach(function (p) {
+      var card = root.querySelector('[data-pid="' + p.id + '"]'); if (!card) return;
+      var liq = P.liqPrice(p), mk = mkOf(p), rt = ratio(p), el;
+      card.querySelectorAll('.pt-kv > div').forEach(function (c) { var sp = c.querySelector('span'), b = c.querySelector('b'); if (sp && b && sp.textContent === 'Liq. price') b.textContent = liq > 0 ? fp(liq) : '--'; });
+      el = card.querySelector('[data-x6="liqd"]'); if (el) el.textContent = liq > 0 ? (Math.abs(mk - liq) / mk * 100).toFixed(2) + '%' : 'None';
+      el = card.querySelector('[data-x6="mr"]'); if (el) { el.textContent = ratioTxt(rt); el.className = ratioCls(rt); }
+      X.live.forEach(function (f) { try { f(p, card); } catch (e) { /* ignore */ } });
+    });
+  }
+  P.on('prices', updLive);
+
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
