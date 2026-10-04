@@ -908,6 +908,20 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   if (lines.length === 0 && signal.outcomeAt && /_HIT$/.test(String(signal.status))) {
     lines.push(`<small style="display:block;opacity:.8">${dashboardEscape(formatCreated(signal.outcomeAt))}</small>`);
   }
+  const stNow = String(signal.status ?? "");
+  if (
+    signal.outcomeClosed === true &&
+    (stNow === "TP1_HIT" || stNow === "TP2_HIT") &&
+    typeof h.sl !== "number"
+  ) {
+    lines.push(
+      `<small class="down" style="display:block;font-weight:600">MANUAL EXIT 🚪${
+        signal.outcomeAt ? " · " + dashboardEscape(formatCreated(signal.outcomeAt)) : ""
+      }${
+        typeof signal.exit === "number" ? " @ " + dashboardEscape(dashboardPrice(signal.exit)) : ""
+      }</small>`,
+    );
+  }
   return lines.join("");
 };
 
