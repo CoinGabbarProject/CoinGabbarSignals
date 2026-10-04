@@ -11,7 +11,7 @@ import type { SignalFilterStatus, SignalStore } from "../engine/store.js";
 const TIMEFRAMES: readonly Timeframe[] = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"];
 const DIRECTIONS: readonly FinalSignal["direction"][] = ["LONG", "SHORT", "WAIT", "NO_TRADE"];
 const HISTORY_STATUSES: readonly SignalFilterStatus[] = ["ACTIVE", "CANCELLED", "EXPIRED"];
-const MAX_SCAN_SYMBOLS = 50;
+const MAX_SCAN_SYMBOLS = 100;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const one = (v: unknown): string | undefined => (typeof v === "string" ? v.trim() : undefined);
