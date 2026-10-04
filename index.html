@@ -6660,6 +6660,512 @@ X.badge = badge; X.notes = notes;
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<style id="paper-css-12">
+.pt-big{font-size:26px;font-weight:800;line-height:1.1}
+.pt-bd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media(min-width:700px){.pt-bd{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pt-b{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:10px;text-align:center;opacity:.55}
+.pt-b.on{opacity:1;border-color:var(--yellow);background:rgba(255,200,74,.08)}
+.pt-b i{display:block;font-style:normal;font-size:26px;margin-bottom:4px}
+.pt-b b{display:block;font-size:12px}
+.pt-b small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.pt-b em{display:block;height:4px;border-radius:2px;background:var(--panel3);margin-top:7px;overflow:hidden}
+.pt-b em u{display:block;height:100%;background:var(--cyan)}
+.pt-tip{border-left:3px solid var(--yellow);padding:6px 10px;margin:6px 0;font-size:12px;background:var(--panel2);border-radius:0 6px 6px 0}
+</style>
+<script>
+/* ===== PAPER PART 12A: Summary tab + Badges (achievements) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x11b || P.x12) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls, fdate = P.fdate;
+  var DAY = 86400000, KEY = 'cg_paper_ach';
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var sum = function (a, f) { return a.reduce(function (s, x) { return s + f(x); }, 0); };
+  var X = P.x12 = { version: '12A' };
+  var R = P.ui.s = { r: '7d' };
+  var RANGES = [['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['all', 'All']];
+  var RL = { today: 'today', '7d': 'in the last 7 days', '30d': 'in the last 30 days', all: 'yet' };
+  var PL = { today: 'yesterday', '7d': 'the 7 days before', '30d': 'the 30 days before' };
+
+  function dur(ms) { var m = Math.max(0, Math.floor(ms / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24); return d ? d + 'd ' + (h % 24) + 'h' : h ? h + 'h ' + (m % 60) + 'm' : m + 'm'; }
+  function bounds() {
+    var now = Date.now(), d = new Date(); d.setHours(0, 0, 0, 0);
+    if (R.r === 'today') return { from: d.getTime(), len: DAY };
+    if (R.r === '7d') return { from: now - 7 * DAY, len: 7 * DAY };
+    if (R.r === '30d') return { from: now - 30 * DAY, len: 30 * DAY };
+    return { from: 0, len: 0 };
+  }
+
+  /* ---------- trades grouped (a trade with TP1/TP2/manual parts counts once) ---------- */
+  function groups(trades) {
+    var map = {}, out = [];
+    trades.forEach(function (t) {
+      var k = t.opened + '|' + t.symbol + '|' + t.side, g = map[k];
+      if (!g) { g = map[k] = { symbol: t.symbol, side: t.side, opened: t.opened, closed: t.closed, pnl: 0, fees: 0, sl: !!t.sl, src: t.src || 'manual', liq: false, noted: false, noteLoss: false, rs: [] }; out.push(g); }
+      g.pnl += t.pnl; g.fees += t.fees; if (t.closed > g.closed) g.closed = t.closed;
+      if (t.reason === 'LIQ') g.liq = true;
+      if (!!((t.note && String(t.note).trim()) || (t.tags && t.tags.length) || t.rate)) g.noted = true;
+      if (t.r !== null && t.r !== undefined && isFinite(t.r)) g.rs.push(t.r);
+    });
+    out.forEach(function (g) { g.noteLoss = g.noted && g.pnl < 0; });
+    return out.sort(function (a, b) { return a.closed - b.closed; });
+  }
+  function stats(gs) {
+    var n = gs.length, w = gs.filter(function (g) { return g.pnl > 0; }), l = gs.filter(function (g) { return g.pnl < 0; });
+    var gw = sum(w, function (g) { return g.pnl; }), gl = sum(l, function (g) { return g.pnl; }), rr = [];
+    gs.forEach(function (g) { g.rs.forEach(function (x) { rr.push(x); }); });
+    return {
+      n: n, w: w.length, l: l.length, gw: gw, gl: gl, net: gw + gl, fees: sum(gs, function (g) { return g.fees; }),
+      rate: n ? w.length / n * 100 : 0, pf: gl < 0 ? gw / -gl : (gw > 0 ? Infinity : null),
+      avgW: w.length ? gw / w.length : 0, avgL: l.length ? gl / l.length : 0,
+      hold: n ? sum(gs, function (g) { return g.closed - g.opened; }) / n : 0,
+      avgR: rr.length ? sum(rr, function (x) { return x; }) / rr.length : null,
+      slPct: n ? gs.filter(function (g) { return g.sl; }).length / n * 100 : 0,
+      notedPct: n ? gs.filter(function (g) { return g.noted; }).length / n * 100 : 0,
+      liq: gs.filter(function (g) { return g.liq; }).length
+    };
+  }
+
+  /* ---------- Summary tab ---------- */
+  function card(l, v, sub, k) { return '<div class="pt-card"><label>' + l + '</label><strong class="' + (k || '') + '">' + v + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+  function line(lbl, g) { return '<div class="pt-li"><div><b>' + lbl + '</b><small>' + base(g.symbol) + ' ' + esc(g.side) + ' &middot; ' + fdate(g.closed) + '</small></div><b class="' + cls(g.pnl) + '">' + money(g.pnl, 1) + '</b></div>'; }
+  function tips(s, days) {
+    var t = [];
+    if (s.n >= 3 && s.slPct < 70) t.push('Only ' + s.slPct.toFixed(0) + '% of your trades had a stop loss. Set one on every trade.');
+    if (s.n >= 5 && s.w && s.l && -s.avgL > s.avgW) t.push('Your average loss (' + money(-s.avgL) + ') is bigger than your average win (' + money(s.avgW) + '). Cut losers sooner or let winners run.');
+    if (s.liq) t.push(s.liq + ' trade' + (s.liq > 1 ? 's were' : ' was') + ' liquidated. Use lower leverage or a wider stop.');
+    if (s.gw > 0 && s.fees > 0.25 * s.gw) t.push('Fees took ' + (s.fees / s.gw * 100).toFixed(0) + '% of your gross profit. Fewer, better trades can help.');
+    if (s.n / days > 10) t.push('You average ' + (s.n / days).toFixed(0) + ' trades a day. More trades are not always better.');
+    if (s.n >= 5 && s.notedPct < 30) t.push('Only ' + s.notedPct.toFixed(0) + '% of trades have a journal note. Notes show what really works for you.');
+    if (!t.length && s.n >= 3) t.push('Looks disciplined. Keep following your plan.');
+    return t;
+  }
+  function view(acc) {
+    var b = bounds(), all = groups(acc.trades), c = P.calc(acc);
+    var cur = all.filter(function (g) { return g.closed >= b.from; });
+    var prev = b.len ? all.filter(function (g) { return g.closed >= b.from - b.len && g.closed < b.from; }) : null;
+    var s = stats(cur), ps = prev ? stats(prev) : null, days = b.len ? b.len / DAY : c.days;
+    var chips = '<div class="pt-seg">' + RANGES.map(function (r) { return '<button class="pt-chip' + (r[0] === R.r ? ' on' : '') + '" data-act="x12-r" data-v="' + r[0] + '">' + r[1] + '</button>'; }).join('') + '</div>';
+    var verdict = !s.n ? 'No closed trades ' + RL[R.r] + '.' :
+      (s.net > 0 ? 'Profitable' : s.net < 0 ? 'Losing' : 'Break-even') + ' period: ' + s.n + ' trade' + (s.n > 1 ? 's' : '') + ', ' + s.w + ' won and ' + s.l + ' lost (' + s.rate.toFixed(0) + '% win rate).';
+    var head = '<div class="pt-box"><label class="pt-mut" style="font-size:11px">Realized P&amp;L (closed trades, after fees)</label><div class="pt-big ' + cls(s.net) + '">' + money(s.net, 1) + '</div>' +
+      '<div style="font-size:13px;margin-top:6px">' + verdict + '</div>' +
+      (ps && (ps.n || s.n) ? '<div class="pt-mut" style="font-size:12px;margin-top:4px">vs ' + PL[R.r] + ': <b class="' + cls(s.net - ps.net) + '">' + money(s.net - ps.net, 1) + '</b> (was ' + money(ps.net, 1) + ')</div>' : '') +
+      '<div class="pt-mut" style="font-size:12px;margin-top:4px">Account equity ' + money(c.equity) + ' &middot; ' + acc.positions.length + ' open &middot; open P&amp;L <b class="' + cls(c.unreal) + '">' + money(c.unreal, 1) + '</b></div></div>';
+    var pf = s.pf === null ? '-' : s.pf === Infinity ? '&infin;' : s.pf.toFixed(2);
+    var grid = '<div class="pt-grid">' +
+      card('Trades', s.n, s.n ? s.w + 'W / ' + s.l + 'L' : 'None yet') +
+      card('Win rate', s.n ? s.rate.toFixed(0) + '%' : '-', 'Of closed trades') +
+      card('Profit factor', pf, 'Gross win / gross loss', s.pf === null ? '' : s.pf >= 1 ? 'pt-up' : 'pt-dn') +
+      card('Average R', s.avgR === null ? '-' : (s.avgR >= 0 ? '+' : '') + s.avgR.toFixed(2) + 'R', 'Trades with a stop loss', s.avgR === null ? '' : cls(s.avgR)) +
+      card('Avg win', s.w ? money(s.avgW, 1) : '-', 'Per winning trade', s.w ? 'pt-up' : '') +
+      card('Avg loss', s.l ? money(s.avgL, 1) : '-', 'Per losing trade', s.l ? 'pt-dn' : '') +
+      card('Fees paid', money(s.fees), 'Entry + exit') +
+      card('Avg hold', s.n ? dur(s.hold) : '-', 'Per trade') + '</div>';
+
+    var hl = '';
+    if (s.n) {
+      var by = cur.slice().sort(function (a, b2) { return b2.pnl - a.pnl; }), best = by[0], worst = by[by.length - 1];
+      var cm = {}; cur.forEach(function (g) { var m = cm[g.symbol] = cm[g.symbol] || { symbol: g.symbol, side: '', closed: g.closed, pnl: 0, n: 0 }; m.pnl += g.pnl; m.n++; if (g.closed > m.closed) m.closed = g.closed; });
+      var cs = Object.keys(cm).map(function (k) { return cm[k]; }).sort(function (a, b2) { return b2.pnl - a.pnl; });
+      var src = { manual: { n: 0, pnl: 0 }, signal: { n: 0, pnl: 0 } };
+      cur.forEach(function (g) { var k = g.src === 'manual' ? 'manual' : 'signal'; src[k].n++; src[k].pnl += g.pnl; });
+      var srcRow = function (k, lbl) { return src[k].n ? '<div class="pt-li"><div><b>' + lbl + '</b><small>' + src[k].n + ' trade' + (src[k].n > 1 ? 's' : '') + '</small></div><b class="' + cls(src[k].pnl) + '">' + money(src[k].pnl, 1) + '</b></div>' : ''; };
+      hl = '<div class="pt-box"><h3>Highlights</h3><div class="pt-list">' +
+        (best.pnl > 0 ? line('Best trade', best) : '') + (worst.pnl < 0 ? line('Worst trade', worst) : '') +
+        (cs[0].pnl > 0 ? '<div class="pt-li"><div><b>Best coin</b><small>' + cm[cs[0].symbol].n + ' trade' + (cm[cs[0].symbol].n > 1 ? 's' : '') + '</small></div><b class="pt-up">' + base(cs[0].symbol) + ' ' + money(cs[0].pnl, 1) + '</b></div>' : '') +
+        (cs.length > 1 && cs[cs.length - 1].pnl < 0 ? '<div class="pt-li"><div><b>Weakest coin</b><small>' + cm[cs[cs.length - 1].symbol].n + ' trade' + (cm[cs[cs.length - 1].symbol].n > 1 ? 's' : '') + '</small></div><b class="pt-dn">' + base(cs[cs.length - 1].symbol) + ' ' + money(cs[cs.length - 1].pnl, 1) + '</b></div>' : '') +
+        srcRow('manual', 'Manual trades') + srcRow('signal', 'Signal trades') + '</div></div>';
+    }
+    var disc = s.n ? '<div class="pt-box"><h3>Discipline</h3><div class="pt-list">' +
+      '<div class="pt-li"><b>Used a stop loss</b><b class="' + (s.slPct >= 70 ? 'pt-up' : 'pt-warn') + '">' + s.slPct.toFixed(0) + '%</b></div>' +
+      '<div class="pt-li"><b>Journal note added</b><b class="' + (s.notedPct >= 30 ? 'pt-up' : 'pt-warn') + '">' + s.notedPct.toFixed(0) + '%</b></div>' +
+      '<div class="pt-li"><b>Liquidations</b><b class="' + (s.liq ? 'pt-dn' : 'pt-up') + '">' + s.liq + '</b></div></div></div>' : '';
+    var tl = tips(s, days), tp = tl.length ? '<div class="pt-box"><h3>Things to look at</h3>' + tl.map(function (x) { return '<div class="pt-tip">' + x + '</div>'; }).join('') + '</div>' : '';
+    return chips + head + grid + hl + disc + tp + '<div class="pt-hint">Counts closed trades only. A trade with partial closes (TP1, TP2, manual %) counts once. Open P&amp;L is shown in the Dashboard.</div>';
+  }
+
+  /* ---------- Badges ---------- */
+  var B = [
+    { id: 'first', ic: '\uD83C\uDFAF', n: 'First Trade', d: 'Close your first trade', cur: function (x) { return x.n; }, max: 1 },
+    { id: 'win1', ic: '\u2705', n: 'First Win', d: 'Close a trade in profit', cur: function (x) { return x.w; }, max: 1 },
+    { id: 't10', ic: '\uD83D\uDD1F', n: '10 Trades', d: 'Close 10 trades', cur: function (x) { return x.n; }, max: 10 },
+    { id: 't50', ic: '\uD83D\uDCAA', n: '50 Trades', d: 'Close 50 trades', cur: function (x) { return x.n; }, max: 50 },
+    { id: 't100', ic: '\uD83C\uDFC5', n: '100 Trades', d: 'Close 100 trades', cur: function (x) { return x.n; }, max: 100 },
+    { id: 'st3', ic: '\uD83D\uDD25', n: 'Hot Streak', d: '3 winning trades in a row', cur: function (x) { return x.stW; }, max: 3 },
+    { id: 'st5', ic: '\u26A1', n: 'On Fire', d: '5 winning trades in a row', cur: function (x) { return x.stW; }, max: 5 },
+    { id: 'st10', ic: '\uD83D\uDE80', n: 'Unstoppable', d: '10 winning trades in a row', cur: function (x) { return x.stW; }, max: 10 },
+    { id: 'sl10', ic: '\uD83D\uDEE1\uFE0F', n: 'Safety First', d: '10 trades in a row with a stop loss', cur: function (x) { return x.slRun; }, max: 10 },
+    { id: 'sl30', ic: '\uD83E\uDDF1', n: 'Risk Manager', d: '30 trades in a row with a stop loss', cur: function (x) { return x.slRun; }, max: 30 },
+    { id: 'jn5', ic: '\u270D\uFE0F', n: 'Journaler', d: 'Add notes to 5 trades', cur: function (x) { return x.noted; }, max: 5 },
+    { id: 'jn20', ic: '\uD83D\uDCD3', n: 'Reflective', d: 'Add notes to 20 trades', cur: function (x) { return x.noted; }, max: 20 },
+    { id: 'learn', ic: '\uD83E\uDDE0', n: 'Learned a Lesson', d: 'Write a note on a losing trade', cur: function (x) { return x.notedLoss; }, max: 1 },
+    { id: 'r2', ic: '\u2696\uFE0F', n: 'Good Reward', d: 'A winning trade of 2R or more', cur: function (x) { return x.maxR; }, max: 2, u: 'R' },
+    { id: 'r3', ic: '\uD83D\uDC8E', n: 'Big Winner', d: 'A winning trade of 3R or more', cur: function (x) { return x.maxR; }, max: 3, u: 'R' },
+    { id: 'roi5', ic: '\uD83D\uDCC8', n: '+5% Account', d: 'Reach +5% return', cur: function (x) { return Math.max(0, x.roi); }, max: 5, u: '%' },
+    { id: 'roi10', ic: '\uD83C\uDF1F', n: '+10% Account', d: 'Reach +10% return', cur: function (x) { return Math.max(0, x.roi); }, max: 10, u: '%' },
+    { id: 'roi25', ic: '\uD83C\uDFC6', n: '+25% Account', d: 'Reach +25% return', cur: function (x) { return Math.max(0, x.roi); }, max: 25, u: '%' },
+    { id: 'coins5', ic: '\uD83C\uDF10', n: 'Diversified', d: 'Trade 5 different coins', cur: function (x) { return x.coins; }, max: 5 },
+    { id: 'sig1', ic: '\uD83D\uDCE1', n: 'Signal Follower', d: 'Close a trade taken from a signal', cur: function (x) { return x.sig; }, max: 1 },
+    { id: 'sig10', ic: '\uD83C\uDF96\uFE0F', n: 'Signal Pro', d: '10 winning signal trades', cur: function (x) { return x.sigW; }, max: 10 },
+    { id: 'patient', ic: '\u23F3', n: 'Patient Trader', d: 'Hold a winning trade for 24 hours or more', cur: function (x) { return x.holdW; }, max: 24, u: 'h' },
+    { id: 'green5', ic: '\uD83D\uDCC5', n: 'Consistent', d: '5 profitable days', cur: function (x) { return x.green; }, max: 5 },
+    { id: 'edge', ic: '\uD83E\uDDEE', n: 'Real Edge', d: 'Profit factor 1.5+ after 20 trades', cur: function (x) { return x.n >= 20 && x.pf !== null && x.pf >= 1.5 ? 1 : 0; }, max: 1 },
+    { id: 'survive', ic: '\uD83E\uDDD7', n: 'Survivor', d: '30 days and 10+ trades with no liquidation', cur: function (x) { return x.liq || x.n < 10 ? 0 : Math.min(30, x.days); }, max: 30, u: ' days' }
+  ];
+  function bctx(acc) {
+    var gs = groups(acc.trades), c = P.calc(acc), st = stats(gs);
+    var x = { n: gs.length, w: 0, stW: 0, slRun: 0, noted: 0, notedLoss: 0, sig: 0, sigW: 0, maxR: 0, holdW: 0, coins: 0, green: 0, roi: c.roi, pf: st.pf, liq: st.liq, days: c.days };
+    var cw = 0, sr = 0, coins = {}, dayNet = {};
+    gs.forEach(function (g) {
+      coins[g.symbol] = 1;
+      if (g.pnl > 0) {
+        x.w++; cw++; if (cw > x.stW) x.stW = cw;
+        g.rs.forEach(function (r) { if (r > x.maxR) x.maxR = r; });
+        var h = (g.closed - g.opened) / 3600000; if (h > x.holdW) x.holdW = h;
+        if (g.src !== 'manual') x.sigW++;
+      } else cw = 0;
+      if (g.sl) { sr++; if (sr > x.slRun) x.slRun = sr; } else sr = 0;
+      if (g.noted) x.noted++;
+      if (g.noteLoss) x.notedLoss++;
+      if (g.src !== 'manual') x.sig++;
+      var dk = new Date(g.closed).toDateString(); dayNet[dk] = (dayNet[dk] || 0) + g.pnl;
+    });
+    x.coins = Object.keys(coins).length;
+    Object.keys(dayNet).forEach(function (k) { if (dayNet[k] > 0) x.green++; });
+    return x;
+  }
+  function loadStore() { var s = null; try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; } return s && typeof s === 'object' ? s : {}; }
+  function saveStore(s) {
+    var accs = P.state().accounts;
+    Object.keys(s).forEach(function (id) { if (!accs[id]) delete s[id]; });
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* storage full or blocked */ }
+  }
+  var save0 = P.save, tm = 0;
+  function check(announce) {
+    var acc = P.acc(), st = loadStore(), first = !st[acc.id], mine = st[acc.id] = st[acc.id] || {}, x = bctx(acc), fresh = [];
+    B.forEach(function (b) { if (!mine[b.id] && b.cur(x) >= b.max) { mine[b.id] = Date.now(); fresh.push(b); } });
+    if (fresh.length || first) { saveStore(st); label(); }
+    if (fresh.length && announce && !first) {
+      fresh.forEach(function (b) { P.addLog(acc, 'Badge unlocked: ' + b.n); });
+      save0.call(P);
+      var names = fresh.slice(0, 2).map(function (b) { return b.ic + ' ' + b.n; }).join(', ') + (fresh.length > 2 ? ' +' + (fresh.length - 2) + ' more' : '');
+      setTimeout(function () { P.toast('Badge unlocked: ' + names); }, 2300);
+    }
+    return fresh;
+  }
+  P.save = function () {
+    save0.apply(P, arguments);
+    clearTimeout(tm); tm = setTimeout(function () { try { check(true); } catch (e) { console.error(e); } }, 400);
+  };
+  var fmt = function (n) { return String(Math.floor(n * 10) / 10); };
+  function badgesView(acc) {
+    var mine = loadStore()[acc.id] || {}, x = bctx(acc);
+    var list = B.slice().sort(function (a, b) {
+      var ua = mine[a.id] || 0, ub = mine[b.id] || 0;
+      if (ua && ub) return ub - ua;
+      if (ua || ub) return ub ? 1 : -1;
+      return Math.min(1, b.cur(x) / b.max) - Math.min(1, a.cur(x) / a.max);
+    });
+    var got = B.filter(function (b) { return mine[b.id]; }).length;
+    return '<div class="pt-box"><h3>Badges ' + got + ' / ' + B.length + '</h3><div style="height:8px;border-radius:4px;background:var(--panel2);overflow:hidden"><b style="display:block;height:100%;width:' + (got / B.length * 100).toFixed(0) + '%;background:var(--yellow)"></b></div>' +
+      '<div class="pt-hint" style="margin-top:8px">Earned from your closed trades on this account. Badges stay after an account reset.</div></div>' +
+      '<div class="pt-bd">' + list.map(function (b) {
+        var t = mine[b.id], cur = Math.min(b.max, b.cur(x)), prog = b.max > 1;
+        return '<div class="pt-b' + (t ? ' on' : '') + '"><i>' + b.ic + '</i><b>' + esc(b.n) + '</b><small>' + esc(b.d) + '</small>' +
+          (t ? '<small class="pt-up">Unlocked ' + fdate(t) + '</small>' : prog ? '<em><u style="width:' + (cur / b.max * 100).toFixed(0) + '%"></u></em><small>' + fmt(cur) + ' / ' + b.max + (b.u || '') + '</small>' : '<small>Not yet</small>') + '</div>';
+      }).join('') + '</div>';
+  }
+  function label() {
+    var mine = loadStore()[P.acc().id] || {}, n = B.filter(function (b) { return mine[b.id]; }).length, text = 'Badges (' + n + '/' + B.length + ')';
+    P.addTab('badges', text, 37, badgesView);
+    var b = $('[data-act="tab"][data-id="badges"]'); if (b) b.textContent = text;
+  }
+
+  P.acts['x12-r'] = function (el) { if (RANGES.some(function (r) { return r[0] === el.dataset.v; })) R.r = el.dataset.v; P.render(); };
+  X.badges = B;
+  P.addTab('summary', 'Summary', 36, view);
+  label();
+  check(false);
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
+<style id="paper-css-12b">
+.pt button:focus-visible,.pt select:focus-visible,.pt input:focus-visible,.pt textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.pt button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.pt-btn:disabled{opacity:.45}
+.pt strong,.pt b{font-variant-numeric:tabular-nums}
+.pt textarea.pt-in{font-family:inherit;resize:vertical}
+.pt-foot{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5}
+.pt-toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));max-width:90vw;text-align:center}
+@media(max-width:420px){.pt-big{font-size:22px}}
+@media(prefers-reduced-motion:reduce){.pt *{transition:none!important;animation:none!important}}
+</style>
+<script>
+/* ===== PAPER PART 12B: Share card + final polish (backup/restore, storage check, small fixes) ===== */
+(function () {
+  var P = window.PAPER;
+  if (!P || !P.x12 || P.x12.b) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money;
+  var DAY = 86400000, KEY = 'cg_paper_v1', UK = 'cg_paper_ui12';
+  var X = P.x12; X.b = true; X.version = '12B';
+  var A = P.acts;
+  var SH = P.ui.sh = { amt: false, name: true };
+  var PN = { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', all: 'All time' };
+  var pfTxt = function (v) { return v === null ? '-' : v === Infinity ? '\u221E' : v.toFixed(2); };
+  var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+  var stamp = function () { var d = new Date(); return d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()); };
+
+  /* ---------- small helpers ---------- */
+  function copy(text, okMsg) {
+    function fallback() {
+      var t = document.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(t); t.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      t.remove(); P.toast(ok ? okMsg : 'Copy failed. Use Download instead.');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { P.toast(okMsg); }, fallback);
+    else fallback();
+  }
+  function download(blob, name) {
+    var u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+
+  /* ---------- share card: data ---------- */
+  function range() {
+    var r = (P.ui.s && P.ui.s.r) || '7d', d = new Date(), now = Date.now(); d.setHours(0, 0, 0, 0);
+    return { r: PN[r] ? r : '7d', from: r === 'today' ? d.getTime() : r === '7d' ? now - 7 * DAY : r === '30d' ? now - 30 * DAY : 0 };
+  }
+  function gro(trades) {
+    var map = {}, out = [];
+    trades.forEach(function (t) {
+      var k = t.opened + '|' + t.symbol + '|' + t.side, g = map[k];
+      if (!g) { g = map[k] = { closed: t.closed, pnl: 0, rs: [] }; out.push(g); }
+      g.pnl += t.pnl; if (t.closed > g.closed) g.closed = t.closed;
+      if (t.r !== null && t.r !== undefined && isFinite(t.r)) g.rs.push(t.r);
+    });
+    return out.sort(function (a, b) { return a.closed - b.closed; });
+  }
+  function cardData(acc) {
+    var rg = range(), gs = gro(acc.trades).filter(function (g) { return g.closed >= rg.from; }), c = P.calc(acc);
+    var gw = 0, gl = 0, w = 0, best = 0, rs = [], run = 0, pts = [0];
+    gs.forEach(function (g) {
+      if (g.pnl > 0) { gw += g.pnl; w++; } else if (g.pnl < 0) gl += g.pnl;
+      if (g.pnl > best) best = g.pnl;
+      g.rs.forEach(function (x) { rs.push(x); });
+      run += g.pnl; pts.push(run);
+    });
+    var net = gw + gl, n = gs.length;
+    return {
+      label: PN[rg.r], n: n, rate: n ? w / n * 100 : 0, net: net, ret: c.funded > 0 ? net / c.funded * 100 : 0,
+      pf: gl < 0 ? gw / -gl : (gw > 0 ? Infinity : null),
+      avgR: rs.length ? rs.reduce(function (s, x) { return s + x; }, 0) / rs.length : null, best: best, pts: pts
+    };
+  }
+  function textOf(acc) {
+    var d = cardData(acc);
+    if (!d.n) return 'Paper trading: no closed trades yet.';
+    var parts = [SH.amt ? money(d.net, 1) : (d.ret >= 0 ? '+' : '') + d.ret.toFixed(2) + '%', d.n + ' trade' + (d.n > 1 ? 's' : ''), d.rate.toFixed(0) + '% win', 'PF ' + pfTxt(d.pf)];
+    return 'My paper trading, ' + d.label.toLowerCase() + ': ' + parts.join(' \u00B7 ') + ' (virtual money)';
+  }
+
+  /* ---------- share card: drawing (canvas, no libraries) ---------- */
+  function rrect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function draw(cv, acc) {
+    var ctx = cv.getContext('2d'); if (!ctx) return;
+    var d = cardData(acc), W = cv.width, H = cv.height, F = '"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+    var G = '#19df91', RD = '#ff5266', T = '#eaf6ff', M = '#7e9bb3', col = d.net > 0 ? G : d.net < 0 ? RD : T;
+    var bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#06121d'); bg.addColorStop(1, '#0c2a44');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); ctx.textBaseline = 'alphabetic';
+
+    ctx.textAlign = 'left'; ctx.fillStyle = '#7fd6ff'; ctx.font = '700 34px ' + F; ctx.fillText('\u25C8 CoinGabbar Paper Trading', 72, 110);
+    ctx.textAlign = 'right'; ctx.fillStyle = M; ctx.font = '600 30px ' + F; ctx.fillText(d.label, W - 72, 110);
+    if (SH.name) { ctx.textAlign = 'left'; ctx.fillStyle = M; ctx.font = '600 30px ' + F; ctx.fillText(String(acc.name).slice(0, 24), 72, 164); }
+
+    ctx.textAlign = 'left'; ctx.fillStyle = M; ctx.font = '600 32px ' + F; ctx.fillText(SH.amt ? 'Realized P&L' : 'Return on funds', 72, 262);
+    var retTxt = (d.ret >= 0 ? '+' : '') + d.ret.toFixed(2) + '%';
+    var big = !d.n ? '\u2014' : SH.amt ? money(d.net, 1) : retTxt, size = 150;
+    ctx.fillStyle = d.n ? col : M;
+    for (; size > 50; size -= 6) { ctx.font = '800 ' + size + 'px ' + F; if (ctx.measureText(big).width <= W - 144) break; }
+    ctx.fillText(big, 68, 400);
+    ctx.fillStyle = M; ctx.font = '600 32px ' + F;
+    ctx.fillText(!d.n ? 'No closed trades in this period' : (SH.amt ? retTxt + ' return \u00B7 ' : '') + d.n + ' trade' + (d.n > 1 ? 's' : ''), 72, 455);
+
+    var bx = 72, by = 500, bw = 936, bh = 250;
+    rrect(ctx, bx, by, bw, bh, 20); ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fill();
+    if (d.pts.length >= 2) {
+      var lo = Math.min.apply(null, d.pts.concat([0])), hi = Math.max.apply(null, d.pts.concat([0])), L = d.pts.length - 1;
+      var xs = function (i) { return bx + 30 + i / L * (bw - 60); };
+      var ys = function (v) { return by + 30 + (hi - v) / ((hi - lo) || 1) * (bh - 60); };
+      ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(126,155,179,.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(bx + 30, ys(0)); ctx.lineTo(bx + bw - 30, ys(0)); ctx.stroke(); ctx.setLineDash([]);
+      var ar = ctx.createLinearGradient(0, by, 0, by + bh); ar.addColorStop(0, d.net >= 0 ? 'rgba(25,223,145,.35)' : 'rgba(255,82,102,.35)'); ar.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath(); d.pts.forEach(function (v, i) { if (i) ctx.lineTo(xs(i), ys(v)); else ctx.moveTo(xs(i), ys(v)); });
+      ctx.lineTo(xs(L), by + bh - 30); ctx.lineTo(xs(0), by + bh - 30); ctx.closePath(); ctx.fillStyle = ar; ctx.fill();
+      ctx.beginPath(); d.pts.forEach(function (v, i) { if (i) ctx.lineTo(xs(i), ys(v)); else ctx.moveTo(xs(i), ys(v)); });
+      ctx.strokeStyle = col === T ? G : col; ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.stroke();
+    } else {
+      ctx.textAlign = 'center'; ctx.fillStyle = M; ctx.font = '600 28px ' + F; ctx.fillText('Close a trade to see your curve', bx + bw / 2, by + bh / 2 + 10);
+    }
+
+    var boxes = [['Win rate', d.n ? d.rate.toFixed(0) + '%' : '-'], ['Trades', String(d.n)], ['Profit factor', pfTxt(d.pf)],
+      SH.amt ? ['Best trade', d.n ? money(d.best, 1) : '-'] : ['Avg R', d.avgR === null ? '-' : (d.avgR >= 0 ? '+' : '') + d.avgR.toFixed(2) + 'R']];
+    var cw = 220, gap = (bw - 4 * cw) / 3;
+    boxes.forEach(function (b, i) {
+      var x = bx + i * (cw + gap);
+      rrect(ctx, x, 790, cw, 150, 18); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fill();
+      ctx.textAlign = 'left'; ctx.fillStyle = M; ctx.font = '600 24px ' + F; ctx.fillText(b[0], x + 20, 838);
+      var s2 = 54; ctx.fillStyle = T;
+      for (; s2 > 26; s2 -= 4) { ctx.font = '800 ' + s2 + 'px ' + F; if (ctx.measureText(b[1]).width <= cw - 40) break; }
+      ctx.fillText(b[1], x + 20, 910);
+    });
+    ctx.fillStyle = M; ctx.font = '500 24px ' + F; ctx.textAlign = 'left';
+    ctx.fillText('Virtual money \u00B7 simulated fills \u00B7 not financial advice', 72, 1018);
+    ctx.textAlign = 'right'; ctx.fillText(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), W - 72, 1018);
+  }
+  function shareBox(acc) {
+    var d = cardData(acc), off = d.n ? '' : ' disabled';
+    return '<div class="pt-box"><h3>Share Card</h3><div class="pt-hint">Uses the period chosen above. $ amounts are hidden by default, so it is safe to post.</div>' +
+      '<div class="pt-seg"><button class="pt-chip' + (SH.amt ? ' on' : '') + '" data-act="x12b-amt">Show $ amounts</button><button class="pt-chip' + (SH.name ? ' on' : '') + '" data-act="x12b-name">Show account name</button></div>' +
+      '<canvas id="x12-cv" width="1080" height="1080" role="img" aria-label="Share card preview" style="width:100%;height:auto;display:block;border-radius:10px;border:1px solid var(--line)"></canvas>' +
+      '<div class="pt-row"><button class="pt-btn pri"' + off + ' data-act="x12b-dl">Download image</button><button class="pt-btn"' + off + ' data-act="x12b-sh">Share</button><button class="pt-btn"' + off + ' data-act="x12b-ct">Copy text</button></div></div>';
+  }
+  A['x12b-amt'] = function () { SH.amt = !SH.amt; P.render(); };
+  A['x12b-name'] = function () { SH.name = !SH.name; P.render(); };
+  A['x12b-dl'] = function () {
+    var cv = $('#x12-cv'); if (!cv) return;
+    cv.toBlob(function (bl) { if (!bl) return P.toast('Could not make the image'); download(bl, 'paper-card-' + stamp() + '.png'); }, 'image/png');
+  };
+  A['x12b-sh'] = function () {
+    var cv = $('#x12-cv'); if (!cv) return;
+    var txt = textOf(P.acc());
+    cv.toBlob(function (bl) {
+      var f = null; try { if (bl) f = new File([bl], 'paper-card-' + stamp() + '.png', { type: 'image/png' }); } catch (e) { f = null; }
+      if (f && navigator.share && navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: txt }).catch(function () { /* cancelled */ });
+      else if (navigator.share) navigator.share({ text: txt }).catch(function () { /* cancelled */ });
+      else P.toast('Sharing is not supported here. Use Download image.');
+    }, 'image/png');
+  };
+  A['x12b-ct'] = function () { copy(textOf(P.acc()), 'Text copied'); };
+
+  /* ---------- backup & restore (all accounts, this browser only) ---------- */
+  function bmsg(t, bad) { var m = $('#x12b-msg'); if (!m) return; m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; }
+  function backupText() { return JSON.stringify({ app: 'cg-paper', v: 1, exported: new Date().toISOString(), state: P.state() }); }
+  function validate(st) {
+    if (!st || typeof st !== 'object' || !st.accounts || typeof st.accounts !== 'object') return 'This file has no accounts in it.';
+    var ids = Object.keys(st.accounts), arrs = ['positions', 'orders', 'trades', 'log', 'archive', 'txns'], i, j, a, k;
+    if (!ids.length) return 'This file has no accounts in it.';
+    if (ids.length > 5) return 'This file has more than 5 accounts.';
+    for (i = 0; i < ids.length; i++) {
+      a = st.accounts[ids[i]];
+      if (!a || typeof a !== 'object' || a.id !== ids[i]) return 'Account data is damaged.';
+      if (typeof a.name !== 'string' || !isFinite(a.balance) || !isFinite(a.start)) return 'Account data is damaged.';
+      if (!a.fees || !isFinite(a.fees.maker) || !isFinite(a.fees.taker) || !isFinite(a.fees.slip)) return 'Account fee settings are damaged.';
+      for (k = 0; k < arrs.length; k++) if (!Array.isArray(a[arrs[k]])) return 'Account "' + a.name + '" is missing ' + arrs[k] + '.';
+      for (j = 0; j < a.trades.length; j++) { var t = a.trades[j]; if (!t || typeof t.symbol !== 'string' || !isFinite(t.pnl) || !isFinite(t.closed) || !isFinite(t.opened)) return 'A trade record is damaged.'; }
+      for (j = 0; j < a.positions.length; j++) { var p = a.positions[j]; if (!p || typeof p.symbol !== 'string' || !isFinite(p.entry) || !isFinite(p.qty) || (p.side !== 'LONG' && p.side !== 'SHORT')) return 'An open position record is damaged.'; }
+      for (j = 0; j < a.txns.length; j++) { var x = a.txns[j]; if (!x || typeof x.type !== 'string' || !isFinite(x.amt)) return 'A wallet record is damaged.'; }
+      a.name = a.name.slice(0, 24) || 'Account';
+    }
+    if (!st.accounts[st.active]) st.active = ids[0];
+    return null;
+  }
+  function backupBox() {
+    var n = Object.keys(P.state().accounts).length, size = 0;
+    try { size = (localStorage.getItem(KEY) || '').length; } catch (e) { size = 0; }
+    return '<div class="pt-box"><h3>Backup &amp; Restore</h3><div class="pt-hint">Your paper data is saved only in this browser. Clearing site data or using another device loses it. Download a backup once in a while.</div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-bottom:6px">' + n + ' account' + (n > 1 ? 's' : '') + ' &middot; ' + (size / 1024).toFixed(0) + ' KB saved</div>' +
+      '<div class="pt-row"><button class="pt-btn grn" data-act="x12b-bdl">Download backup</button><button class="pt-btn" data-act="x12b-bcp">Copy backup</button></div>' +
+      '<div class="pt-mut" style="font-size:12px;margin:12px 0 4px">Restore from a backup</div>' +
+      '<div class="pt-row"><input type="file" class="pt-in" id="x12b-file" accept=".json,application/json"></div>' +
+      '<textarea class="pt-in" id="x12b-txt" rows="3" style="width:100%" placeholder="...or paste the backup text here"></textarea>' +
+      '<div class="pt-row"><button class="pt-btn red" data-act="x12b-imp">Restore (replaces everything)</button></div>' +
+      '<div class="pt-msg" id="x12b-msg"></div>' +
+      '<div class="pt-hint">Backup has all accounts, trades, journal notes and wallet history. Alert settings and badges are kept separately and are not included.</div></div>';
+  }
+  A['x12b-bdl'] = function () { download(new Blob([backupText()], { type: 'application/json' }), 'paper-backup-' + stamp() + '.json'); P.toast('Backup downloaded'); };
+  A['x12b-bcp'] = function () { copy(backupText(), 'Backup copied'); };
+  A['x12b-imp'] = function () {
+    var ta = $('#x12b-txt'), raw = ta ? ta.value.trim() : '';
+    if (!raw) return bmsg('Choose a file or paste the backup first.', true);
+    if (raw.length > 6000000) return bmsg('This file is too big.', true);
+    var j; try { j = JSON.parse(raw); } catch (e) { return bmsg('This is not a valid backup.', true); }
+    var st = j && j.state ? j.state : j, err = validate(st);
+    if (err) return bmsg(err, true);
+    var have = Object.keys(P.state().accounts).length, got = Object.keys(st.accounts).length;
+    if (!window.confirm('Replace ALL current paper data (' + have + ' account' + (have > 1 ? 's' : '') + ') with this backup (' + got + ' account' + (got > 1 ? 's' : '') + ')? This cannot be undone. Tip: download a backup of the current data first.')) return;
+    var old = P.save; P.save = function () { /* frozen while restoring */ };
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { P.save = old; return bmsg('Browser storage is full. Nothing was changed.', true); }
+    location.reload();
+  };
+  document.addEventListener('change', function (e) {
+    if (!e.target || e.target.id !== 'x12b-file') return;
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    if (f.size > 6000000) return bmsg('This file is too big.', true);
+    var rd = new FileReader();
+    rd.onload = function () { var ta = $('#x12b-txt'); if (ta) ta.value = String(rd.result || ''); bmsg('File loaded. Tap Restore to continue.', false); };
+    rd.onerror = function () { bmsg('Could not read this file.', true); };
+    rd.readAsText(f);
+  });
+
+  /* ---------- storage check: warns if the browser stops saving ---------- */
+  var bad = false, ht = 0, s0 = P.save;
+  function verify() {
+    var ok = true;
+    try { ok = (localStorage.getItem(KEY) || '').indexOf('"sv":' + P.state().sv) >= 0; } catch (e) { ok = false; }
+    if (!ok && !bad) { bad = true; P.toast('Storage is full or blocked. Download a backup now.'); if ($('#paperRoot .pt')) P.render(); }
+    else if (ok && bad) { bad = false; if ($('#paperRoot .pt')) P.render(); }
+  }
+  P.save = function () {
+    try { P.state().sv = Date.now(); } catch (e) { /* ignore */ }
+    s0.apply(P, arguments);
+    clearTimeout(ht); ht = setTimeout(verify, 1500);
+  };
+
+  /* ---------- tabs: add the new boxes ---------- */
+  var sm = P.tabs.filter(function (t) { return t.id === 'summary'; })[0];
+  if (sm) { var sr = sm.render; P.addTab('summary', 'Summary', 36, function (acc) { return sr(acc) + shareBox(acc); }); }
+  var ac = P.tabs.filter(function (t) { return t.id === 'accounts'; })[0];
+  if (ac) { var ar = ac.render; P.addTab('accounts', 'Accounts', 90, function (acc) { return ar(acc) + backupBox(); }); }
+
+  /* ---------- after every render: card, footer, warning, active tab in view, remember tab ---------- */
+  var FOOT = '<div class="pt-foot">Virtual money only. Prices come from Binance public data and fills are simulated, so real trading can differ (slippage, liquidity, funding, outages). Nothing here is financial advice.</div>';
+  var WARN = '<div class="pt-banner" style="border-color:var(--red);color:var(--red)"><span>Storage is full or blocked</span><small>Your paper data is not being saved. Open Accounts and download a backup.</small></div>';
+  function post() {
+    var pt = $('#paperRoot .pt'); if (!pt) return;
+    if (P.ui.tab === 'summary') { var cv = $('#x12-cv'); if (cv) draw(cv, P.acc()); }
+    pt.insertAdjacentHTML('beforeend', FOOT);
+    if (bad) pt.insertAdjacentHTML('afterbegin', WARN);
+    var on = $('#paperRoot .pt-tab.on');
+    if (on && on.parentNode) { var bar = on.parentNode; bar.scrollLeft += (on.getBoundingClientRect().left - bar.getBoundingClientRect().left) - (bar.clientWidth - on.offsetWidth) / 2; }
+    try { localStorage.setItem(UK, P.ui.tab); } catch (e) { /* ignore */ }
+  }
+  var r0 = P.render;
+  P.render = function () {
+    var ta = document.getElementById('x12b-txt'), v = ta ? ta.value : '';
+    var r = r0.apply(P, arguments);
+    try {
+      if (v && P.ui.tab === 'accounts') { var n = document.getElementById('x12b-txt'); if (n) n.value = v; }
+      post();
+    } catch (e) { console.error(e); }
+    return r;
+  };
+
+  /* open on the tab you used last time */
+  try { var last = localStorage.getItem(UK); if (last && P.tabs.some(function (t) { return t.id === last; })) P.ui.tab = last; } catch (e) { /* ignore */ }
+
+  P.save();
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
