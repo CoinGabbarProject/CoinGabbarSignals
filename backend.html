@@ -398,7 +398,7 @@ async function signalsView() {
       <td>${esc(s.timeframe)}</td><td>${esc(s.score)}/100</td>
       <td>${esc(s.entry)}</td><td>${esc(s.stop)}</td>
       <td>${esc((s.targets || []).join(", "))}</td>
-      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span>${s.outcomeClosed && ["TP1_HIT", "TP2_HIT"].includes(s.status) && !(s.hits && s.hits.sl) ? '<br><span class="status danger">MANUAL EXIT</span>' : ""}</td>
+      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span>${s.outcomeClosed && ["TP1_HIT", "TP2_HIT"].includes(s.status) && !(s.hits && s.hits.sl) ? `<br><small style="opacity:.8;font-size:8px">Exit${s.outcomeAt ? " · " + new Date(s.outcomeAt).toLocaleString() : ""}${s.exit != null ? " @ " + esc(s.exit) : ""}</small>` : ""}</td>
       <td>${new Date(s.createdAt).toLocaleString()}</td>
       <td>${s.source === "engine" && ["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(s.status) && !s.outcomeClosed ? `<button class="btn" data-exit="${esc(s.id)}">Exit</button>` : ""}</td></tr>`).join("");
     host.innerHTML = `<div class="panel"><div class="ph"><b>Signals</b><span>${d.count} records</span></div>
@@ -765,7 +765,7 @@ async function loadDashboard() {
     if (d.signals.length) tb.innerHTML = d.signals.slice(0, 6).map(s => `<tr>
       <td>${esc(s.symbol)}</td><td class="${s.side === "LONG" ? "green" : "red"}">${esc(s.side)}</td>
       <td>${esc(s.score)}/100</td>
-      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span>${s.outcomeClosed && ["TP1_HIT", "TP2_HIT"].includes(s.status) && !(s.hits && s.hits.sl) ? '<br><span class="status danger">MANUAL EXIT</span>' : ""}</td>
+      <td><span class="status ${s.status === "ACTIVE" ? "active" : "neutral"}">${esc(s.status)}</span>${s.outcomeClosed && ["TP1_HIT", "TP2_HIT"].includes(s.status) && !(s.hits && s.hits.sl) ? `<br><small style="opacity:.8;font-size:8px">Exit${s.outcomeAt ? " · " + new Date(s.outcomeAt).toLocaleString() : ""}${s.exit != null ? " @ " + esc(s.exit) : ""}</small>` : ""}</td>
       <td>${new Date(s.createdAt).toLocaleTimeString()}</td></tr>`).join("");
   } catch (e) { console.error(e); }
 }
