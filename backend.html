@@ -110,6 +110,49 @@
   min-height:16px;
 }
 </style>
+<script>
+try { var t = JSON.parse(localStorage.getItem("cg_theme")); } catch (e) { var t = null; }
+document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+</script>
+<style id="themeCss">
+html[data-theme="light"]{--bg:#f4f7fb;--panel:#fff;--panel2:#f1f5f9;--panel3:#e8eef6;--line:#d9e2ec;--text:#0f172a;--muted:#64748b;--soft:#475569;--cyan:#0b7fb8;--green:#0f9d6a;--red:#d92d45;--yellow:#b7791f;--orange:#c2641a;--purple:#6d4fd6}
+html[data-theme="light"],html[data-theme="light"] body{background:#f4f7fb;color:var(--text)}
+html[data-theme="light"] .app{background:#f4f7fb}
+html[data-theme="light"] .top{background:#fff;border-bottom-color:#d9e2ec}
+html[data-theme="light"] .brand b{color:#0f172a}
+html[data-theme="light"] .toplinks a{color:#64748b}
+html[data-theme="light"] .toplinks a.active{color:#0f172a;background:transparent}
+html[data-theme="light"] .env{background:#e3f8ee;border-color:#9fdcc3;color:#087a52}
+html[data-theme="light"] .user,html[data-theme="light"] .menu{background:#f1f5f9;border-color:#d0dae6;color:#0f172a}
+html[data-theme="light"] .side{background:#fff;border-right-color:#d9e2ec}
+html[data-theme="light"] .side h4{color:#7a8ba0}
+html[data-theme="light"] .nav{color:#475569}
+html[data-theme="light"] .nav:hover,html[data-theme="light"] .nav.active{background:#e6f2fb;color:#0b5f8c;box-shadow:none}
+html[data-theme="light"] .nav.active{box-shadow:inset 2px 0 #0b7fb8}
+html[data-theme="light"] .ico{color:#6b86a0}
+html[data-theme="light"] .count{background:#dbeafe;color:#1d5fa8}
+html[data-theme="light"] .card,html[data-theme="light"] .panel,html[data-theme="light"] .healthrow,html[data-theme="light"] .stage{background:#fff;border-color:#d9e2ec;color:#0f172a}
+html[data-theme="light"] .label,html[data-theme="light"] .sub,html[data-theme="light"] .ph span,html[data-theme="light"] .healthrow small,html[data-theme="light"] .stage span,html[data-theme="light"] .title p{color:#64748b}
+html[data-theme="light"] .ph{border-bottom-color:#d9e2ec}
+html[data-theme="light"] .table th{color:#64748b;border-bottom-color:#d9e2ec}
+html[data-theme="light"] .table td{color:#1e293b;border-bottom-color:#edf1f6}
+html[data-theme="light"] .btn{background:#fff;border-color:#c9d6e4;color:#0f172a}
+html[data-theme="light"] .btn.primary{background:#0b7fb8;border-color:#0b7fb8;color:#fff}
+html[data-theme="light"] .bar{background:#e2e8f0}
+html[data-theme="light"] .log{color:#475569}
+html[data-theme="light"] .footer{color:#7a8ba0}
+html[data-theme="light"] .active{background:#d9f7ea;color:#087a52}
+html[data-theme="light"] .pending{background:#fff3cd;color:#8a6100}
+html[data-theme="light"] .danger{background:#fde2e5;color:#b4233a}
+html[data-theme="light"] .neutral{background:#e6edf5;color:#475569}
+html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea,html[data-theme="light"] .fi{background:#fff!important;color:#0f172a!important;border-color:#c9d6e4!important}
+html[data-theme="light"] .login-page{background:#eef3f9}
+html[data-theme="light"] .login-card{background:#fff;border-color:#d9e2ec;box-shadow:0 20px 60px rgba(15,23,42,.12)}
+html[data-theme="light"] .login-card p{color:#64748b}
+html[data-theme="light"] .login-card label{color:#475569}
+html[data-theme="light"] .login-card button{background:#0b7fb8}
+html[data-theme="light"] #modal{background:rgba(15,23,42,.45)}
+</style>
 </head>
 <body>
 
