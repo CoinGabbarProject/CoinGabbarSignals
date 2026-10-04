@@ -3472,7 +3472,9 @@ var bd = $("posCalcBackdrop");
 
   function openPosition(acc, o, fill, feePct, src) {
     var qty = o.qty, margin = qty * fill / o.lev, fee = qty * fill * feePct / 100, now = Date.now();
-    var pos = { id: P.uid('p'), symbol: o.symbol, side: o.side, lev: o.lev, qty: qty, entry: fill, margin: margin, sl: o.sl || null, tp: o.tp || null, fee: fee, opened: now, chk: nextMin(now), src: src || 'manual' };
+    var pos = { id: P.uid('p'), symbol: o.symbol, side: o.side, lev: o.lev, qty: qty, entry: fill, margin: margin, sl: o.sl || null, tp: o.tp || null, fee: fee, opened: now, chk: nextMin(now), src: src || 'manual',
+      trail: o.trail ? { pct: o.trail.pct, act: o.trail.act || null, ext: null, on: false } : null,
+      tps: o.tps ? o.tps.map(function (t) { return { price: t.price, pct: t.pct, done: false }; }) : null, be1: !!o.be1 };
     acc.balance = r8(acc.balance - fee);
     acc.positions.push(pos);
     P.addTxn(acc, 'FEE', -fee, 'Open ' + o.side + ' ' + base(o.symbol));
