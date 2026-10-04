@@ -1556,6 +1556,7 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
 
     updateNavigation(page);
     if (window.CGS) CGS.onPage(page);
+    if (window.PAPER) PAPER.onPage(page);
 
     document.title =
       'CoinGabbarSignals — ' +
