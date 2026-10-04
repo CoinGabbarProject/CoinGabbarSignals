@@ -5925,6 +5925,251 @@ X.badge = badge; X.notes = notes;
   setTimeout(function () { X.load(true); }, 1500);
 })();
 </script>
+<script>
+/* ===== PAPER PART 10B: Auto-follow + Accept / Skip inbox ===== */
+(function () {
+  var P = window.PAPER, X0 = P && P.x10;
+  if (!P || !X0 || !X0.notes || !X0.badge || P.x10b) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, fp = P.fp, r8 = P.r8, T = P.ticket;
+  var BIN = 'https://data-api.binance.vision/api/v3';
+  var base = function (s) { return String(s).replace(/USDT$/, ''); };
+  var dir = function (s) { return s === 'LONG' ? 1 : -1; };
+  var B = P.x10b = { version: '10B', busy: false };
+  var DEF = { on: false, mode: 'inbox', minScore: 70, side: 'BOTH', tp: 0, risk: 0, maxLev: 5, maxAge: 120, perDay: 3 };
+
+  /* settings + inbox live inside the account, so they are saved with it */
+  function sf(acc) {
+    acc = acc || P.acc();
+    var s = acc.sf; if (!s || typeof s !== 'object') s = acc.sf = {};
+    Object.keys(DEF).forEach(function (k) { if (s[k] === undefined) s[k] = DEF[k]; });
+    if (!s.seen || typeof s.seen !== 'object') s.seen = {};
+    if (!Array.isArray(s.inbox)) s.inbox = [];
+    return s;
+  }
+  var newOnes = function (s) { return s.inbox.filter(function (i) { return i.st === 'new'; }); };
+  var sigOf = function (id) { return X0.sigs.filter(function (x) { return x.id === id; })[0]; };
+  var takenSig = function (id) { var a = P.acc(); return !!(a.sigs && a.sigs[id]); };
+  function trim(s) {
+    var ks = Object.keys(s.seen);
+    if (ks.length > 300) ks.sort(function (a, b) { return s.seen[a] - s.seen[b]; }).slice(0, ks.length - 300).forEach(function (k) { delete s.seen[k]; });
+    for (var i = s.inbox.length - 1; i >= 0 && s.inbox.length > 60; i--) if (s.inbox[i].st !== 'new') s.inbox.splice(i, 1);
+  }
+  function add(s, g, st, by, why) {
+    s.inbox.unshift({ id: g.id, symbol: g.symbol, side: g.side, tf: g.tf, score: g.score, entry: g.entry, stop: g.stop, targets: g.targets.slice(), at: g.at, ts: Date.now(), st: st, by: by || '', why: why || '' });
+    trim(s);
+  }
+  function inboxLabel() {
+    var n = newOnes(sf()).length, label = 'Inbox' + (n ? ' (' + n + ')' : '') + (sf().on ? ' *' : '');
+    P.addTab('inbox', label, 3, view);
+    var b = $('[data-act="tab"][data-id="inbox"]'); if (b) b.textContent = label;
+  }
+
+  /* ---------- live price for one coin (works even when the Paper page is not open) ---------- */
+  function ensurePrice(sym) {
+    var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) {
+      clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    }).then(function (d) {
+      var p = Number(d.price); if (!(p > 0)) throw new Error('bad price');
+      P.prices[sym] = p; P.feed.last = Date.now(); return p;
+    }, function (e) { clearTimeout(to); throw e; });
+  }
+
+  /* ---------- build an order from a signal: risk % sizing, same maths as the ticket ---------- */
+  function build(g, s, acc) {
+    var mk = P.price(g.symbol), L = g.side === 'LONG', f = acc.fees, slip = f.slip / 100, tk = f.taker / 100;
+    if (mk === null) return { error: 'No live price' };
+    var inZ = mk >= g.lo * 0.9985 && mk <= g.hi * 1.0015, mkt = inZ;
+    var e = mkt ? mk * (1 + dir(g.side) * slip) : g.entry, feePct = mkt ? f.taker : f.maker;
+    var sl = g.stop, tp = g.targets[Math.min(s.tp, g.targets.length - 1)];
+    if (L ? sl >= e : sl <= e) return { error: 'Stop is on the wrong side of entry' };
+    if (L ? tp <= e : tp >= e) return { error: 'Target is on the wrong side of entry' };
+    var R = P.x7 ? P.x7.rules(acc) : { pct: 1 }, pct = s.risk > 0 ? s.risk : Number(R.pct) || 1;
+    var eq = P.calc(acc).equity, av = P.calc(acc).available, riskAmt = eq * pct / 100;
+    var ex = sl * (1 - dir(g.side) * slip), lu = (L ? e - ex : ex - e) + e * feePct / 100 + ex * tk;
+    if (!(lu > 0) || !(riskAmt > 0)) return { error: 'Cannot size this trade' };
+    var notional = Math.floor(riskAmt / lu * e * 100) / 100;
+    var tier = P.x6a && P.x6a.tier ? P.x6a.tier(notional).max : 50;
+    var levCap = Math.max(1, Math.min(Number(s.maxLev) || 1, tier, 50, Math.floor(0.8 * e / Math.abs(e - sl)) || 1));
+    var room = av * 0.97, cap = Math.floor(room / (1 / levCap + feePct / 100) * 100) / 100, capped = false;
+    if (notional > cap) { notional = cap; capped = true; }
+    if (!(notional >= 5)) return { error: 'Size too small (balance or risk % is too low)' };
+    var lev = Math.min(levCap, Math.max(1, Math.ceil(notional / Math.max(1e-9, room - notional * feePct / 100))));
+    var qty = r8(notional / e);
+    return { capped: capped, pct: pct, riskAmt: riskAmt, mkt: mkt, spec: { symbol: g.symbol, side: g.side, type: mkt ? 'MARKET' : 'LIMIT', lev: lev, qty: qty, notional: notional, margin: notional / lev, fee: notional * feePct / 100,
+      feePct: feePct, slipPct: mkt ? f.slip : 0, entry: e, ref: mk, limit: mkt ? null : e, sl: sl, tp: tp, mode: 'ISO' } };
+  }
+
+  /** Why an AUTO trade must not go ahead (manual accept is more relaxed). */
+  function autoBlock(g, s, acc) {
+    if (s.side !== 'BOTH' && g.side !== s.side) return 'Side filter';
+    if (g.score < s.minScore) return 'Score ' + g.score + ' is below ' + s.minScore;
+    if (Date.now() - g.at > s.maxAge * 60000) return 'Signal is older than your limit';
+    var n = acc.positions.concat(acc.orders).filter(function (x) { return x.symbol === g.symbol; }).length;
+    if (n) return 'You already have a ' + base(g.symbol) + ' position or order';
+    var t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    var done = s.inbox.filter(function (i) { return i.by === 'auto' && i.st === 'taken' && i.ts >= t0.getTime(); }).length;
+    if (done >= s.perDay) return 'Auto limit reached (' + s.perDay + ' per day)';
+    return '';
+  }
+
+  /* ---------- place it ---------- */
+  function run(g, by) {
+    var acc = P.acc(), s = sf(acc), fresh = sigOf(g.id), item = s.inbox.filter(function (i) { return i.id === g.id && (i.st === 'new' || i.st === 'failed'); })[0];
+    var fin = function (st, why) {
+      if (item) { item.st = st; item.by = by; item.why = why || ''; item.ts = Date.now(); } else add(s, g, st, by, why);
+      P.save(); inboxLabel(); X0.badge();
+      return { ok: st === 'taken', why: why };
+    };
+    if (takenSig(g.id) && by === 'auto') return Promise.resolve(fin('skipped', 'Already taken'));
+    if (!fresh || fresh.status !== 'ACTIVE') return Promise.resolve(fin('expired', 'Signal is no longer active'));
+    return ensurePrice(g.symbol).then(function () {
+      var bad = X0.notes(fresh).filter(function (n) { return n[0] === 'r' || (by === 'auto' && n[0] === 'y'); })[0];
+      if (bad) return fin(by === 'auto' ? 'skipped' : 'failed', bad[1]);
+      var b = build(fresh, s, acc); if (b.error) return fin('failed', b.error);
+      /* run the order without touching the screen or the half-filled ticket */
+      var keepTab = P.ui.tab, keepT = Object.assign({}, T), keepSig = X0.sig, res;
+      X0.sig = null;
+      try { res = P.placeOrder(b.spec, { src: by === 'auto' ? 'auto' : 'signal' }); }
+      catch (err) { res = { ok: false, error: String(err && err.message || err) }; }
+      Object.keys(T).forEach(function (k) { if (!(k in keepT)) delete T[k]; });
+      Object.assign(T, keepT); X0.sig = keepSig; P.ui.tab = keepTab; P.ui.edit = null;
+      if (!res || !res.ok) return fin('failed', (res && res.error) || 'Order was blocked');
+      acc.sigs = acc.sigs || {}; acc.sigs[g.id] = Date.now();
+      P.addLog(acc, (by === 'auto' ? 'Auto-follow ' : 'Accepted ') + g.side + ' ' + base(g.symbol) + ' (' + g.tf + ', score ' + g.score + ') risk ' + b.pct + '%' + (b.capped ? ', size capped by balance' : ''));
+      P.toast((by === 'auto' ? 'Auto-followed ' : 'Accepted ') + base(g.symbol) + ' ' + g.side + (b.mkt ? '' : ' (limit order)'));
+      if ($('#paperRoot .pt')) P.render();
+      return fin('taken', b.mkt ? 'Market order' : 'Limit @ ' + fp(g.entry));
+    }, function () { return fin('failed', 'Could not get live price. Try again.'); });
+  }
+
+  /* ---------- watch new signals ---------- */
+  var chain = Promise.resolve();
+  function scan() {
+    var acc = P.acc(), s = sf(acc); if (!X0.at) return;
+    var changed = false;
+    s.inbox.forEach(function (i) {                       /* pending items whose signal ended */
+      if (i.st !== 'new') return;
+      var f = sigOf(i.id);
+      if (!f || f.status !== 'ACTIVE') { i.st = 'expired'; i.why = 'Signal ended before you answered'; changed = true; }
+    });
+    if (s.on) {
+      X0.sigs.filter(function (x) { return x.status === 'ACTIVE' && !s.seen[x.id]; }).sort(function (a, b) { return a.at - b.at; }).forEach(function (g) {
+        s.seen[g.id] = Date.now(); changed = true;
+        if (takenSig(g.id)) return;
+        var why = autoBlock(g, s, acc);
+        if (s.mode === 'inbox') {
+          if (why && /Side|Score|older/.test(why)) return;      /* filtered out quietly */
+          add(s, g, 'new', '', ''); P.toast('New signal: ' + base(g.symbol) + ' ' + g.side + ' (score ' + g.score + ')');
+        } else if (why) {
+          if (/Side|Score|older/.test(why)) return;
+          add(s, g, 'skipped', 'auto', why);
+        } else chain = chain.then(function () { return run(g, 'auto'); });
+      });
+    }
+    if (changed) { P.save(); inboxLabel(); if (P.ui.tab === 'inbox') paint(); }
+    chain = chain.then(function () { if (P.ui.tab === 'inbox') paint(); });
+  }
+  var ol = X0.load;
+  X0.load = function () { var r = ol.apply(X0, arguments); return Promise.resolve(r).then(function () { try { scan(); } catch (e) { console.error('Part 10B', e); } }); };
+
+  /* ---------- Inbox tab ---------- */
+  var seg = function (act, cur, opts) {
+    return '<div class="pt-seg">' + opts.map(function (o) { return '<button class="pt-chip' + (String(cur) === String(o[0]) ? ' on' : '') + '" data-act="' + act + '" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+  };
+  var lab = function (t) { return '<div class="pt-mut" style="font-size:11px;margin:8px 0 3px">' + t + '</div>'; };
+  function settingsHtml() {
+    var s = sf();
+    return '<div class="pt-box"' + (s.on ? ' style="border-color:var(--green)"' : '') + '><div style="display:flex;justify-content:space-between;align-items:center"><b>Auto-follow</b>' +
+      '<button class="pt-chip' + (s.on ? ' on' : '') + '" data-act="x10b-on">' + (s.on ? 'ON' : 'OFF') + '</button></div>' +
+      '<div class="pt-mut" style="font-size:12px;margin-top:4px">' + (s.on ? 'Watching for NEW signals on this account.' : 'Turn on to watch new signals. Old signals are ignored.') + ' Works only while this page is open in your browser.</div>' +
+      lab('When a new signal comes') + seg('x10b-mode', s.mode, [['inbox', 'Send to inbox'], ['auto', 'Trade automatically']]) +
+      lab('Minimum score') + seg('x10b-score', s.minScore, [[0, 'Any'], [60, '60'], [70, '70'], [80, '80'], [90, '90']]) +
+      lab('Sides') + seg('x10b-side', s.side, [['BOTH', 'Long + Short'], ['LONG', 'Long only'], ['SHORT', 'Short only']]) +
+      lab('Take profit') + seg('x10b-tp', s.tp, [[0, 'TP1'], [1, 'TP2'], [2, 'TP3']]) +
+      lab('Risk per trade') + seg('x10b-risk', s.risk, [[0, 'Risk tab (' + (P.x7 ? P.x7.rules().pct : 1) + '%)'], [0.5, '0.5%'], [1, '1%'], [2, '2%']]) +
+      lab('Max leverage used') + seg('x10b-lev', s.maxLev, [[1, '1x'], [3, '3x'], [5, '5x'], [10, '10x']]) +
+      lab('Ignore signals older than') + seg('x10b-age', s.maxAge, [[30, '30m'], [120, '2h'], [360, '6h'], [1440, '24h']]) +
+      (s.mode === 'auto' ? lab('Max auto trades per day') + seg('x10b-day', s.perDay, [[1, '1'], [3, '3'], [5, '5'], [10, '10']]) : '') +
+      '<div class="pt-hint" style="margin-top:8px">Size comes from your risk %, the stop loss and your balance. Your Risk tab rules (daily loss, max trades, min R:R) still apply and can block a trade. Auto skips a coin you already hold.</div></div>';
+  }
+  var ST = { taken: ['pt-up', 'Taken'], skipped: ['pt-mut', 'Skipped'], expired: ['pt-mut', 'Expired'], failed: ['pt-dn', 'Not placed'] };
+  function item(i) {
+    var L = i.side === 'LONG', tp = i.targets[Math.min(sf().tp, i.targets.length - 1)], mk = P.price(i.symbol);
+    var head = '<div style="display:flex;justify-content:space-between;align-items:center"><div><b>' + base(i.symbol) + '/USDT</b><span class="pt-tag ' + (L ? 'L' : 'S') + '">' + i.side + '</span><span class="pt-rs">' + esc(i.tf) + '</span></div><b>' + i.score + '<small class="pt-mut">/100</small></b></div>';
+    var lv = '<div class="pt-mut" style="font-size:12px;margin:5px 0">Entry ' + fp(i.entry) + ' &middot; Stop ' + fp(i.stop) + ' &middot; TP ' + fp(tp) + (mk === null ? '' : ' &middot; Now ' + fp(mk)) + '</div>';
+    if (i.st === 'new') {
+      return '<div class="pt-box" style="margin-bottom:10px;border-color:var(--cyan)">' + head + lv +
+        '<div class="pt-row"><button class="pt-btn grn sm" data-act="x10b-acc" data-id="' + esc(i.id) + '">Accept</button><button class="pt-btn sm" data-act="x10b-rev" data-id="' + esc(i.id) + '">Review</button><button class="pt-btn red sm" data-act="x10b-skip" data-id="' + esc(i.id) + '">Skip</button></div></div>';
+    }
+    var c = ST[i.st] || ['pt-mut', i.st];
+    return '<div class="pt-box" style="margin-bottom:8px">' + head + lv + '<div style="font-size:12px"><b class="' + c[0] + '">' + c[1] + (i.by === 'auto' ? ' (auto)' : '') + '</b> <span class="pt-mut">&middot; ' + P.fdate(i.ts) + (i.why ? ' &middot; ' + esc(i.why) : '') + '</span></div>' +
+      (i.st === 'failed' && X0.sigs.some(function (x) { return x.id === i.id && x.status === 'ACTIVE'; }) ? '<div class="pt-row"><button class="pt-btn sm" data-act="x10b-acc" data-id="' + esc(i.id) + '">Try again</button></div>' : '') + '</div>';
+  }
+  function listHtml() {
+    var s = sf(), nw = newOnes(s), old = s.inbox.filter(function (i) { return i.st !== 'new'; }).slice(0, 20);
+    return '<h3 style="font-size:14px;margin:4px 0 8px">Waiting for you (' + nw.length + ')</h3>' +
+      (nw.length ? '<div class="pt-row"><button class="pt-btn grn sm" data-act="x10b-accall">Accept all</button><button class="pt-btn red sm" data-act="x10b-skipall">Skip all</button></div>' : '') +
+      (nw.map(item).join('') || '<div class="pt-box pt-mut">Nothing waiting. New signals will show here when Auto-follow is on and set to "Send to inbox".</div>') +
+      '<div class="pt-row"><button class="pt-btn sm" data-act="x10b-pull">Pull in active signals</button></div>' +
+      (old.length ? '<h3 style="font-size:14px;margin:14px 0 8px">History</h3>' + old.map(item).join('') + '<div class="pt-row"><button class="pt-btn red sm" data-act="x10b-clear">Clear history</button></div>' : '');
+  }
+  function view() {
+    setTimeout(function () { X0.load(false); }, 0);
+    return '<div id="x10b-set">' + settingsHtml() + '</div><div id="x10b-list">' + listHtml() + '</div>';
+  }
+  function paint() { var el = $('#x10b-list'); if (el && P.ui.tab === 'inbox') el.innerHTML = listHtml(); }
+  function repaint() { P.save(); inboxLabel(); if (P.ui.tab === 'inbox') P.render(); }
+  inboxLabel();
+
+  /* ---------- actions ---------- */
+  var A = P.acts, num = function (el) { return Number(el.dataset.v); };
+  A['x10b-on'] = function () {
+    var s = sf(); s.on = !s.on;
+    if (s.on) { s.seen = {}; X0.sigs.forEach(function (x) { s.seen[x.id] = Date.now(); }); P.toast('Auto-follow ON. Only new signals will count.'); P.addLog(P.acc(), 'Auto-follow ON (' + (s.mode === 'auto' ? 'trade automatically' : 'inbox') + ', min score ' + s.minScore + ')'); }
+    else { P.toast('Auto-follow OFF'); P.addLog(P.acc(), 'Auto-follow OFF'); }
+    repaint(); if (s.on) X0.load(true);
+  };
+  A['x10b-mode'] = function (el) {
+    var s = sf();
+    if (el.dataset.v === 'auto' && !window.confirm('Auto mode places paper trades by itself when a new signal matches your filters. Continue?')) return;
+    s.mode = el.dataset.v === 'auto' ? 'auto' : 'inbox'; repaint();
+  };
+  A['x10b-score'] = function (el) { sf().minScore = num(el); repaint(); };
+  A['x10b-side'] = function (el) { sf().side = ['LONG', 'SHORT'].indexOf(el.dataset.v) >= 0 ? el.dataset.v : 'BOTH'; repaint(); };
+  A['x10b-tp'] = function (el) { sf().tp = num(el); repaint(); };
+  A['x10b-risk'] = function (el) { sf().risk = num(el); repaint(); };
+  A['x10b-lev'] = function (el) { sf().maxLev = num(el); repaint(); };
+  A['x10b-age'] = function (el) { sf().maxAge = num(el); repaint(); };
+  A['x10b-day'] = function (el) { sf().perDay = num(el); repaint(); };
+  function find(id) { return sf().inbox.filter(function (i) { return i.id === id && (i.st === 'new' || i.st === 'failed'); })[0]; }
+  A['x10b-acc'] = function (el) {
+    var i = find(el.dataset.id); if (!i) return;
+    if (B.busy) return P.toast('One moment...');
+    B.busy = true; el.disabled = true;
+    run(i, 'you').then(function (r) { B.busy = false; if (!r.ok) P.toast(r.why || 'Not placed'); paint(); }, function () { B.busy = false; });
+  };
+  A['x10b-accall'] = function () {
+    var list = newOnes(sf()).slice().reverse(); if (!list.length || B.busy) return;
+    if (!window.confirm('Accept ' + list.length + ' signal' + (list.length > 1 ? 's' : '') + '? Each one is sized by your risk %.')) return;
+    B.busy = true;
+    list.reduce(function (p, i) { return p.then(function () { return run(i, 'you'); }); }, Promise.resolve()).then(function () { B.busy = false; P.render(); }, function () { B.busy = false; });
+  };
+  A['x10b-skip'] = function (el) { var i = find(el.dataset.id); if (!i) return; i.st = 'skipped'; i.by = 'you'; i.why = 'You skipped it'; i.ts = Date.now(); repaint(); };
+  A['x10b-skipall'] = function () { newOnes(sf()).forEach(function (i) { i.st = 'skipped'; i.by = 'you'; i.why = 'You skipped it'; i.ts = Date.now(); }); repaint(); };
+  A['x10b-rev'] = function (el) { var i = find(el.dataset.id); if (!i) return; var g = sigOf(i.id); if (!g) return P.toast('Signal is no longer active'); P.tradeSignal(g); };
+  A['x10b-clear'] = function () { var s = sf(); s.inbox = newOnes(s); repaint(); };
+  A['x10b-pull'] = function () {
+    var s = sf(), n = 0;
+    X0.sigs.filter(function (x) { return x.status === 'ACTIVE' && !takenSig(x.id) && !s.inbox.some(function (i) { return i.id === x.id && i.st === 'new'; }); }).forEach(function (g) { add(s, g, 'new', '', ''); s.seen[g.id] = Date.now(); n++; });
+    P.toast(n ? n + ' signal' + (n > 1 ? 's' : '') + ' added' : 'No active signals to add'); repaint();
+  };
+  P.on('prices', function () { if (P.ui.tab === 'inbox') { var t = Date.now(); if (t - (B.last || 0) > 5000) { B.last = t; paint(); } } });
+  setTimeout(function () { try { scan(); } catch (e) { /* ignore */ } }, 2500);
+  if ($('#paperRoot .pt')) P.render();
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
