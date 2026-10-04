@@ -3119,6 +3119,321 @@ var bd = $("posCalcBackdrop");
   P.onPage(new URLSearchParams(location.search).get('page'));
 })();
 </script>
+<style id="paper-css-2">
+.pt-sym{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.pt-sym select{flex:1;min-width:140px}
+.pt-head{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.pt-px{font-size:26px;font-weight:800;line-height:1.1}
+.pt-live{font-size:11px;font-weight:700}
+.pt-hl{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-top:6px}
+.pt-hl b{color:var(--text);font-weight:600}
+.pt-chart{margin-top:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);overflow:hidden;min-height:120px}
+.pt-chart svg{display:block;width:100%;height:auto}
+.pt-seg{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pt-side{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.pt-side button{padding:11px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--soft);font-weight:800;font-size:14px}
+.pt-side button.long.on{background:#0c6b4a;border-color:var(--green);color:#fff}
+.pt-side button.short.on{background:#7a1f2c;border-color:var(--red);color:#fff}
+.pt-lbl{display:block;color:var(--muted);font-size:11px;margin:8px 0 3px}
+.pt-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pt-prev{border:1px dashed var(--line);border-radius:6px;padding:8px 10px;margin:10px 0;font-size:12px}
+.pt-prev div{display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+.pt-prev span{color:var(--muted)}
+.pt-go{width:100%;padding:13px;font-size:15px}
+.pt-book{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}
+.pt-book div.r{display:flex;justify-content:space-between;padding:3px 0}
+.pt-mk{max-height:300px;overflow-y:auto}
+.pt-mk .pt-li{cursor:pointer}
+.pt-mk .pt-li.sel{background:var(--panel3)}
+</style>
+<script>
+/* ===== PAPER PART 2: live prices + trade screen ===== */
+(function () {
+  var P = window.PAPER; if (!P || P.feed) return;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = P.esc, money = P.money, cls = P.cls;
+  var BASE = 'https://data-api.binance.vision/api/v3';
+  var COINS = 'BTC ETH BNB SOL XRP DOGE ADA TRX LINK AVAX SUI XLM LTC TON DOT UNI AAVE NEAR BCH HBAR'.split(' ').map(function (c) { return c + 'USDT'; });
+  var TFS = ['1m', '5m', '15m', '1h', '4h', '1d'];
+  var UIKEY = 'cg_paper_ui', SYM_RE = /^[A-Z0-9]{2,15}USDT$/, MIN_NOTIONAL = 5, MAX_LEV = 50;
+  var validSym = function (s) { return typeof s === 'string' && SYM_RE.test(s); };
+
+  function loadUI() {
+    try {
+      var u = JSON.parse(localStorage.getItem(UIKEY) || 'null');
+      if (u && validSym(u.symbol)) return { symbol: u.symbol, tf: TFS.indexOf(u.tf) >= 0 ? u.tf : '15m', custom: Array.isArray(u.custom) ? u.custom.filter(validSym).slice(0, 20) : [] };
+    } catch (e) { /* ignore */ }
+    return { symbol: 'BTCUSDT', tf: '15m', custom: [] };
+  }
+  var U = loadUI();
+  var saveUI = function () { try { localStorage.setItem(UIKEY, JSON.stringify(U)); } catch (e) { /* ignore */ } };
+  var allSyms = function () { return COINS.concat(U.custom.filter(function (c) { return COINS.indexOf(c) < 0; })).filter(function (s) { return !F.bad[s]; }); };
+
+  var F = P.feed = { last: 0, fails: 0, bad: {} };
+  P.stats = {}; P.books = {}; P.candles = {};
+  P.ticket = { side: 'LONG', type: 'MARKET', mode: 'usdt', size: '', pct: 25, limit: '', lev: 1, sl: '', tp: '' };
+  P.symbol = function () { return U.symbol; };
+  if (P.ui.tab === 'wallet') P.ui.tab = 'trade';
+
+  function getJson(path) {
+    var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 8000);
+    return fetch(BASE + path, { signal: c.signal }).then(function (r) {
+      clearTimeout(t);
+      if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      return r.json();
+    }, function (e) { clearTimeout(t); throw e; });
+  }
+  var onPaper = function () { return !!$('#paperRoot .pt'); };
+  var tradeOn = function () { return P.ui.tab === 'trade' && !!$('#pt-px'); };
+  function hasOpen() {
+    var st = P.state();
+    return Object.keys(st.accounts).some(function (id) { return st.accounts[id].positions.length || st.accounts[id].orders.length; });
+  }
+  var needed = function () { return onPaper() || hasOpen(); };
+  function feedSyms() {
+    var set = {}, st = P.state();
+    set[U.symbol] = 1;
+    Object.keys(st.accounts).forEach(function (id) {
+      st.accounts[id].positions.concat(st.accounts[id].orders).forEach(function (x) { if (x.symbol) set[x.symbol] = 1; });
+    });
+    return Object.keys(set).filter(function (s) { return !F.bad[s]; }).slice(0, 40);
+  }
+  function setPrices(rows) {
+    rows.forEach(function (r) { var p = Number(r.price !== undefined ? r.price : r.lastPrice); if (p > 0) P.prices[r.symbol] = p; });
+  }
+  function pruneBad(syms) {
+    return Promise.all(syms.map(function (s) {
+      return getJson('/ticker/price?symbol=' + s).then(function (r) { setPrices([r]); }, function (e) { if (e.status === 400) F.bad[s] = 1; });
+    })).then(function () { if (F.bad[U.symbol]) { U.symbol = 'BTCUSDT'; saveUI(); } });
+  }
+  function priceTick() {
+    var syms = feedSyms(); if (!syms.length) return Promise.resolve();
+    return getJson('/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms))).then(function (rows) {
+      setPrices(rows); F.last = Date.now(); F.fails = 0; P.emit('prices'); P.emit('feed');
+    }).catch(function (e) {
+      if (e && e.status === 400) return pruneBad(syms).then(function () { P.emit('feed'); });
+      F.fails++; P.emit('feed');
+    });
+  }
+  function statTick() {
+    var syms = allSyms();
+    return getJson('/ticker/24hr?symbols=' + encodeURIComponent(JSON.stringify(syms))).then(function (rows) {
+      rows.forEach(function (r) { P.stats[r.symbol] = { chg: Number(r.priceChangePercent), high: Number(r.highPrice), low: Number(r.lowPrice), vol: Number(r.quoteVolume) }; });
+      setPrices(rows); F.last = Date.now(); P.emit('stats'); P.emit('prices');
+    }).catch(function () { /* next tick retries */ });
+  }
+  function candleTick() {
+    var key = U.symbol + '|' + U.tf, sym = U.symbol, tf = U.tf;
+    return getJson('/klines?symbol=' + sym + '&interval=' + tf + '&limit=80').then(function (rows) {
+      P.candles[key] = rows.map(function (k) { return { o: +k[1], h: +k[2], l: +k[3], c: +k[4] }; });
+      if (key === U.symbol + '|' + U.tf) updChart();
+    }).catch(function () { /* keep old */ });
+  }
+  function bookTick() {
+    var sym = U.symbol;
+    return getJson('/depth?symbol=' + sym + '&limit=5').then(function (d) {
+      P.books[sym] = { bids: d.bids.slice(0, 5).map(function (x) { return [+x[0], +x[1]]; }), asks: d.asks.slice(0, 5).map(function (x) { return [+x[0], +x[1]]; }) };
+      if (sym === U.symbol) updBook();
+    }).catch(function () { /* keep old */ });
+  }
+  var n = 0;
+  function tick() {
+    if (document.hidden || !needed()) return;
+    n++;
+    priceTick();
+    if (tradeOn()) {
+      bookTick();
+      if (n % 5 === 0) statTick();
+      if (n % 10 === 0) candleTick();
+    }
+  }
+  setInterval(tick, 2000);
+  function kick() { priceTick(); statTick(); candleTick(); bookTick(); }
+
+  /* ---------- formatting ---------- */
+  function fp(p) {
+    p = Number(p); if (!(p > 0)) return '--';
+    var d = p >= 1000 ? 2 : p >= 1 ? 4 : p >= 0.01 ? 6 : 8;
+    return p.toLocaleString('en-US', { minimumFractionDigits: Math.min(2, d), maximumFractionDigits: d });
+  }
+  function fv(v) { v = Number(v) || 0; return v >= 1e9 ? (v / 1e9).toFixed(2) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : v.toFixed(0); }
+  var base = function (s) { return s.replace(/USDT$/, ''); };
+  P.fp = fp;
+
+  /* ---------- order maths (used by the order ticket now and the order engine in the next part) ---------- */
+  P.buildOrder = function () {
+    var acc = P.acc(), c = P.calc(acc), T = P.ticket, sym = U.symbol, isL = T.side === 'LONG';
+    var out = { ok: false, error: '', prev: null, spec: null };
+    var fail = function (m) { out.error = m; return out; };
+    var mkt = P.price(sym); if (mkt === null) return fail('Waiting for live price...');
+    var lev = Number(T.lev); if (!(lev >= 1 && lev <= MAX_LEV)) return fail('Leverage must be 1x to ' + MAX_LEV + 'x');
+    var slipPct = acc.fees.slip, feePct = T.type === 'LIMIT' ? acc.fees.maker : acc.fees.taker, entry;
+    if (T.type === 'LIMIT') { entry = Number(T.limit); if (!(entry > 0)) return fail('Enter a limit price'); }
+    else entry = mkt * (1 + (isL ? 1 : -1) * slipPct / 100);
+    var notional;
+    if (T.mode === 'usdt') notional = Number(T.size);
+    else if (T.mode === 'qty') notional = Number(T.size) * entry;
+    else notional = c.available * Number(T.pct) / 100 / (1 / lev + feePct / 100);
+    if (!(notional > 0)) return fail('Enter order size');
+    var qty = P.r8(notional / entry), margin = notional / lev, fee = notional * feePct / 100;
+    out.prev = { entry: entry, qty: qty, notional: notional, margin: margin, fee: fee, need: margin + fee, left: c.available - margin - fee };
+    if (notional < MIN_NOTIONAL) return fail('Minimum order value is $' + MIN_NOTIONAL);
+    if (margin + fee > c.available + 1e-9) return fail('Not enough balance. Need ' + money(margin + fee) + ', available ' + money(c.available));
+    var sl = T.sl === '' ? null : Number(T.sl), tp = T.tp === '' ? null : Number(T.tp);
+    if (sl !== null && !(sl > 0)) return fail('Stop loss must be a price above 0');
+    if (tp !== null && !(tp > 0)) return fail('Take profit must be a price above 0');
+    if (sl !== null && (isL ? sl >= entry : sl <= entry)) return fail(isL ? 'Stop loss must be below entry for a LONG' : 'Stop loss must be above entry for a SHORT');
+    if (tp !== null && (isL ? tp <= entry : tp >= entry)) return fail(isL ? 'Take profit must be above entry for a LONG' : 'Take profit must be below entry for a SHORT');
+    out.ok = true;
+    out.spec = { symbol: sym, side: T.side, type: T.type, lev: lev, qty: qty, notional: notional, margin: margin, fee: fee, feePct: feePct, slipPct: T.type === 'LIMIT' ? 0 : slipPct, entry: entry, ref: mkt, limit: T.type === 'LIMIT' ? entry : null, sl: sl, tp: tp };
+    return out;
+  };
+
+  /* ---------- pieces of the screen ---------- */
+  function headHtml() {
+    var px = P.price(U.symbol), st = P.stats[U.symbol];
+    return '<div class="pt-head"><div><div class="pt-px" id="pt-px">' + (px ? '$' + fp(px) : '--') + '</div>' +
+      '<div id="pt-chg" class="' + (st ? cls(st.chg) : 'pt-mut') + '" style="font-weight:700">' + (st ? (st.chg >= 0 ? '+' : '') + st.chg.toFixed(2) + '% (24h)' : '') + '</div></div>' +
+      '<div class="pt-live" id="pt-live"></div></div>' +
+      '<div class="pt-hl" id="pt-hl">' + (st ? '<span>High <b>' + fp(st.high) + '</b></span><span>Low <b>' + fp(st.low) + '</b></span><span>Vol <b>$' + fv(st.vol) + '</b></span>' : '') + '</div>';
+  }
+  function updHeader() {
+    if (!tradeOn()) return;
+    var px = P.price(U.symbol), st = P.stats[U.symbol];
+    $('#pt-px').textContent = px ? '$' + fp(px) : '--';
+    var ch = $('#pt-chg');
+    if (ch && st) { ch.className = cls(st.chg); ch.textContent = (st.chg >= 0 ? '+' : '') + st.chg.toFixed(2) + '% (24h)'; }
+    var hl = $('#pt-hl');
+    if (hl && st) hl.innerHTML = '<span>High <b>' + fp(st.high) + '</b></span><span>Low <b>' + fp(st.low) + '</b></span><span>Vol <b>$' + fv(st.vol) + '</b></span>';
+    var lv = $('#pt-live'), age = Date.now() - F.last;
+    if (lv) { var ok = F.last && age < 9000; lv.className = 'pt-live ' + (ok ? 'pt-up' : 'pt-dn'); lv.textContent = ok ? '\u25CF LIVE' : (F.fails > 1 ? '\u25CF Offline - retrying' : '\u25CF Connecting...'); }
+  }
+  function chartSvg(rows, last) {
+    if (!rows || rows.length < 2) return '<div class="pt-mut" style="padding:48px 0;text-align:center">Loading chart...</div>';
+    var W = 520, H = 240, padR = 62, padT = 10, padB = 10, hi = -Infinity, lo = Infinity;
+    rows.forEach(function (k) { hi = Math.max(hi, k.h); lo = Math.min(lo, k.l); });
+    if (last) { hi = Math.max(hi, last); lo = Math.min(lo, last); }
+    var pad = (hi - lo) * 0.06 || hi * 0.001; hi += pad; lo -= pad;
+    var cw = (W - padR) / rows.length, y = function (v) { return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Price chart">';
+    for (var g = 0; g <= 4; g++) {
+      var gv = hi - (hi - lo) * g / 4, gy = y(gv);
+      s += '<line x1="0" x2="' + (W - padR) + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" style="stroke:var(--line)" stroke-width="1"/><text x="' + (W - padR + 4) + '" y="' + (gy + 4).toFixed(1) + '" font-size="12" style="fill:var(--muted)">' + fp(gv) + '</text>';
+    }
+    rows.forEach(function (k, i) {
+      var x = i * cw + cw / 2, up = k.c >= k.o, col = up ? 'var(--green)' : 'var(--red)';
+      var top = y(Math.max(k.o, k.c)), h = Math.max(1, Math.abs(y(k.o) - y(k.c))), bw = Math.max(1.5, cw * 0.62);
+      s += '<line x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="' + y(k.h).toFixed(1) + '" y2="' + y(k.l).toFixed(1) + '" style="stroke:' + col + '"/>' +
+        '<rect x="' + (x - bw / 2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" style="fill:' + col + '"/>';
+    });
+    if (last) { var ly = y(last).toFixed(1); s += '<line x1="0" x2="' + (W - padR) + '" y1="' + ly + '" y2="' + ly + '" stroke-dasharray="4 3" style="stroke:var(--cyan)"/><text x="' + (W - padR + 4) + '" y="' + (Number(ly) + 4) + '" font-size="12" font-weight="700" style="fill:var(--cyan)">' + fp(last) + '</text>'; }
+    return s + '</svg>';
+  }
+  function updChart() { var el = $('#pt-chart'); if (el && tradeOn()) el.innerHTML = chartSvg(P.candles[U.symbol + '|' + U.tf], P.price(U.symbol)); }
+  function bookHtml() {
+    var b = P.books[U.symbol]; if (!b) return '<div class="pt-mut">Loading order book...</div>';
+    var asks = b.asks.slice().reverse().map(function (x) { return '<div class="r"><span class="pt-dn">' + fp(x[0]) + '</span><span>' + x[1].toPrecision(4) + '</span></div>'; }).join('');
+    var bids = b.bids.map(function (x) { return '<div class="r"><span class="pt-up">' + fp(x[0]) + '</span><span>' + x[1].toPrecision(4) + '</span></div>'; }).join('');
+    var sp = b.asks[0] && b.bids[0] ? b.asks[0][0] - b.bids[0][0] : 0;
+    return '<div class="pt-book"><div><div class="pt-mut" style="font-size:11px">Sell (asks)</div>' + asks + '</div><div><div class="pt-mut" style="font-size:11px">Buy (bids)</div>' + bids + '</div></div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-top:6px">Spread ' + fp(sp) + '</div>';
+  }
+  function updBook() { var el = $('#pt-book'); if (el && tradeOn()) el.innerHTML = bookHtml(); }
+  function marketsHtml() {
+    return allSyms().map(function (s) {
+      var st = P.stats[s], px = P.price(s);
+      return '<div class="pt-li' + (s === U.symbol ? ' sel' : '') + '" data-act="pick-sym" data-s="' + s + '"><b>' + base(s) + '<span class="pt-mut" style="font-weight:400">/USDT</span></b><span>' + (px ? '$' + fp(px) : '--') + (st ? ' <b class="' + cls(st.chg) + '">' + (st.chg >= 0 ? '+' : '') + st.chg.toFixed(2) + '%</b>' : '') + '</span></div>';
+    }).join('');
+  }
+  function updMarkets() { var el = $('#pt-mk'); if (el && tradeOn()) el.innerHTML = marketsHtml(); }
+  function ticketHtml() {
+    var T = P.ticket, chip = function (act, v, label, on) { return '<button class="pt-chip' + (on ? ' on' : '') + '" data-act="' + act + '" data-v="' + v + '">' + label + '</button>'; };
+    var sizeBlock = T.mode === 'pct'
+      ? '<div class="pt-seg">' + [25, 50, 75, 100].map(function (v) { return chip('t-pct', v, v + '%', Number(T.pct) === v); }).join('') + '</div>'
+      : '<input class="pt-in" id="pt-t-size" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="' + (T.mode === 'usdt' ? 'Order value in USDT' : 'Quantity in ' + base(U.symbol)) + '" value="' + esc(T.size) + '">';
+    return '<div class="pt-side"><button class="long' + (T.side === 'LONG' ? ' on' : '') + '" data-act="t-side" data-v="LONG">Buy / Long</button><button class="short' + (T.side === 'SHORT' ? ' on' : '') + '" data-act="t-side" data-v="SHORT">Sell / Short</button></div>' +
+      '<div class="pt-seg">' + chip('t-type', 'MARKET', 'Market', T.type === 'MARKET') + chip('t-type', 'LIMIT', 'Limit', T.type === 'LIMIT') + '</div>' +
+      (T.type === 'LIMIT' ? '<label class="pt-lbl">Limit price</label><input class="pt-in" id="pt-t-limit" type="number" min="0" step="any" inputmode="decimal" style="width:100%" placeholder="Price in USDT" value="' + esc(T.limit) + '">' : '') +
+      '<label class="pt-lbl">Size</label><div class="pt-seg">' + chip('t-mode', 'usdt', 'Value (USDT)', T.mode === 'usdt') + chip('t-mode', 'qty', 'Quantity', T.mode === 'qty') + chip('t-mode', 'pct', '% of balance', T.mode === 'pct') + '</div>' + sizeBlock +
+      '<label class="pt-lbl">Leverage (1x = spot style)</label><div class="pt-seg">' + [1, 2, 3, 5, 10, 20].map(function (v) { return chip('t-lev', v, v + 'x', Number(T.lev) === v); }).join('') + '</div>' +
+      '<input class="pt-in" id="pt-t-lev" type="number" min="1" max="' + MAX_LEV + '" step="1" inputmode="numeric" style="width:100%" value="' + esc(T.lev) + '">' +
+      '<div class="pt-two"><div><label class="pt-lbl">Stop loss (optional)</label><input class="pt-in" id="pt-t-sl" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.sl) + '"></div>' +
+      '<div><label class="pt-lbl">Take profit (optional)</label><input class="pt-in" id="pt-t-tp" type="number" min="0" step="any" inputmode="decimal" style="width:100%" value="' + esc(T.tp) + '"></div></div>' +
+      '<div class="pt-prev" id="pt-prev"></div>' +
+      '<button class="pt-btn pt-go ' + (T.side === 'LONG' ? 'grn' : 'red') + '" data-act="t-place">' + (T.side === 'LONG' ? 'Place Long Order' : 'Place Short Order') + '</button><div class="pt-msg" id="pt-msg"></div>';
+  }
+  function updPreview() {
+    var el = $('#pt-prev'); if (!el) return;
+    var b = P.buildOrder(), p = b.prev, row = function (l, v) { return '<div><span>' + l + '</span><b>' + v + '</b></div>'; };
+    el.innerHTML = (p ? row('Entry (est.)', '$' + fp(p.entry)) + row('Quantity', p.qty + ' ' + base(U.symbol)) + row('Position value', money(p.notional)) + row('Margin', money(p.margin)) + row('Fee (est.)', money(p.fee)) + row('Available after', money(p.left)) : '') +
+      (b.ok ? '' : '<div class="pt-dn" style="display:block;padding-top:4px">' + esc(b.error) + '</div>');
+  }
+  function redrawTicket() { var el = $('#pt-ticketbox'); if (el) { el.innerHTML = ticketHtml(); updPreview(); } }
+
+  /* ---------- Trade tab ---------- */
+  P.addTab('trade', 'Trade', 5, function () {
+    var opts = allSyms().map(function (s) { return '<option value="' + s + '"' + (s === U.symbol ? ' selected' : '') + '>' + base(s) + '/USDT</option>'; }).join('');
+    setTimeout(function () { kick(); updHeader(); updPreview(); }, 0);
+    return '<div class="pt-sym"><select class="pt-in" id="pt-sym" aria-label="Coin">' + opts + '</select>' +
+      '<input class="pt-in" id="pt-addsym" maxlength="15" placeholder="Add coin e.g. PEPE" style="max-width:170px"><button class="pt-btn" data-act="addsym">Add</button></div>' +
+      '<div class="pt-box" style="margin-bottom:10px">' + headHtml() +
+      '<div class="pt-seg">' + TFS.map(function (t) { return '<button class="pt-chip' + (t === U.tf ? ' on' : '') + '" data-act="tf" data-v="' + t + '">' + t + '</button>'; }).join('') + '</div>' +
+      '<div class="pt-chart" id="pt-chart">' + chartSvg(P.candles[U.symbol + '|' + U.tf], P.price(U.symbol)) + '</div></div>' +
+      '<div class="pt-box" id="pt-ticketbox"><h3>Order Ticket</h3>' + ticketHtml() + '</div>' +
+      '<div class="pt-box"><h3>Order Book</h3><div id="pt-book">' + bookHtml() + '</div></div>' +
+      '<div class="pt-box"><h3>Markets</h3><div class="pt-list pt-mk" id="pt-mk">' + marketsHtml() + '</div></div>';
+  });
+
+  /* ---------- actions ---------- */
+  var A = P.acts, T = P.ticket;
+  function msg(t, bad) { var m = $('#pt-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } }
+  P.selectSymbol = function (s) { if (!validSym(s)) return; U.symbol = s; saveUI(); P.ui.tab = 'trade'; P.render(); };
+  A['pick-sym'] = function (el) { P.selectSymbol(el.dataset.s); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  A.tf = function (el) { U.tf = el.dataset.v; saveUI(); document.querySelectorAll('[data-act="tf"]').forEach(function (b) { b.classList.toggle('on', b.dataset.v === U.tf); }); updChart(); candleTick(); };
+  A['t-side'] = function (el) { T.side = el.dataset.v; redrawTicket(); };
+  A['t-type'] = function (el) { T.type = el.dataset.v; redrawTicket(); };
+  A['t-mode'] = function (el) { T.mode = el.dataset.v; T.size = ''; redrawTicket(); };
+  A['t-pct'] = function (el) { T.pct = Number(el.dataset.v); redrawTicket(); };
+  A['t-lev'] = function (el) { T.lev = Number(el.dataset.v); redrawTicket(); };
+  A['t-place'] = function () {
+    var b = P.buildOrder(); updPreview();
+    if (!b.ok) return msg(b.error, true);
+    if (typeof P.placeOrder === 'function') return P.placeOrder(b.spec);
+    msg('Order engine is not installed yet (comes in Part 3).', true);
+  };
+  A.addsym = function () {
+    var inp = $('#pt-addsym'), s = (inp.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!s) return;
+    if (!/USDT$/.test(s)) s += 'USDT';
+    if (!validSym(s)) return P.toast('Invalid coin name');
+    if (allSyms().indexOf(s) >= 0) { P.selectSymbol(s); return; }
+    if (U.custom.length >= 20) return P.toast('Maximum 20 custom coins');
+    getJson('/ticker/24hr?symbol=' + s).then(function (r) {
+      setPrices([r]); U.custom.push(s); saveUI(); P.selectSymbol(s); P.toast(base(s) + ' added');
+    }, function (e) { P.toast(e && e.status === 400 ? 'Coin not found on Binance' : 'Network error, try again'); });
+  };
+
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id, map = { 'pt-t-size': 'size', 'pt-t-limit': 'limit', 'pt-t-lev': 'lev', 'pt-t-sl': 'sl', 'pt-t-tp': 'tp' };
+    if (map[id]) { T[map[id]] = e.target.value; updPreview(); }
+  });
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'pt-sym') P.selectSymbol(e.target.value); });
+  P.on('prices', function () { updHeader(); updPreview(); updMarkets(); });
+  P.on('stats', function () { updHeader(); updMarkets(); });
+  P.on('feed', updHeader);
+
+  /** Used later by "Trade this signal": opens the ticket with values filled in. */
+  P.prefill = function (o) {
+    if (o.symbol && validSym(o.symbol)) U.symbol = o.symbol;
+    if (o.side === 'LONG' || o.side === 'SHORT') T.side = o.side;
+    if (o.sl) T.sl = String(o.sl); if (o.tp) T.tp = String(o.tp);
+    saveUI(); P.ui.tab = 'trade';
+    var link = $('[data-page="paper"]'); if (link && !onPaper()) link.click(); else P.render();
+  };
+
+  if (onPaper()) P.render();
+})();
+</script>
 <!-- PAPER_NEXT_PART -->
 <script type="module" src="/src/main.tsx"></script>
 </body>
