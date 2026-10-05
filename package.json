@@ -15,10 +15,8 @@
     "start": "node dist/server/server/index.js",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
-    "docs:routes": "tsx scripts/generate-route-docs.ts",
-    "tokens:build": "tsx scripts/generate-tokens-css.ts",
-    "graphics:build": "tsx scripts/generate-graphics.ts"
+    "test": "vitest run"
+  },
   },
   "dependencies": {
     "express": "^5.2.1",
