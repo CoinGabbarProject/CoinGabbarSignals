@@ -1246,8 +1246,8 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             ${dashboardEscape(dashboardPrice(signal.entry))}
           </td>
 
-          <td>
-            ${dashboardEscape(dashboardPrice(signal.stop))}
+          <td${typeof signal.trailStop === "number" ? ' class="trail-sl"' : ""}>
+            ${dashboardEscape(dashboardPrice(typeof signal.trailStop === "number" ? signal.trailStop : signal.stop))}
           </td>
 
           <td>
