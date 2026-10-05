@@ -80,7 +80,7 @@ expect(r.plan.targets).toEqual([94, 90, 84]);
 
 describe("buildSignal", () => {
   it("LONG trade has valid, ordered levels and a consistent score", () => {
-    const c = series(250, 0.25);
+    const c = series(250, 0.05);
     const s = buildSignal(base(c), { now: NOW(c), id: "t1", config: { minScore: 0 } });
     expect(s.direction).toBe("LONG");
     expect(s.symbol).toBe("BTCUSDT");
