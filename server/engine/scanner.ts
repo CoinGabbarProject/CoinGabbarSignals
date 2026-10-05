@@ -49,7 +49,7 @@ async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): 
   return out;
 }
 
-const MAX_OPEN_PER_DIRECTION = 3;
+const MAX_OPEN_PER_DIRECTION = Number(process.env.MAX_OPEN_PER_DIRECTION ?? "5");
 
 // Score-weak exit: if a coin's fresh score stays below EXIT_WEAK_SCORE for EXIT_WEAK_SCANS scans in a row,
 // its ACTIVE signal (TP1 not hit yet) is withdrawn (CANCELLED). Set EXIT_WEAK_SCORE=0 to turn off.
