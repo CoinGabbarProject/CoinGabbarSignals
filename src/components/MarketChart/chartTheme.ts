@@ -45,7 +45,7 @@ function istParts(time: unknown): Record<"day" | "month" | "year" | "hour" | "mi
   const ms = typeof t === "number" ? t * 1000 : Date.UTC(t.year, t.month - 1, t.day);
   const o: Record<string, string> = {};
   for (const p of IST_FMT.formatToParts(new Date(ms))) o[p.type] = p.value;
-  return o;
+  return o as Record<"day" | "month" | "year" | "hour" | "minute", string>;
 }
 
 /** Crosshair label, shown in IST (chart data itself stays in UTC). */
