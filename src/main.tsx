@@ -45,6 +45,7 @@ const isClosedSignal = (s: DashboardSignal): boolean =>
   s.status === "CLOSED" ||
   s.status === "TP3_HIT" ||
   s.status === "SL_HIT" ||
+  s.status === "BE_HIT" ||
   ((s.status === "TP1_HIT" || s.status === "TP2_HIT") &&
     s.outcomeClosed === true);
 
