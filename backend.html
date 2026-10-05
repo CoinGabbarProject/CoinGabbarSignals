@@ -691,7 +691,7 @@ async function watchView() {
     if (!list.length) { $("vb").innerHTML = '<tr><td colspan="4">Empty. Add a symbol above.</td></tr>'; return; }
     try {
       const rows = await tickers(list); if (!$("vb")) return;
-      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmt(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td><button class="btn" data-rm="${esc(x.symbol)}">Remove</button></td></tr>`; }).join("");
+      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmtP(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td><button class="btn" data-rm="${esc(x.symbol)}">Remove</button></td></tr>`; }).join("");
     } catch (e) { if ($("vb")) $("vb").innerHTML = rowErr(4, e); }
   };
   $("wa").onclick = async () => {
