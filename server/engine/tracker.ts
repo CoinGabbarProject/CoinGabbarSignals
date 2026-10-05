@@ -78,6 +78,7 @@ if (TRAILING_ON && !armed && best === 0) {
       const trig = s.entry.ideal + ((tps[0] as number) - s.entry.ideal) * PRE_TP1_BE;
       if (long ? c.high >= trig : c.low <= trig) armed = true;
     }
+    if (armed || best > 0) ext = long ? Math.max(ext || c.high, c.high) : Math.min(ext || c.low, c.low);
     if (best === 3) return done(true);
   }
   if (entered) return done(false);
