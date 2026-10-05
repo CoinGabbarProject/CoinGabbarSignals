@@ -74,7 +74,7 @@ export class MemorySignalStore implements SignalStore {
     const s = this.history.get(id);
     if (!s) return;
     s.status = o.status;
-    s.outcome = { status: o.status, exit: o.exit, closed: o.closed, at: atIso };
+    s.outcome = { status: o.status, exit: o.exit, closed: o.closed, at: atIso, ...(o.trailStop !== undefined ? { trailStop: o.trailStop } : {}) };
     s.timestamps.updatedAt = atIso;
     s.timestamps.closedAt = o.closed ? atIso : null;
   }
