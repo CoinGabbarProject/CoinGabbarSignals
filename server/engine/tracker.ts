@@ -57,7 +57,7 @@ let armed = false;
     const trailStop = trailing();
     const withTrail = <T extends SignalOutcome>(o: T): T => (trailStop === undefined ? o : { ...o, trailStop });
  if (best === 0) return closed ? { kind: "outcome", outcome: withTrail({ status: armed ? "BE_HIT" : "SL_HIT", exit: exit ?? sl, closed: true, hits }) } : { kind: "entered" };
-    return { kind: "outcome", outcome: { status: label(best), exit: exit ?? (tps[best - 1] as number), closed, hits } };
+    return { kind: "outcome", outcome: withTrail({ status: label(best), exit: exit ?? (tps[best - 1] as number), closed, hits }) };
   };
 
   for (const c of candles) {
