@@ -42,8 +42,11 @@ let armed = false;
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
   const stopNow = (): number => {
     if (!TRAILING_ON) return sl;
-    if (best === 0) return armed ? s.entry.ideal : sl;
-    return best === 1 ? s.entry.ideal : (tps[0] as number);
+    if (best === 0 && !armed) return sl;
+    const base = best <= 1 ? s.entry.ideal : (tps[0] as number);
+    if (!(TRAIL_PCT > 0) || ext === 0) return base;
+    const t = long ? ext * (1 - TRAIL_PCT / 100) : ext * (1 + TRAIL_PCT / 100);
+    return long ? Math.max(base, t) : Math.min(base, t);
   };
   const done = (closed: boolean, exit?: number): Evaluation => {
  if (best === 0) return closed ? { kind: "outcome", outcome: { status: armed ? "BE_HIT" : "SL_HIT", exit: exit ?? sl, closed: true, hits } } : { kind: "entered" };
