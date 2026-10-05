@@ -471,6 +471,15 @@ const ls = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
 const fmt = (n, d = 6) => Number(n).toLocaleString("en-US", { maximumFractionDigits: d });
+// price-aware formatter: bade price pe kam digit, chhote price (PEPE/SHIB/BONK) pe zyada digit
+const fmtP = (n) => {
+  n = Number(n);
+  if (!isFinite(n)) return "-";
+  if (n === 0) return "0";
+  const a = Math.abs(n);
+  const d = a >= 1000 ? 2 : a >= 1 ? 4 : Math.min(12, Math.ceil(-Math.log10(a)) + 3);
+  return n.toLocaleString("en-US", { maximumFractionDigits: d });
+};
 const opts = (a) => a.map(x => `<option>${x}</option>`).join("");
 const th = (cols) => `<thead><tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr></thead>`;
 const panel = (title, right, body, live) =>
