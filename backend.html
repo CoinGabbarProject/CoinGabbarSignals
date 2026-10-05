@@ -955,7 +955,13 @@ $("sigForm").addEventListener("submit", async e => {
   }
 });
 
-if (sessionStorage.getItem("cg_admin_logged_in") === "true") loadDashboard();
+if (sessionStorage.getItem("cg_admin_logged_in") === "true") {
+  const saved = decodeURIComponent(location.hash.slice(1));
+  const valid = [...document.querySelectorAll(".nav, .toplinks a")]
+    .some(a => a.textContent.replace(/^[^A-Za-z]+/, "").replace(/\d+$/, "").trim() === saved);
+  if (saved && saved !== "Dashboard" && valid) show(saved);   // last khula page restore
+  else loadDashboard();
+}
 </script>
 </body>
 </html>
