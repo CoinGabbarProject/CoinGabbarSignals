@@ -60,7 +60,7 @@ let best = 0;
     if (beforeSignal) continue;
     const stop = stopNow(); // uses the TP progress up to the previous candle (conservative)
     const slHit = long ? c.low <= stop : c.high >= stop;
- if (slHit) { hits.sl = c.timestamp; return done(true, best === 0 ? undefined : stop); }
+ if (slHit) { hits.sl = c.timestamp; return done(true, best === 0 && !armed ? undefined : stop); }
     while (best < 3) {
       const tp = tps[best];
       if (tp === null || tp === undefined) break;
