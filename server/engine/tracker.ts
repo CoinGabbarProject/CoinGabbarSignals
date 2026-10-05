@@ -38,7 +38,8 @@ let best = 0;
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
   const stopNow = (): number => {
-    if (!TRAILING_ON || best === 0) return sl;
+    if (!TRAILING_ON) return sl;
+    if (best === 0) return armed ? s.entry.ideal : sl;
     return best === 1 ? s.entry.ideal : (tps[0] as number);
   };
   const done = (closed: boolean, exit?: number): Evaluation => {
