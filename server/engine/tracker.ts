@@ -48,7 +48,14 @@ let armed = false;
     const t = long ? ext * (1 - TRAIL_PCT / 100) : ext * (1 + TRAIL_PCT / 100);
     return long ? Math.max(base, t) : Math.min(base, t);
   };
+  const trailing = (): number | undefined => {
+    if (!TRAILING_ON || !(best > 0 || armed)) return undefined;
+    const st = stopNow();
+    return st === sl ? undefined : st; // sirf tab jab SL asli SL se hila ho
+  };
   const done = (closed: boolean, exit?: number): Evaluation => {
+    const trailStop = trailing();
+    const withTrail = <T extends SignalOutcome>(o: T): T => (trailStop === undefined ? o : { ...o, trailStop });
  if (best === 0) return closed ? { kind: "outcome", outcome: { status: armed ? "BE_HIT" : "SL_HIT", exit: exit ?? sl, closed: true, hits } } : { kind: "entered" };
     return { kind: "outcome", outcome: { status: label(best), exit: exit ?? (tps[best - 1] as number), closed, hits } };
   };
