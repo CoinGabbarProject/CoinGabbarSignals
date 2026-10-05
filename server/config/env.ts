@@ -53,6 +53,9 @@ if (symbols.length === 0 || symbols.length > 100) throw new Error("SCAN_SYMBOLS 
 }
 
 export function loadConfig(): ServerConfig {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error("JWT_SECRET must be set (min 32 chars)");
+  }
   return {
     port: Number(process.env.PORT || 3000),
     host: process.env.HOST || "0.0.0.0",
