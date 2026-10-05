@@ -23,9 +23,13 @@ function tooMany(ip: string): boolean {
 
 router.post("/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    if (tooMany(req.ip ?? "unknown")) {
+      return res.status(429).json({ error: "Too many attempts, try later" });
+    }
 
-    if (!email || !password) {
+    const { email, password } = req.body ?? {};
+
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
       return res.status(400).json({
         error: "Email and password are required"
       });
