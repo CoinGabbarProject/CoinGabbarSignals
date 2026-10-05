@@ -152,6 +152,7 @@ router.get("/signals", async (req, res) => {
                 outcomeClosed: Boolean(d.outcome.closed),
                 outcomeAt: Date.parse(d.outcome.at ?? ""),
                 hits: d.outcome.hits ?? {},
+                ...(typeof d.outcome.trailStop === "number" ? { trailStop: d.outcome.trailStop } : {}),
               }
             : {}),
         };
