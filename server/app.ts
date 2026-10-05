@@ -21,6 +21,7 @@ export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   const app = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
 
   // CORS (frontend on GitHub Pages -> API on Render)
   const allowedOrigins = config.corsOrigins.length
