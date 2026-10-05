@@ -96,7 +96,7 @@ describe("buildSignal", () => {
   });
 
   it("SHORT trade has stop above entry and targets below", () => {
-    const c = series(250, -0.25, 11, 200);
+    const c = series(250, -0.05, 8, 200);
     const s = buildSignal(base(c), { now: NOW(c), config: { minScore: 0 } });
     expect(s.direction).toBe("SHORT");
     expect(s.stopLoss.price!).toBeGreaterThan(s.entry.ideal);
