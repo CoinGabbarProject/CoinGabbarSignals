@@ -129,7 +129,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** Topmost drawing under the pixel, or null. */
-  hitTest(x: number, y: number): string | null {
+  drawingAt(x: number, y: number): string | null {
     const P = this.proj();
     if (!P || !this.visible) return null;
     for (let i = this.drawings.length - 1; i >= 0; i--) {
