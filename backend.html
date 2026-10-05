@@ -907,6 +907,7 @@ async function loadDashboard() {
 function show(name) {
   setActive(name);
   side.classList.remove("open");
+  try { history.replaceState(null, "", "#" + encodeURIComponent(name)); } catch (e) {}  // refresh par yahi page wapas khulega
   const dash = name === "Dashboard";
   dashParts.forEach(el => el.style.display = dash ? "" : "none");
   host.style.display = dash ? "none" : "";
