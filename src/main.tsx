@@ -346,6 +346,7 @@ function setPerformanceCard(
   meter: number,
   className = "",
 ): void {
+  if (!card) return;
   const labelEl = card.querySelector("label");
   const valueEl = card.querySelector("strong");
   const smallEl = card.querySelector("small");
