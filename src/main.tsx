@@ -339,7 +339,7 @@ function formatDuration(ms: number | null): string {
 }
 
 function setPerformanceCard(
-  card: Element,
+  card: Element | undefined,
   label: string,
   value: string,
   detail: string,
