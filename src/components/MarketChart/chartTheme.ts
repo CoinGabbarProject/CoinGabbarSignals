@@ -40,7 +40,7 @@ const IST_FMT = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
-function istParts(time: unknown): Record<string, string> {
+function istParts(time: unknown): Record<"day" | "month" | "year" | "hour" | "minute", string> {
   const t = time as number | { year: number; month: number; day: number };
   const ms = typeof t === "number" ? t * 1000 : Date.UTC(t.year, t.month - 1, t.day);
   const o: Record<string, string> = {};
