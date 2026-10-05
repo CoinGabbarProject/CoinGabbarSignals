@@ -50,11 +50,13 @@ export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   app.use(express.json({ limit: "100kb" }));
 
   // Health check
-  app.get("/api/v1/health", (_req, res) => {
-    res.json({
-      status: "ok",
-      database: "connected",
-    });
+  app.get("/api/v1/health", async (_req, res) => {
+    try {
+      await getMongoDB().command({ ping: 1 });
+      res.json({ status: "ok", database: "connected" });
+    } catch {
+      res.status(503).json({ status: "degraded", database: "disconnected" });
+    }
   });
 
   // Admin login
