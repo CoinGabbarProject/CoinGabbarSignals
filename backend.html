@@ -562,7 +562,7 @@ async function indicatorsView() {
     $("vb").innerHTML = list.map(({ s, d }) => {
       if (!d) return `<tr><td>${esc(s)}</td><td colspan="${COLS - 1}">Loading...</td></tr>`;
       if (d.err) return `<tr><td>${esc(s)}</td><td colspan="${COLS - 1}" class="red">${esc(d.err)}</td></tr>`;
-      return `<tr><td>${esc(s)}</td><td>$${fmt(d.price)}</td><td class="${d.rsi > 70 ? "red" : d.rsi < 30 ? "green" : ""}">${d.rsi.toFixed(1)}</td><td>${fmt(d.e20, 4)}</td><td>${fmt(d.e50, 4)}</td><td class="${d.hist >= 0 ? "green" : "red"}">${d.hist.toFixed(4)}</td><td class="${d.up ? "green" : "red"}">${d.up ? "Bullish" : "Bearish"}</td></tr>`;
+   return `<tr><td>${esc(s)}</td><td>$${fmtP(d.price)}</td><td class="${d.rsi > 70 ? "red" : d.rsi < 30 ? "green" : ""}">${d.rsi.toFixed(1)}</td><td>${fmtP(d.e20)}</td><td>${fmtP(d.e50)}</td><td class="${d.hist >= 0 ? "green" : "red"}">${fmtP(d.hist)}</td><td class="${d.up ? "green" : "red"}">${d.up ? "Bullish" : "Bearish"}</td></tr>`;
     }).join("") || `<tr><td colspan="${COLS}">No coin matches</td></tr>`;
   };
 
