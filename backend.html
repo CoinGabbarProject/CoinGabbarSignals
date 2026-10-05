@@ -861,7 +861,7 @@ async function loadLive() {
       const stale = Date.now() - Number(x.closeTime) > 5 * 60 * 1000;
       if (!stale) okCount++;
       return `<tr><td>${name}</td>
-        <td>$${Number(x.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 6 })}</td>
+        <td>$${fmtP(x.lastPrice)}</td>
         <td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td>
         <td><span class="status ${stale ? "pending" : "active"}">${stale ? "STALE" : "OK"}</span></td></tr>`;
     });
