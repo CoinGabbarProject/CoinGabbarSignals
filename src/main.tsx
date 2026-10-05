@@ -55,6 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
   TP2_HIT: "TP2 HIT ✅",
   TP3_HIT: "TP3 HIT ✅",
   SL_HIT: "SL HIT ❌",
+  BE_HIT: "BREAKEVEN ⚪",
 };
 
 function calculatePerformance(
