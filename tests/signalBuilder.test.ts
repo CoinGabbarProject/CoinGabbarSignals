@@ -105,7 +105,7 @@ describe("buildSignal", () => {
   });
 
   it("min-score filter turns a valid side into WAIT with no levels", () => {
-    const c = series(250, 0.25);
+    const c = series(250, 0.05);
     const s = buildSignal(base(c), { now: NOW(c), config: { minScore: 101 } });
     expect(s.direction).toBe("WAIT");
     expect(s.stopLoss.price).toBeNull();
