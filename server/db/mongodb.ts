@@ -16,7 +16,7 @@ export async function connectMongoDB() {
   await client.connect();
 
   db = client.db(
-    process.env.MONGODB_DB || "coingabbarsignals"
+    process.env.MONGODB_DB || "coingabbar"
   );
 
   console.log("[mongodb] connected");
