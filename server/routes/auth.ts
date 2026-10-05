@@ -5,6 +5,20 @@ import { getMongoDB } from "../db/mongodb.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 const router = Router();
 
+const attempts = new Map<string, { n: number; reset: number }>();
+const MAX_ATTEMPTS = 10;
+const WINDOW_MS = 15 * 60 * 1000;
+function tooMany(ip: string): boolean {
+  const now = Date.now();
+  const a = attempts.get(ip);
+  if (!a || a.reset < now) {
+    attempts.set(ip, { n: 1, reset: now + WINDOW_MS });
+    return false;
+  }
+  a.n++;
+  return a.n > MAX_ATTEMPTS;
+}
+
 
 
 router.post("/auth/login", async (req, res) => {
