@@ -152,9 +152,10 @@ describe("buildSignal", () => {
   it("full data at the DEFAULT min score produces a FRESH LONG and SHORT", () => {
     for (const dir of [1, -1]) {
       const start = dir > 0 ? 100 : 200;
-      const c = series(250, 0.25 * dir, 7, start);
-      const s = buildSignal({
-        ...base(c), confirmation: series(250, 0.25 * dir, 9, start), change24hPct: 1.5 * dir,
+      const seed = dir > 0 ? 7 : 8;
+const c = series(250, 0.05 * dir, seed, start);
+const s = buildSignal({
+  ...base(c), confirmation: series(250, 0.05 * dir, seed + 2, start), change24hPct: 1.5 * dir,
         derivatives: { fundingRate: 0, oiChangePct: 3, longShortRatio: 1, bookImbalance: 0.3 * dir },
         news: { sentiment: 0.4 * dir, highImpactSoon: false },
       }, { now: NOW(c) });
