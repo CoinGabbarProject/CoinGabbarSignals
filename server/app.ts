@@ -7,6 +7,7 @@ import express, {
 
 import type { ServerConfig } from "./config/env.js";
 import authRouter from "./routes/auth.js";
+import { getMongoDB } from "./db/mongodb.js";
 import signalsRouter from "./routes/signals.js";
 import candlesRouter from "./routes/candles.js";
 import { createEngineRouter } from "./routes/engine.js";
