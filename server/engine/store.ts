@@ -20,6 +20,7 @@ export interface SignalOutcome {
   status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT" | "BE_HIT",
   exit: number;
   closed: boolean;
+  trailStop?: number;
 }
 export const TRACKABLE_STATUSES = ["ACTIVE", "TP1_HIT", "TP2_HIT"] as const;
 
