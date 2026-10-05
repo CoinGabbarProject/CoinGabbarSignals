@@ -74,7 +74,7 @@ let armed = false;
       best++;
       hits[`tp${best}` as "tp1" | "tp2" | "tp3"] = c.timestamp;
     }
-if (TRAILING_ON && !armed && best === 0) {
+if (TRAILING_ON && PRE_TP1_BE > 0 && !armed && best === 0) {
       const trig = s.entry.ideal + ((tps[0] as number) - s.entry.ideal) * PRE_TP1_BE;
       if (long ? c.high >= trig : c.low <= trig) armed = true;
     }
