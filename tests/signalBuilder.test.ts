@@ -160,7 +160,7 @@ const s = buildSignal({
         news: { sentiment: 0.4 * dir, highImpactSoon: false },
       }, { now: NOW(c) });
       expect(s.direction).toBe(dir > 0 ? "LONG" : "SHORT");
-      expect(s.score.total).toBeGreaterThanOrEqual(65);
+      expect(s.score.total).toBeGreaterThanOrEqual(75);
       expect(s.dataQuality.status).toBe("FRESH");
       expect(s.riskReward.tp1).toBeGreaterThanOrEqual(1);
     }
