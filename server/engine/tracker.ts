@@ -13,6 +13,8 @@ const CANDLE_LIMIT = 1000;
 const TRAILING_ON = (process.env.TRAILING_STOP ?? "true").toLowerCase() !== "false";
 // Pre-TP1 protection: once price covers this fraction of the entry→TP1 distance, SL moves to entry.
 const PRE_TP1_BE = Number(process.env.PRE_TP1_BE ?? "0.5");
+// Percentage trailing: after armed / TP1, SL follows the best price by this % (0 = off).
+const TRAIL_PCT = Number(process.env.TRAIL_PCT ?? "1.5");
 
 export const trackHorizonMs = (execTf: string): number => (TF_MS[execTf] ?? 300_000) * CANDLE_LIMIT * 0.9;
 
