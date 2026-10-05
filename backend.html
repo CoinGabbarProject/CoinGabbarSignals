@@ -521,21 +521,78 @@ async function marketView() {
 }
 
 async function indicatorsView() {
-  host.innerHTML = panel("Indicators", `<select id="itf" class="btn">${["5m", "15m", "1h", "4h", "1d"].map(t => `<option ${t === "1h" ? "selected" : ""}>${t}</option>`).join("")}</select>`,
-    `<table class="table">${th(["Symbol", "Price", "RSI 14", "EMA 20", "EMA 50", "MACD hist", "Trend"])}<tbody id="vb"><tr><td colspan="7">Loading...</td></tr></tbody></table>`, "Indicators");
-  const load = async () => {
-    const tf = $("itf") && $("itf").value; if (!tf) return;
-    const out = await Promise.all(SYMS.slice(0, 8).map(async s => {
-      try {
-        const c = (await klines(s, tf)).map(x => x.c), e20 = ema(c, 20).at(-1), e50 = ema(c, 50).at(-1);
-        const e12 = ema(c, 12), e26 = ema(c, 26), macd = e12.map((v, i) => v - e26[i]), hist = macd.at(-1) - ema(macd, 9).at(-1);
-        const r = rsi(c), up = e20 > e50;
-        return `<tr><td>${s}</td><td>$${fmt(c.at(-1))}</td><td class="${r > 70 ? "red" : r < 30 ? "green" : ""}">${r.toFixed(1)}</td><td>${fmt(e20, 4)}</td><td>${fmt(e50, 4)}</td><td class="${hist >= 0 ? "green" : "red"}">${hist.toFixed(4)}</td><td class="${up ? "green" : "red"}">${up ? "Bullish" : "Bearish"}</td></tr>`;
-      } catch (e) { return `<tr><td>${s}</td><td colspan="6" class="red">${esc(e.message)}</td></tr>`; }
-    }));
-    if ($("vb")) $("vb").innerHTML = out.join("");
+  const TFS = ["5m", "15m", "1h", "4h", "1d"];
+  const COLS = 7;
+  const state = { data: {}, runId: 0, busy: false, symbols: [] };
+
+  host.innerHTML = panel("Indicators",
+    `<input id="iq" placeholder="Search coin" style="${INP};width:110px"> ` +
+    `<select id="itrend" class="btn"><option value="">All trends</option><option>Bullish</option><option>Bearish</option></select> ` +
+    `<select id="isort" class="btn"><option value="symbol">Sort: Symbol</option><option value="rsiAsc">RSI low → high</option><option value="rsiDesc">RSI high → low</option><option value="macd">MACD hist</option></select> ` +
+    `<select id="itf" class="btn">${TFS.map(t => `<option ${t === "1h" ? "selected" : ""}>${t}</option>`).join("")}</select> ` +
+    `<span id="iinfo">Loading...</span>`,
+    `<table class="table">${th(["Symbol", "Price", "RSI 14", "EMA 20", "EMA 50", "MACD hist", "Trend"])}<tbody id="vb"><tr><td colspan="${COLS}">Loading tracked coins...</td></tr></tbody></table>`,
+    "Indicators");
+
+  const calc = (c) => {
+    const e20 = ema(c, 20).at(-1), e50 = ema(c, 50).at(-1);
+    const e12 = ema(c, 12), e26 = ema(c, 26), macd = e12.map((v, i) => v - e26[i]);
+    const hist = macd.at(-1) - ema(macd, 9).at(-1);
+    return { price: c.at(-1), rsi: rsi(c), e20, e50, hist, up: e20 > e50 };
   };
-  $("itf").onchange = load; await load();
+
+  const render = () => {
+    if (!$("vb")) return;
+    const q = ($("iq").value || "").trim().toUpperCase(), tr = $("itrend").value, sort = $("isort").value;
+    let list = state.symbols.map(s => ({ s, d: state.data[s] })).filter(x => !q || x.s.includes(q));
+    if (tr) list = list.filter(x => x.d && !x.d.err && (x.d.up ? "Bullish" : "Bearish") === tr);
+    const ok = (x) => x.d && !x.d.err;
+    if (sort === "rsiAsc") list.sort((a, b) => (ok(a) ? a.d.rsi : 999) - (ok(b) ? b.d.rsi : 999));
+    else if (sort === "rsiDesc") list.sort((a, b) => (ok(b) ? b.d.rsi : -1) - (ok(a) ? a.d.rsi : -1));
+    else if (sort === "macd") list.sort((a, b) => (ok(b) ? b.d.hist : -Infinity) - (ok(a) ? a.d.hist : -Infinity));
+    $("vb").innerHTML = list.map(({ s, d }) => {
+      if (!d) return `<tr><td>${esc(s)}</td><td colspan="${COLS - 1}">Loading...</td></tr>`;
+      if (d.err) return `<tr><td>${esc(s)}</td><td colspan="${COLS - 1}" class="red">${esc(d.err)}</td></tr>`;
+      return `<tr><td>${esc(s)}</td><td>$${fmt(d.price)}</td><td class="${d.rsi > 70 ? "red" : d.rsi < 30 ? "green" : ""}">${d.rsi.toFixed(1)}</td><td>${fmt(d.e20, 4)}</td><td>${fmt(d.e50, 4)}</td><td class="${d.hist >= 0 ? "green" : "red"}">${d.hist.toFixed(4)}</td><td class="${d.up ? "green" : "red"}">${d.up ? "Bullish" : "Bearish"}</td></tr>`;
+    }).join("") || `<tr><td colspan="${COLS}">No coin matches</td></tr>`;
+  };
+
+  const load = async () => {
+    const tf = $("itf") && $("itf").value;
+    if (!tf || state.busy) return;
+    const id = ++state.runId;
+    state.busy = true;
+    const t0 = performance.now();
+    try {
+      state.symbols = await getTrackedSymbols();          // server SCAN_SYMBOLS (top 100 tracked), fallback list agar API na mile
+      let i = 0, done = 0, fail = 0;
+      const stale = () => id !== state.runId || !$("vb");
+      const worker = async () => {
+        while (i < state.symbols.length) {
+          if (stale()) return;
+          const s = state.symbols[i++];
+          try { state.data[s] = calc((await klines(s, tf, 200)).map(x => x.c)); }
+          catch (e) { fail++; state.data[s] = { err: e.message }; }
+          done++;
+          if (done % 10 === 0 && !stale()) { render(); $("iinfo").textContent = `Updating ${done}/${state.symbols.length}...`; }
+        }
+      };
+      await Promise.all(Array.from({ length: 8 }, worker));  // 8 parallel requests, Binance rate-limit safe
+      if (stale()) return;
+      render();
+      const ms = Math.round(performance.now() - t0);
+      $("iinfo").textContent = `${state.symbols.length - fail}/${state.symbols.length} OK · ${tf} · ${ms}ms · ${new Date().toLocaleTimeString()}`;
+    } catch (e) {
+      if ($("vb")) $("vb").innerHTML = rowErr(COLS, e);
+    } finally {
+      if (id === state.runId) state.busy = false;
+    }
+  };
+
+  $("itf").onchange = () => { state.data = {}; state.runId++; state.busy = false; render(); load(); };
+  $("iq").oninput = render; $("itrend").onchange = render; $("isort").onchange = render;
+  await load();
+  autoRefresh("Indicators", load);
 }
 
 function riskView() {
