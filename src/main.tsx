@@ -18,6 +18,7 @@ type DashboardSignal = {
     | "BE_HIT";
   outcomeClosed?: boolean;
   outcomeAt?: number;
+  trailStop?: number;
   hits?: { tp1?: number; tp2?: number; tp3?: number; sl?: number };
   timeframe?: string;
   score?: number;
