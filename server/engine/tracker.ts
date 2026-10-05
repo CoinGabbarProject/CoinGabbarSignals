@@ -43,7 +43,7 @@ let best = 0;
     return best === 1 ? s.entry.ideal : (tps[0] as number);
   };
   const done = (closed: boolean, exit?: number): Evaluation => {
- if (best === 0) return closed ? { kind: "outcome", outcome: { status: "SL_HIT", exit: sl, closed: true, hits } } : { kind: "entered" };
+ if (best === 0) return closed ? { kind: "outcome", outcome: { status: armed ? "BE_HIT" : "SL_HIT", exit: exit ?? sl, closed: true, hits } } : { kind: "entered" };
     return { kind: "outcome", outcome: { status: label(best), exit: exit ?? (tps[best - 1] as number), closed, hits } };
   };
 
