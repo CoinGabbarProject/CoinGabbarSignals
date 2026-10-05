@@ -522,7 +522,7 @@ async function marketView() {
     try {
       const t0 = performance.now(), rows = await tickers(SYMS), ms = Math.round(performance.now() - t0);
       if (!$("vb")) return;
-      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmt(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td>${fmt(x.highPrice)}</td><td>${fmt(x.lowPrice)}</td><td>${(x.quoteVolume / 1e6).toFixed(1)}</td></tr>`; }).join("");
+      $("vb").innerHTML = rows.map(x => { const ch = +x.priceChangePercent; return `<tr><td>${esc(x.symbol)}</td><td>$${fmtP(x.lastPrice)}</td><td class="${ch >= 0 ? "green" : "red"}">${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</td><td>${fmt(x.highPrice)}</td><td>${fmt(x.lowPrice)}</td><td>${(x.quoteVolume / 1e6).toFixed(1)}</td></tr>`; }).join("");
       $("vt").textContent = `Binance LIVE · ${ms}ms · ${new Date().toLocaleTimeString()}`;
     } catch (e) { if ($("vb")) $("vb").innerHTML = rowErr(6, e); }
   };
