@@ -17,7 +17,7 @@ export type SignalFilterStatus = "ACTIVE" | "CANCELLED" | "EXPIRED";
 export interface SignalHits { tp1?: number; tp2?: number; tp3?: number; sl?: number }
 export interface SignalOutcome {
   hits?: SignalHits;
-  status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT",
+  status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT" | "BE_HIT",
   exit: number;
   closed: boolean;
 }
