@@ -65,7 +65,7 @@ async function exitIfWeak(signal: FinalSignal, store: SignalStore, now: number, 
   const n = (weakCount.get(key) ?? 0) + 1;
   if (n < WEAK_SCANS) { weakCount.set(key, n); return; }
   weakCount.delete(key);
-  const open = (await store.findActive(signal.symbol, signal.timeframe.primary)).filter((o) => o.status === "ACTIVE" && !o.outcome?.closed);
+  const open = (await store.findActive(signal.symbol, signal.timeframe.primary)).filter((o) => o.status === "ACTIVE" && !o.outcome?.closed && !o.entered);
   for (const o of open) {
     await store.setStatus(o.id, "CANCELLED", new Date(now).toISOString());
     log.info(`[scan] ${o.symbol} ${o.direction}: score fell to ${signal.score.total} (< ${WEAK_SCORE}) for ${WEAK_SCANS} scans, signal withdrawn`);
