@@ -33,6 +33,7 @@ export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number, 
   const expiryMs = Date.parse(s.entry.expiry);
   let entered = false;
 let best = 0;
+  let armed = false;
   const hits: SignalHits = {};
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
