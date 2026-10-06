@@ -1,6 +1,6 @@
 import type { Candle, Timeframe } from "../../shared/market.js";
 import { calcIndicators } from "../../shared/indicators.js";
-import { BINANCE_INTERVAL, CONFIRMATION_TF, DEFAULT_MARKET_CONFIG } from "./marketData.js";
+import { CONFIRMATION_TF } from "./marketData.js";
 
 /**
  * Backtest - part 1 of 3: historical data + time-alignment helpers.
