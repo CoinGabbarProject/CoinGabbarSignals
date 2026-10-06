@@ -23,7 +23,7 @@ export const WINDOW = 300;
 export const WARMUP = 300;
 /** Hard cap per series so a typo in ?days= cannot hammer Binance. */
 export const MAX_HISTORY_BARS = 6000;
-const PAGE = 1000;
+const PAGE = 100; // OKX history-candles maximum per request
 
 export interface HistoryConfig { host: string; timeoutMs: number; pageDelayMs: number; retries: number }
 export const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
