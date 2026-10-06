@@ -95,12 +95,24 @@ async function btcBias(deps: EngineDeps, tf: Timeframe, s: ScanSettings, now: nu
 }
 
 /** Downgrades a LONG/SHORT to WAIT when entering right now is not sensible (BTC against it, or price left the entry zone). */
-async function guardEntry(signal: FinalSignal, tf: Timeframe, deps: EngineDeps, now: number, btc: 1 | -1 | 0): Promise<FinalSignal> {
-  if (signal.direction !== "LONG" && signal.direction !== "SHORT") return signal;
+async function guardEntry(input: FinalSignal, tf: Timeframe, deps: EngineDeps, now: number, btc: 1 | -1 | 0, minScore: number): Promise<FinalSignal> {
+  if (input.direction !== "LONG" && input.direction !== "SHORT") return input;
+  let signal = input;
   let reason: string | null = null;
-  const btcFilterOn = (process.env.BTC_FILTER ?? "true").toLowerCase() !== "false";
-  if (btcFilterOn && btc !== 0 && signal.symbol !== "BTCUSDT" && (signal.direction === "LONG" ? -1 : 1) === btc) {
+  // BTC_FILTER: "true" = block, "soft" = score penalty, "false" = off
+  const btcMode = (process.env.BTC_FILTER ?? "true").toLowerCase();
+  const against = btc !== 0 && signal.symbol !== "BTCUSDT" && (signal.direction === "LONG" ? -1 : 1) === btc;
+  if (against && btcMode === "true") {
     reason = `BTC trend is against this ${signal.direction}`;
+  } else if (against && btcMode === "soft") {
+    const penalty = Number(process.env.BTC_SOFT_PENALTY ?? "5");
+    const total = Math.max(0, signal.score.total - penalty);
+    signal = {
+      ...signal,
+      score: { ...signal.score, total },
+      reasoning: { ...signal.reasoning, warnings: [...signal.reasoning.warnings, `BTC trend is against this ${signal.direction} (score -${penalty})`] },
+    };
+    if (total < minScore) reason = `Score ${total} fell below ${minScore} after the BTC-against penalty`;
   }
   if (reason === null) {
     try {
