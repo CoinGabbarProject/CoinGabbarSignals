@@ -25,10 +25,11 @@ export const WARMUP = 300;
 export const MAX_HISTORY_BARS = 6000;
 const PAGE = 1000;
 
-export interface HistoryConfig { spotUrl: string; timeoutMs: number; pageDelayMs: number; retries: number }
+export interface HistoryConfig { host: string; timeoutMs: number; pageDelayMs: number; retries: number }
 export const DEFAULT_HISTORY_CONFIG: HistoryConfig = {
-  spotUrl: DEFAULT_MARKET_CONFIG.spotUrl, timeoutMs: 10_000, pageDelayMs: 150, retries: 2,
+  host: "https://www.okx.com", timeoutMs: 10_000, pageDelayMs: 350, retries: 3,
 };
+const OKX_BAR: Record<Timeframe, string> = { "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1H": "1H", "4H": "4H", "1D": "1Dutc" };
 
 export type Bias = 1 | -1 | 0;
 
