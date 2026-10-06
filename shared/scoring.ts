@@ -200,7 +200,8 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   if (num(ls) && ls > 0) {
     const crowd = s > 0 ? ls : 1 / ls;
     dd += crowd <= 1.5 ? 2 : crowd <= 2.5 ? 1 : 0;
-    if (crowd > 2.5) warnings.push("Positioning is crowded on the setup side");
+        if (crowd > 2.5) warnings.push("Positioning is crowded on the setup side");
+    if (crowd > 3) penalty += 3;
   } else unavailable.push("longShortRatio");
   const bi = dv?.bookImbalance;
   if (num(bi)) { const a = bi * s; dd += a >= 0.2 ? 3 : a >= 0.05 ? 2 : a >= -0.05 ? 1 : 0; }
