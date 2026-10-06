@@ -160,10 +160,11 @@ export class BinanceMarketData implements MarketData {
   }
 
   private async getOrderBook(symbol: string): Promise<OrderBookSnapshot> {
+    const m = this.mkt(symbol);
     const raw = await this.getJson(
-      this.cfg.spotUrl,
-      "/api/v3/depth",
-      { symbol, limit: 20 },
+      m.base,
+      `${m.prefix}/depth`,
+      { symbol: m.sym, limit: 20 },
     );
 
     const o = asObject(raw);
