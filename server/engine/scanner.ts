@@ -98,7 +98,8 @@ async function btcBias(deps: EngineDeps, tf: Timeframe, s: ScanSettings, now: nu
 async function guardEntry(signal: FinalSignal, tf: Timeframe, deps: EngineDeps, now: number, btc: 1 | -1 | 0): Promise<FinalSignal> {
   if (signal.direction !== "LONG" && signal.direction !== "SHORT") return signal;
   let reason: string | null = null;
-  if (btc !== 0 && signal.symbol !== "BTCUSDT" && (signal.direction === "LONG" ? -1 : 1) === btc) {
+  const btcFilterOn = (process.env.BTC_FILTER ?? "true").toLowerCase() !== "false";
+  if (btcFilterOn && btc !== 0 && signal.symbol !== "BTCUSDT" && (signal.direction === "LONG" ? -1 : 1) === btc) {
     reason = `BTC trend is against this ${signal.direction}`;
   }
   if (reason === null) {
