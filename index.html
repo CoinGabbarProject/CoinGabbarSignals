@@ -2170,7 +2170,7 @@ var bd = $("posCalcBackdrop");
       if (!s || s.tf !== tf || final || Date.now() - s.created > 12 * 3600e3) { s = build(sym, tf, a); saveSig(s); }
       window.__userPair = sym;                              // stops the old backend script overwriting our values
       render(s, a, sym);
-    } catch (e) { console.error("CG engine:", e); } finally { busy = false; }
+        } catch (e) { console.error("CG engine:", e); var _ln = $("liveScoreNote"); if (_ln && /Loading/.test(_ln.textContent)) _ln.textContent = "Data unavailable, retrying…"; } finally { busy = false; }
   }
   window.CG.refresh = refresh;
   window.__userPair = curSym();
