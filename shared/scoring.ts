@@ -202,7 +202,19 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   } else unavailable.push("longShortRatio");
   const bi = dv?.bookImbalance;
   if (num(bi)) { const a = bi * s; dd += a >= 0.2 ? 3 : a >= 0.05 ? 2 : a >= -0.05 ? 1 : 0; }
-  else unavailable.push("orderBook");
+else unavailable.push("orderBook");
+  const tt = dv?.topTraderRatio;
+  if (num(tt) && tt > 0) {
+    const a = s > 0 ? tt : 1 / tt;
+    if (a >= 1.1) { dd += 1; conf.push("Top traders positioned with the setup"); }
+    else if (a <= 0.9) { dd -= 1; warnings.push("Top traders positioned against the setup"); }
+  }
+  const tk = dv?.takerBuySellRatio;
+  if (num(tk) && tk > 0) {
+    const a = s > 0 ? tk : 1 / tk;
+    if (a >= 1.1) { dd += 1; conf.push("Aggressive taker flow supports the setup"); }
+    else if (a <= 0.9) { dd -= 1; warnings.push("Taker flow is against the setup"); }
+  }
 
   // ---- 7. News + fundamentals (5) ----
   let nf = 0;
