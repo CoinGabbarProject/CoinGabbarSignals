@@ -113,7 +113,8 @@ export class BinanceMarketData implements MarketData {
   }
 
   async getTicker24h(symbol: string): Promise<Ticker24h> {
-    const o = asObject(await this.getJson(this.cfg.spotUrl, "/api/v3/ticker/24hr", { symbol }));
+    const m = this.mkt(symbol);
+    const o = asObject(await this.getJson(m.base, `${m.prefix}/ticker/24hr`, { symbol: m.sym }));
     return { change24hPct: toNum(o.priceChangePercent), volume24h: toNum(o.quoteVolume) };
   }
 
