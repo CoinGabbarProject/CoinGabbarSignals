@@ -14,7 +14,7 @@ export const SCORE_MAX: SetupScore = {
   volumeMomentum: 15, derivativesOrderbook: 10, newsFundamentals: 5, riskExecution: 15,
 };
 
-export interface DerivativesInput { fundingRate: number | null; oiChangePct: number | null; longShortRatio: number | null; bookImbalance: number | null; }
+export interface DerivativesInput { fundingRate: number | null; oiChangePct: number | null; longShortRatio: number | null; bookImbalance: number | null; topTraderRatio?: number | null; takerBuySellRatio?: number | null; }
 export interface NewsInput { sentiment: number; highImpactSoon: boolean; }
 export interface ScoreInput {
   candles: Candle[];
