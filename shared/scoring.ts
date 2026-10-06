@@ -257,6 +257,6 @@ else unavailable.push("orderBook");
     (unavailable.includes("fundingRate") ? 3 : 0) + (unavailable.includes("openInterest") ? 2 : 0) +
     (unavailable.includes("longShortRatio") ? 2 : 0) + (unavailable.includes("orderBook") ? 3 : 0) +
     (unavailable.includes("news") ? 5 : 0);
-  score.total = Math.round((rawTotal * 100) / (100 - lostMax));
+    score.total = Math.max(0, Math.round(((rawTotal - penalty) * 100) / (100 - lostMax)));
   return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical };
                             }
