@@ -1072,16 +1072,14 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   }
 }
 
-function recentAccuracy(signals: DashboardSignal[]) {
-  const last20 = signals
-    .slice()
-    .sort(
-      (a, b) =>
-        (dashboardDate(b.createdAt) ?? 0) -
-        (dashboardDate(a.createdAt) ?? 0),
-    )
-    .slice(0, 20);
+let accRange: "7d" | "30d" | "all" = "all";
 
+function recentAccuracy(signals: DashboardSignal[]) {
+  const days = accRange === "7d" ? 7 : accRange === "30d" ? 30 : 0;
+  const cutoff = days ? Date.now() - days * 86400000 : 0;
+  const last20 = signals.filter(
+    (s) => (dashboardDate(s.createdAt) ?? 0) >= cutoff,
+  );
   let wins = 0;
   let losses = 0;
   let open = 0;
