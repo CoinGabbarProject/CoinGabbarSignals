@@ -71,7 +71,12 @@ export class BinanceMarketData implements MarketData {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
+  private blockedUntil = 0;
+
   private async getJson(base: string, path: string, params: Record<string, string | number>): Promise<unknown> {
+    if (Date.now() < this.blockedUntil) {
+      throw new Error(`Binance cooldown active (${Math.ceil((this.blockedUntil - Date.now()) / 60000)} min left)`);
+    }
     const url = new URL(path, base);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
     const ctrl = new AbortController();
