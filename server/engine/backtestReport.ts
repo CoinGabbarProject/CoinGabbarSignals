@@ -215,7 +215,7 @@ export function createBacktestRouter(scan: ScanConfig): Router {
     running = true;
     try {
       const now = Date.now();
-      const cfg = { ...DEFAULT_HISTORY_CONFIG, spotUrl: scan.spotUrl };
+      const cfg = DEFAULT_HISTORY_CONFIG;
       const failed: string[] = [];
       const loaded = await mapPool(p.symbols, 3, async (sym): Promise<SymbolHistory | null> => {
         try { return await loadSymbolHistory(sym, p.opts.timeframe, p.opts.testBars, now, cfg); }
