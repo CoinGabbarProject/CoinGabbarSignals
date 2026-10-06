@@ -54,6 +54,8 @@ function validCandle(c: Candle): boolean {
   );
 }
 
+type OkxBody = { code?: unknown; msg?: unknown; data?: unknown };
+
 async function fetchPage(
   instId: string, tf: Timeframe, after: number | null, cfg: HistoryConfig, fetchFn: typeof fetch,
 ): Promise<unknown[]> {
