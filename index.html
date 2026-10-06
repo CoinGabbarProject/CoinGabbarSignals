@@ -1585,7 +1585,7 @@ document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{
 </script>
 <script>
 (async function(){
-  const API="https://coingabbarsignals.onrender.com/api/v1";
+  const API="https://coingabbarsignals-1.onrender.com/api/v1";
   const $=id=>document.getElementById(id);
   const fmt=n=>"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:Number(n)>0&&Number(n)<1?Math.min(12,Math.ceil(-Math.log10(Number(n)))+3):8});
   try{
@@ -5725,7 +5725,7 @@ var bd = $("posCalcBackdrop");
   if (!P || !P.prefill || !P.redrawTicket || P.x10) return;
   var $ = function (s) { return document.querySelector(s); };
   var esc = P.esc, money = P.money, cls = P.cls, fp = P.fp, T = P.ticket;
-  var API = 'https://coingabbarsignals.onrender.com/api/v1';
+  var API = 'https://coingabbarsignals-1.onrender.com/api/v1';
   var base = function (s) { return String(s).replace(/USDT$/, ''); };
   var num = function (n) { n = Number(n); return isFinite(n) && n > 0 ? n : null; };
   var X = P.x10 = { version: '10A', sigs: [], at: 0, err: '', busy: false, sig: null, filter: 'ACTIVE' };
