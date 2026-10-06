@@ -2146,7 +2146,8 @@ var bd = $("posCalcBackdrop");
   var seq = 0, busy = false;
   function curSym() {
     var q = new URLSearchParams(location.search).get("symbol");
-    var t = q || ($("liveSymbol") && $("liveSymbol").textContent) || "BTC/USDT";
+        var cur = ($("liveSymbol") && $("liveSymbol").textContent || "").trim();
+    var t = q || (/^[A-Z0-9]{2,15}\s*\/\s*[A-Z0-9]{2,10}$/i.test(cur) ? cur : ((window.CGS && CGS.get().pair) || "BTC/USDT"));
     t = t.replace(/[\/\-\s]/g, "").toUpperCase(); return /USDT$/.test(t) ? t : t + "USDT";
   }
   function curTf() {
