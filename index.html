@@ -7314,6 +7314,66 @@ X.badge = badge; X.notes = notes;
   loadContext(); setInterval(loadContext, 300000);
 })();
 </script>
+<script>
+/* CGS FIX 1 - Click fix: page re-render (main.innerHTML) ke baad purane listeners mar jate the.
+   Ab sab clicks document par delegated hain, to re-render ke baad bhi chalenge. */
+(function () {
+  if (window.__cgsDelegatedClicks) return; window.__cgsDelegatedClicks = true;
+  var say = function (m) { try { showToast(m); } catch (e) {} };
+
+  function fixChartHost() {
+    var ids = ['chart-panel', 'indicator-panel', 'order-panel', 'liq-panel'];
+    var cp = document.getElementById('chart-panel'), host = cp && cp.parentNode;
+    if (host) ids.forEach(function (id) { var p = document.getElementById(id); if (p && p.parentNode !== host) host.appendChild(p); });
+    return ids;
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+
+    /* 1) Analysis tabs: Analysis & Reasoning / Technical / Derivatives / Market Context */
+    var dt = t.closest('[data-detail-tab]');
+    if (dt) {
+      var pn = dt.closest('.panel') || document;
+      pn.querySelectorAll('[data-detail-tab]').forEach(function (x) { x.classList.toggle('active', x === dt); });
+      pn.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.toggle('active', p.id === dt.dataset.detailTab); });
+      return;
+    }
+
+    /* 2) Chart tabs: Chart / Indicators / Order Book / Liquidity */
+    var ct = t.closest('[data-chart-tab]');
+    if (ct) {
+      var ids = fixChartHost(), box = ct.closest('.chartbox') || document;
+      box.querySelectorAll('[data-chart-tab]').forEach(function (x) { x.classList.toggle('active', x === ct); });
+      ids.forEach(function (id) { var p = document.getElementById(id); if (p) p.classList.toggle('active', id === ct.dataset.chartTab); });
+      window.dispatchEvent(new Event('resize'));
+      return;
+    }
+
+    /* 3) Timeframe buttons */
+    var tf = t.closest('.tf');
+    if (tf && tf.parentElement) {
+      tf.parentElement.querySelectorAll('.tf').forEach(function (x) { x.classList.toggle('active', x === tf); });
+    }
+
+    /* 4) Indicator rows expand/collapse */
+    var ir = t.closest('.indicator-row');
+    if (ir) ir.classList.toggle('open');
+
+    /* 5) Toast buttons (data-toast) */
+    var tb = t.closest('[data-toast]');
+    if (tb) say(tb.dataset.toast);
+
+    /* 6) Watchlist button */
+    var wb = t.closest('#watchBtn');
+    if (wb) {
+      var added = wb.classList.toggle('added'), b = (window.CG && CG.state && CG.state.base) || 'BTC';
+      wb.textContent = added ? '\u2713 ' + b + '/USDT Added to Watchlist' : '\u2606 Add ' + b + '/USDT to Watchlist';
+      say(added ? 'Added to watchlist' : 'Removed from watchlist');
+    }
+  });
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
