@@ -222,7 +222,12 @@ export class BinanceMarketData implements MarketData {
         if (bid + ask <= 0) throw new Error("Empty order book");
         return (bid - ask) / (bid + ask); // CALCULATIONS.md: (bid-ask)/(bid+ask)
       }),
+    this.getJson(this.cfg.futuresUrl, "/futures/data/topLongShortPositionRatio", { symbol, period, limit: 1 }).then((r) => toNum(asObject(asArray(r)[0]).longShortRatio)),
+      this.getJson(this.cfg.futuresUrl, "/futures/data/takerlongshortRatio", { symbol, period, limit: 1 }).then((r) => toNum(asObject(asArray(r)[0]).buySellRatio)),
     ]);
-    return { fundingRate: settled(funding), oiChangePct: settled(oi), longShortRatio: settled(ls), bookImbalance: settled(book) };
+    return {
+      fundingRate: settled(funding), oiChangePct: settled(oi), longShortRatio: settled(ls), bookImbalance: settled(book),
+      topTraderRatio: settled(top), takerBuySellRatio: settled(taker),
+    };
   }
 }
