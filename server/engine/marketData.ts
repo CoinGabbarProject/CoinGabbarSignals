@@ -107,7 +107,7 @@ export class BinanceMarketData implements MarketData {
     for (const row of asArray(raw)) {
       const r = asArray(row);
       if (!includeForming && toNum(r[6]) > now) continue; // scanner ignores forming candle; tracker passes includeForming=true
-      out.push({ timestamp: toNum(r[0]), open: toNum(r[1]), high: toNum(r[2]), low: toNum(r[3]), close: toNum(r[4]), volume: toNum(r[5]) });
+      out.push({ timestamp: toNum(r[0]), open: toNum(r[1]) / m.scale, high: toNum(r[2]) / m.scale, low: toNum(r[3]) / m.scale, close: toNum(r[4]) / m.scale, volume: toNum(r[5]) * m.scale });
     }
     return out.slice(-limit);
   }
