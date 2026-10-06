@@ -12,7 +12,7 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(10).max(1000).default(300),
 });
 
-const market = new BinanceMarketData();
+const market = createMarketData();
 
 // tiny cache so refreshes don't hammer Binance
 const cache = new Map<string, { at: number; data: Candle[] }>();
