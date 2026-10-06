@@ -222,7 +222,7 @@ export function createBacktestRouter(scan: ScanConfig): Router {
         catch (e) { console.error("backtest load failed:", e instanceof Error ? e.message : e); failed.push(sym); return null; }
       });
       const histories = loaded.filter((h): h is SymbolHistory => h !== null && h.primary.length > 0);
-      if (histories.length === 0) { res.status(502).type("text/plain").send("Could not load any history from Binance."); return; }
+      if (histories.length === 0) { res.status(502).type("text/plain").send("Could not load any history from OKX."); return; }
 
       let btc: Candle[] | null = null;
       if (p.opts.btcFilter) {
