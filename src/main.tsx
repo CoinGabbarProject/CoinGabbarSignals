@@ -797,7 +797,7 @@ async function loadDashboardSignals(): Promise<DashboardSignal[]> {
 
   try {
     const response = await fetch(
-      `${SIGNAL_API}/signals?limit=100`,
+      `${SIGNAL_API}/signals?limit=2000`,
       {
         method: "GET",
         headers: {
