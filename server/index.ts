@@ -16,7 +16,7 @@ const engine = new EngineService(
   {
     market: createMarketData({ spotUrl: config.scan.spotUrl, futuresUrl: config.scan.futuresUrl, timeoutMs: 8000 }),
     store,
-    exchange: "binance",
+    exchange: "okx",
   },
   {
     symbols: config.scan.symbols,
