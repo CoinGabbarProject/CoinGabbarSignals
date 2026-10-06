@@ -40,7 +40,7 @@ type SignalsResponse = {
 };
 
 const SIGNAL_API =
-  "https://coingabbarsignals.onrender.com/api/v1";
+  "https://coingabbarsignals-1.onrender.com/api/v1";
 
 const isClosedSignal = (s: DashboardSignal): boolean =>
   s.status === "CLOSED" ||
