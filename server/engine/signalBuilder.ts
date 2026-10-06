@@ -44,7 +44,7 @@ export const DEFAULT_MIN_SCORE = 75;
 export const DEFAULT_CONFIG: BuilderConfig = {
   minScore: DEFAULT_MIN_SCORE,
   minTp1R: 1,
-  minWeightedR: 1.5,
+    minWeightedR: Number(process.env.MIN_WEIGHTED_R ?? "1.5"),
   atrStopMult: 2,
   stopBufferAtr: 0.25,
   minStopAtr: 1.5,
