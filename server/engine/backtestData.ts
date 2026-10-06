@@ -55,49 +55,61 @@ function validCandle(c: Candle): boolean {
 }
 
 async function fetchPage(
-  symbol: string, tf: Timeframe, endTime: number | null, cfg: HistoryConfig, fetchFn: typeof fetch,
+  instId: string, tf: Timeframe, after: number | null, cfg: HistoryConfig, fetchFn: typeof fetch,
 ): Promise<unknown[]> {
-  const url = new URL("/api/v3/klines", cfg.spotUrl);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("interval", BINANCE_INTERVAL[tf]);
+  const url = new URL("/api/v5/market/history-candles", cfg.host);
+  url.searchParams.set("instId", instId);
+  url.searchParams.set("bar", OKX_BAR[tf]);
   url.searchParams.set("limit", String(PAGE));
-  if (endTime !== null) url.searchParams.set("endTime", String(endTime));
+  if (after !== null) url.searchParams.set("after", String(after)); // rows OLDER than this timestamp
 
   let lastErr: unknown;
   for (let attempt = 0; attempt <= cfg.retries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
     try {
-      const res = await fetchFn(url.toString(), { signal: ctrl.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body: unknown = await res.json();
-      if (!Array.isArray(body)) throw new Error("unexpected response shape");
-      return body;
+      const res = await fetchFn(url.toString(), { signal: ctrl.signal, headers: { Accept: "application/json" } });
+      let body: { code?: unknown; msg?: unknown; data?: unknown } | null = null;
+      try { body = (await res.json()) as typeof body; } catch { body = null; }
+      if (res.status === 429 || body?.code === "50011") throw new Error("rate limited");
+      if (!body) throw new Error(`HTTP ${res.status}`);
+      if (body.code !== "0") {
+        throw Object.assign(new Error(`OKX ${String(body.code)}: ${String(body.msg)}`), { okxCode: String(body.code), fatal: body.code === "51001" });
+      }
+      if (!Array.isArray(body.data)) throw new Error("unexpected response shape");
+      return body.data;
     } catch (e) {
       lastErr = e;
-      if (attempt < cfg.retries) await sleep(500 * (attempt + 1));
+      if ((e as { fatal?: boolean }).fatal) throw e;
+      if (attempt < cfg.retries) await sleep(800 * (attempt + 1));
     } finally {
       clearTimeout(timer);
     }
   }
-  throw new Error(`${symbol} ${tf} history fetch failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+  throw new Error(`${instId} ${tf} history fetch failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
 }
 
-/**
- * Last `bars` CLOSED candles for symbol/timeframe, oldest first, fetched in pages of 1000
- * (Binance's per-request maximum) walking backwards in time. The still-forming candle is dropped.
- */
 export async function fetchHistory(
   symbol: string, tf: Timeframe, bars: number, now: number,
   cfg: HistoryConfig = DEFAULT_HISTORY_CONFIG, fetchFn: typeof fetch = fetch,
 ): Promise<Candle[]> {
   const want = Math.min(Math.max(Math.trunc(bars), 1), MAX_HISTORY_BARS);
-  const maxPages = Math.ceil(want / PAGE) + 1;
+  const maxPages = Math.ceil(want / PAGE) + 2;
+  const coin = symbol.replace(/USDT$/, "");
+  let instId = `${coin}-USDT-SWAP`;
   const byTime = new Map<number, Candle>();
-  let endTime: number | null = null;
+  let after: number | null = null;
 
   for (let page = 0; page < maxPages && byTime.size < want; page++) {
-    const rows = await fetchPage(symbol, tf, endTime, cfg, fetchFn);
+    let rows: unknown[];
+    try {
+      rows = await fetchPage(instId, tf, after, cfg, fetchFn);
+    } catch (e) {
+      if (page === 0 && (e as { okxCode?: string }).okxCode === "51001" && instId.endsWith("-SWAP")) {
+        instId = `${coin}-USDT`;
+        rows = await fetchPage(instId, tf, after, cfg, fetchFn);
+      } else throw e;
+    }
     if (rows.length === 0) break;
     let oldest = Infinity;
     for (const row of rows) {
@@ -105,39 +117,19 @@ export async function fetchHistory(
       const openTime = toNum(row[0]);
       if (!isNum(openTime)) continue;
       oldest = Math.min(oldest, openTime);
-      const closeTime = toNum(row[6]);
-      if (!isNum(closeTime) || closeTime > now) continue; // forming candle
+      if (openTime + TF_MS[tf] > now) continue; // forming candle
       const c: Candle = {
         timestamp: openTime, open: toNum(row[1]), high: toNum(row[2]),
-        low: toNum(row[3]), close: toNum(row[4]), volume: toNum(row[5]),
+        low: toNum(row[3]), close: toNum(row[4]), volume: toNum(row[6] ?? row[5]),
       };
       if (!isNum(c.volume) || c.volume < 0) c.volume = 0;
       if (validCandle(c)) byTime.set(openTime, c);
     }
-    if (rows.length < PAGE || !Number.isFinite(oldest)) break; // reached the start of the listing
-    endTime = oldest - 1;
+    if (!Number.isFinite(oldest) || (after !== null && oldest >= after)) break;
+    after = oldest;
     await sleep(cfg.pageDelayMs);
   }
   return [...byTime.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-want);
-}
-
-/**
- * Primary candles (test bars + warm-up) and the confirmation-timeframe candles that cover the
- * same span. Errors are thrown on purpose: silently dropping the confirmation series would make
- * the backtest score differently from the live scanner.
- */
-export async function loadSymbolHistory(
-  symbol: string, tf: Timeframe, testBars: number, now: number,
-  cfg: HistoryConfig = DEFAULT_HISTORY_CONFIG, fetchFn: typeof fetch = fetch,
-): Promise<SymbolHistory> {
-  const primary = await fetchHistory(symbol, tf, testBars + WARMUP, now, cfg, fetchFn);
-  const confTf = CONFIRMATION_TF[tf];
-  let confirmation: Candle[] | null = null;
-  if (confTf) {
-    const confBars = Math.ceil((primary.length * TF_MS[tf]) / TF_MS[confTf]) + WINDOW + 5;
-    confirmation = await fetchHistory(symbol, confTf, confBars, now, cfg, fetchFn);
-  }
-  return { symbol, timeframe: tf, confTimeframe: confTf, primary, confirmation };
 }
 
 /** Number of test bars for a "last N days" request. */
