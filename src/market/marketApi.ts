@@ -11,6 +11,8 @@ export interface MarketSnapshotResponse {
     oiChangePct: number | null;
     longShortRatio: number | null;
     bookImbalance: number | null;
+    topTraderRatio?: number | null;
+    takerBuySellRatio?: number | null;
   };
   orderBook: {
     bidVolume: number | null;
