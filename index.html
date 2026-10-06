@@ -7208,6 +7208,112 @@ X.badge = badge; X.notes = notes;
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var toast = function (m) { try { showToast(m); } catch (e) {} };
+  var S = function () { return (window.CG && CG.state) || {}; };
+  var f = function (n) { return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 2 : 6 }) : "-"; };
+  function copy(t, ok) {
+    if (!t) return toast("Signal loading, try again");
+    var done = function () { toast(ok); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { toast("Copy blocked by browser"); });
+    else { var a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); done(); } catch (e) { toast("Copy failed"); } a.remove(); }
+  }
+  function setupText() {
+    var st = S(), s = st.signal; if (!s) return "";
+    return st.base + "/USDT " + s.side + " (" + s.tf.toUpperCase() + ")\nEntry: " + f(s.zl) + " - " + f(s.zh) + "\nSL: " + f(s.sl) +
+      "\nTP1: " + f(s.tp[0]) + "\nTP2: " + f(s.tp[1]) + "\nTP3: " + f(s.tp[2]) + "\nScore: " + st.score + "/100";
+  }
+  function evidenceText() {
+    var o = [];
+    document.querySelectorAll("#reasoning-panel .reason").forEach(function (r) { var d = r.querySelector("div"); if (d) o.push(d.innerText.replace(/\n/g, ": ")); });
+    return o.length ? (S().base || "BTC") + "/USDT\n" + o.join("\n") : "";
+  }
+  var AK = "cgs_alerts";
+  function alerts() { try { return JSON.parse(localStorage.getItem(AK)) || []; } catch (e) { return []; } }
+  function saveAlerts(a) { try { localStorage.setItem(AK, JSON.stringify(a)); } catch (e) {} }
+  function addAlert() {
+    var st = S(), s = st.signal; if (!s) return toast("Signal loading, try again");
+    var a = alerts(); a.push({ sym: st.sym, side: s.side, zl: s.zl, zh: s.zh, lv: s.tp[0], sl: s.sl, done: {} }); saveAlerts(a);
+    try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+    toast("Alert set: " + st.base + " entry / TP1 / SL");
+  }
+  function fire(m) { toast(m); try { if (window.Notification && Notification.permission === "granted") new Notification("CoinGabbarSignals", { body: m }); } catch (e) {} }
+  document.addEventListener("cg:update", function (e) {
+    var st = e.detail, p = st.price, a = alerts(), ch = false;
+    a.forEach(function (x) {
+      if (x.sym !== st.sym) return;
+      var d = x.side === "LONG" ? 1 : -1;
+      if (!x.done.e && p >= x.zl && p <= x.zh) { x.done.e = 1; ch = true; fire(st.base + " entered entry zone"); }
+      if (!x.done.t && d * (p - x.lv) >= 0) { x.done.t = 1; ch = true; fire(st.base + " reached TP1"); }
+      if (!x.done.s && d * (p - x.sl) <= 0) { x.done.s = 1; ch = true; fire(st.base + " hit stop loss"); }
+    });
+    if (ch) saveAlerts(a);
+  });
+  function watch() {
+    var k = S().sym || "BTCUSDT", w; try { w = JSON.parse(localStorage.getItem("cgs_watch")) || []; } catch (e) { w = []; }
+    var i = w.indexOf(k); if (i < 0) w.push(k); else w.splice(i, 1);
+    try { localStorage.setItem("cgs_watch", JSON.stringify(w)); } catch (e) {}
+    toast(i < 0 ? "Added to watchlist" : "Removed from watchlist");
+  }
+  function expand() {
+    var p = $("reasoning-panel"), box = $("cgFullReason"); if (!p) return;
+    if (box) { box.remove(); return; }
+    var st = S(), a = st.analysis; if (!a) return toast("Loading…");
+    box = document.createElement("div"); box.id = "cgFullReason"; box.className = "detail-list";
+    box.innerHTML = [["Price", f(a.price)], ["EMA 20 / 50", f(a.e20) + " / " + f(a.e50)], ["SMA 200", f(a.s200)], ["RSI 14", f(a.rsi)], ["VWAP", f(a.vwap)], ["ATR 14", f(a.atr)], ["Score", st.score + " / 100"]]
+      .map(function (r) { return '<div class="detail-row"><span>' + r[0] + "</span><b>" + r[1] + "</b></div>"; }).join("");
+    p.insertBefore(box, p.querySelector(".inline-actions"));
+  }
+  function refreshAll() { if (window.CG && CG.refresh) CG.refresh(); toast("Refreshing…"); }
+  function goChart(id) { var t = document.querySelector('[data-chart-tab="' + id + '"]'); if (t) { t.click(); t.scrollIntoView({ behavior: "smooth", block: "center" }); } }
+  function goDetail(id) { var t = document.querySelector('[data-detail-tab="' + id + '"]'); if (t) { t.click(); t.scrollIntoView({ behavior: "smooth", block: "center" }); } }
+  function goMtf() { var h = Array.prototype.find.call(document.querySelectorAll(".panel h3"), function (x) { return x.textContent.trim() === "Multi-Timeframe Trend"; }); if (h) h.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  var viewInd = function () { goChart("indicator-panel"); };
+  var MAP = {
+    "Copy Setup": function () { copy(setupText(), "Setup copied"); },
+    "Copy Signal Evidence": function () { copy(evidenceText(), "Evidence copied"); },
+    "Expand Full Reasoning": expand,
+    "Set Alert": addAlert, "Set Reasoning Alert": addAlert, "Set Indicator Alert": addAlert, "Set Funding Alert": addAlert,
+    "Set Context Alert": addAlert, "Set MTF Alert": addAlert, "Set Liquidation Alert": addAlert,
+    "Watchlist": watch,
+    "Refresh Depth": refreshAll, "Refresh Heatmap": refreshAll, "Refresh Derivatives": refreshAll,
+    "Refresh Context": function () { refreshAll(); loadContext(); },
+    "View Details": viewInd, "View Indicator Details": viewInd, "Compare Timeframes": viewInd,
+    "Highlight Walls": function () { goChart("order-panel"); },
+    "Compare MTF": goMtf, "Open MTF Matrix": goMtf,
+    "Mark S/R": function () { goDetail("technical-panel"); },
+    "Chart Overlay": function () { goChart("chart-panel"); }
+  };
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button.mini-action");
+    var fn = b && MAP[b.textContent.trim()]; if (fn) fn();
+  });
+  async function j(u) { var r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); }
+  function setCard(name, val, cls, note) {
+    var c = Array.prototype.find.call(document.querySelectorAll("#context-panel .context-card"), function (x) { var h = x.querySelector("h5"); return h && h.textContent.trim().indexOf(name) === 0; });
+    if (!c) return;
+    var sp = c.querySelector("h5 span"); if (sp) { sp.textContent = val; sp.className = cls; }
+    var p = c.querySelector("p"); if (p && note) p.textContent = note;
+  }
+  async function loadContext() {
+    try { var d = (await j("https://api.alternative.me/fng/?limit=2")).data, v = +d[0].value;
+      setCard("Fear", v + " · " + d[0].value_classification, v >= 55 ? "up" : v <= 45 ? "down" : "neutral", "Live Fear & Greed index. Yesterday: " + d[1].value + ".");
+    } catch (e) {}
+    try { var g = (await j("https://api.coingecko.com/api/v3/global")).data, ch = g.market_cap_change_percentage_24h_usd;
+      setCard("BTC Dominance", g.market_cap_percentage.btc.toFixed(1) + "%", "neutral", "Total crypto market cap 24h: " + (ch >= 0 ? "+" : "") + ch.toFixed(2) + "%.");
+    } catch (e) {}
+    regime();
+  }
+  function regime() {
+    var s = S().signal; if (!s) return;
+    setCard("Market Regime", s.side === "LONG" ? "Bullish" : "Bearish", s.side === "LONG" ? "up" : "down", "Live " + S().base + " " + s.tf.toUpperCase() + " trend votes (EMA, VWAP, RSI, MACD).");
+  }
+  document.addEventListener("cg:update", regime);
+  loadContext(); setInterval(loadContext, 300000);
+})();
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
