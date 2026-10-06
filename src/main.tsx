@@ -1164,8 +1164,23 @@ function renderAccuracy(
       <span class="acc-win">${a.wins} win</span> ·
       <span class="acc-loss">${a.losses} loss</span><br>
       ${a.open} active · ${a.skipped} expired/cancelled
+      <div style="margin-top:6px;display:flex;gap:6px">
+        ${(["7d", "30d", "all"] as const)
+          .map(
+            (r) =>
+              `<button data-acc-range="${r}" style="padding:2px 10px;border-radius:12px;border:1px solid #18314e;font-size:10px;cursor:pointer;background:${r === accRange ? "#1bdd90" : "transparent"};color:${r === accRange ? "#04101f" : "inherit"}">${r === "all" ? "All" : r}</button>`,
+          )
+          .join("")}
+      </div>
     </div>
   `;
+
+  card.querySelectorAll<HTMLButtonElement>("[data-acc-range]").forEach((btn) => {
+    btn.onclick = () => {
+      accRange = btn.dataset.accRange as "7d" | "30d" | "all";
+      renderAccuracy(section, signals);
+    };
+  });
 }
 
 function renderRecentSignals(signals: DashboardSignal[]): void {
