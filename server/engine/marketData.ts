@@ -201,7 +201,7 @@ export class BinanceMarketData implements MarketData {
 
   async getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput> {
     const period = STATS_PERIOD[tf];
-    const [funding, oi, ls, book] = await Promise.allSettled([
+    const [funding, oi, ls, book, top, taker] = await Promise.allSettled([
       this.getJson(this.cfg.futuresUrl, "/fapi/v1/premiumIndex", { symbol })
         .then((r) => toNum(asObject(r).lastFundingRate))
         .catch(async () => {
