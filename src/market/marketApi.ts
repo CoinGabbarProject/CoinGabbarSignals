@@ -99,7 +99,34 @@ export async function fetchMarketSnapshot(
   return data as unknown as MarketSnapshotResponse;
 }
 
+const BINANCE_TF: Record<string, string> = { "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1H": "1h", "4H": "4h", "1D": "1d" };
+
 export async function fetchCandles(symbol: string, timeframe: Timeframe, limit: number, signal: AbortSignal): Promise<Candle[]> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+  try {
+    return await fetchCandlesBackend(symbol, timeframe, limit, ctrl.signal);
+  } catch (e) {
+    if (signal.aborted) throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+  const sym = symbol.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  for (const host of ["https://data-api.binance.vision", "https://api.binance.com"]) {
+    try {
+      const res = await fetch(`${host}/api/v3/klines?symbol=${sym}&interval=${BINANCE_TF[timeframe] ?? "15m"}&limit=${limit}`, { signal });
+      if (!res.ok) continue;
+      const rows = (await res.json()) as unknown[][];
+      return rows.map((r) => ({ timestamp: Number(r[0]), open: Number(r[1]), high: Number(r[2]), low: Number(r[3]), close: Number(r[4]), volume: Number(r[5]) }));
+    } catch (err) {
+      if (signal.aborted) throw err;
+    }
+  }
+  throw new MarketRequestError(GENERIC);
+}
+
+async function fetchCandlesBackend(symbol: string, timeframe: Timeframe, limit: number, signal: AbortSignal): Promise<Candle[]> {
   const url = new URL(`${API_BASE}/candles`);
   url.searchParams.set("symbol", symbol);
   url.searchParams.set("timeframe", timeframe);
