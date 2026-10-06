@@ -24,7 +24,7 @@ export interface MarketSnapshotResponse {
 
 /** Same default the existing index.html uses; override with VITE_API_BASE. No keys or tokens live in the frontend. */
 const envBase: unknown = import.meta.env["VITE_API_BASE"];
-export const API_BASE: string = typeof envBase === "string" && envBase !== "" ? envBase : "https://coingabbarsignals.onrender.com/api/v1";
+export const API_BASE: string = typeof envBase === "string" && envBase !== "" ? envBase : "https://coingabbarsignals-1.onrender.com/api/v1";
 
 export class MarketRequestError extends Error {
   constructor(readonly userMessage: string, readonly status?: number) {
