@@ -224,7 +224,7 @@ export class BinanceMarketData implements MarketData {
         return ((last - first) / first) * 100;
       }),
       this.getJson(this.cfg.futuresUrl, "/futures/data/globalLongShortAccountRatio", { symbol, period, limit: 1 }).then((r) => toNum(asObject(asArray(r)[0]).longShortRatio)),
-      this.getJson(this.cfg.spotUrl, "/api/v3/depth", { symbol, limit: 20 }).then((r) => {
+      this.getJson(this.mkt(symbol).base, `${this.mkt(symbol).prefix}/depth`, { symbol: this.mkt(symbol).sym, limit: 20 }).then((r) => {
         const o = asObject(r);
         const sum = (side: unknown): number => asArray(side).reduce<number>((a, lvl) => a + toNum(asArray(lvl)[1]), 0);
         const bid = sum(o.bids), ask = sum(o.asks);
