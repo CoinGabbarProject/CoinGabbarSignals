@@ -132,6 +132,25 @@ export async function fetchHistory(
   return [...byTime.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-want);
 }
 
+/**
+ * Primary candles (test bars + warm-up) and the confirmation-timeframe candles that cover the
+ * same span. Errors are thrown on purpose: silently dropping the confirmation series would make
+ * the backtest score differently from the live scanner.
+ */
+export async function loadSymbolHistory(
+  symbol: string, tf: Timeframe, testBars: number, now: number,
+  cfg: HistoryConfig = DEFAULT_HISTORY_CONFIG, fetchFn: typeof fetch = fetch,
+): Promise<SymbolHistory> {
+  const primary = await fetchHistory(symbol, tf, testBars + WARMUP, now, cfg, fetchFn);
+  const confTf = CONFIRMATION_TF[tf];
+  let confirmation: Candle[] | null = null;
+  if (confTf) {
+    const confBars = Math.ceil((primary.length * TF_MS[tf]) / TF_MS[confTf]) + WINDOW + 5;
+    confirmation = await fetchHistory(symbol, confTf, confBars, now, cfg, fetchFn);
+  }
+  return { symbol, timeframe: tf, confTimeframe: confTf, primary, confirmation };
+}
+
 /** Number of test bars for a "last N days" request. */
 export const barsForDays = (days: number, tf: Timeframe): number =>
   Math.max(1, Math.min(MAX_HISTORY_BARS - WARMUP, Math.ceil((days * 86_400_000) / TF_MS[tf])));
