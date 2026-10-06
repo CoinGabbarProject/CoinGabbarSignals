@@ -49,7 +49,7 @@ export const DEFAULT_CONFIG: BuilderConfig = {
   stopBufferAtr: 0.25,
   minStopAtr: 1.5,
   maxStopAtr: 3,
-  targetsR: [1.5, 2.5, 4],
+    targetsR: [2, 3, 5],
   exitWeights: [0.5, 0.3, 0.2],
   levelBufferAtr: 0.1,
   entryBehindAtr: 0.3,
