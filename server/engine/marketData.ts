@@ -73,6 +73,12 @@ export class BinanceMarketData implements MarketData {
 
   private blockedUntil = 0;
 
+  private mkt(symbol: string): { base: string; prefix: string; sym: string; scale: number } {
+    const fut = (process.env.MARKET_SOURCE ?? "futures").toLowerCase() === "futures";
+    if (!fut) return { base: this.cfg.spotUrl, prefix: "/api/v3", sym: symbol, scale: 1 };
+    const k1000 = ["PEPEUSDT", "SHIBUSDT", "BONKUSDT", "FLOKIUSDT", "SATSUSDT", "XECUSDT", "LUNCUSDT"].includes(symbol);
+    return { base: this.cfg.futuresUrl, prefix: "/fapi/v1", sym: k1000 ? `1000${symbol}` : symbol, scale: k1000 ? 1000 : 1 };
+  }
   private async getJson(base: string, path: string, params: Record<string, string | number>): Promise<unknown> {
     if (Date.now() < this.blockedUntil) {
       throw new Error(`Binance cooldown active (${Math.ceil((this.blockedUntil - Date.now()) / 60000)} min left)`);
