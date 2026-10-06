@@ -83,6 +83,10 @@ export class BinanceMarketData implements MarketData {
     const timer = setTimeout(() => ctrl.abort(), this.cfg.timeoutMs);
     try {
       const res = await this.fetchFn(url.toString(), { signal: ctrl.signal });
+     if (res.status === 418 || res.status === 429) {
+        const retry = Number((res as any).headers?.get?.("retry-after")) || 0;
+        this.blockedUntil = Date.now() + Math.max(retry * 1000, 30 * 60 * 1000);
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status} from ${url.host}${url.pathname}`);
       return await res.json();
     } finally {
