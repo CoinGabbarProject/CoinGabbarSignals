@@ -965,12 +965,18 @@ const toast=document.createElement('div'); toast.className='toast'; document.bod
 let toastTimer; function showToast(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
 document.querySelectorAll('[data-toast]').forEach(b=>b.addEventListener('click',()=>showToast(b.dataset.toast)));
 
-// Chart sub-tabs
-document.querySelectorAll('[data-chart-tab]').forEach(t=>t.addEventListener('click',()=>{
-  const parent=t.closest('.chartbox');
-  parent.querySelectorAll('[data-chart-tab]').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-  parent.querySelectorAll('.chart-panel').forEach(p=>p.classList.toggle('active',p.id===t.dataset.chartTab));
-}));
+// Chart sub-tabs (id based, works even if HTML nesting is broken)
+(function(){
+  var ids=['chart-panel','indicator-panel','order-panel','liq-panel'];
+  var cp=document.getElementById('chart-panel'), host=cp&&cp.parentNode;
+  if(host) ids.forEach(function(id){var p=document.getElementById(id); if(p&&p.parentNode!==host) host.appendChild(p);});
+  document.querySelectorAll('[data-chart-tab]').forEach(function(t){t.addEventListener('click',function(){
+    var box=t.closest('.chartbox')||document;
+    box.querySelectorAll('[data-chart-tab]').forEach(function(x){x.classList.toggle('active',x===t);});
+    ids.forEach(function(id){var p=document.getElementById(id); if(p) p.classList.toggle('active',id===t.dataset.chartTab);});
+    window.dispatchEvent(new Event('resize'));
+  });});
+})();
 
 // Analysis sub-tabs
 document.querySelectorAll('[data-detail-tab]').forEach(t=>t.addEventListener('click',()=>{
