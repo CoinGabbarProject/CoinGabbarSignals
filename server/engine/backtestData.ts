@@ -5,7 +5,7 @@ import { CONFIRMATION_TF } from "./marketData.js";
 /**
  * Backtest - part 1 of 3: historical data + time-alignment helpers.
  *
- *   part 1  backtestData.ts    (this file) paged Binance history, candle windows, BTC trend series
+ *   part 1  backtestData.ts    (this file) paged OKX history, candle windows, BTC trend series
  *   part 2  backtest.ts        simulation core (walk candles, build signals, simulate trades)
  *   part 3  backtestReport.ts  statistics + text report, plus the /engine/backtest route
  *
