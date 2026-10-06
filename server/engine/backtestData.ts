@@ -69,8 +69,8 @@ async function fetchPage(
     const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
     try {
       const res = await fetchFn(url.toString(), { signal: ctrl.signal, headers: { Accept: "application/json" } });
-      let body: { code?: unknown; msg?: unknown; data?: unknown } | null = null;
-      try { body = (await res.json()) as typeof body; } catch { body = null; }
+            let body: OkxBody | null = null;
+      try { body = (await res.json()) as OkxBody; } catch { body = null; }
       if (res.status === 429 || body?.code === "50011") throw new Error("rate limited");
       if (!body) throw new Error(`HTTP ${res.status}`);
       if (body.code !== "0") {
