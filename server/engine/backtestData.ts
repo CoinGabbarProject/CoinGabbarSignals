@@ -21,7 +21,7 @@ export const TF_MS: Record<Timeframe, number> = {
 export const WINDOW = 300;
 /** Extra candles before the first test bar so SMA200 / ADX / ATR are warm. */
 export const WARMUP = 300;
-/** Hard cap per series so a typo in ?days= cannot hammer Binance. */
+/** Hard cap per series so a typo in ?days= cannot hammer OKX. */
 export const MAX_HISTORY_BARS = 6000;
 const PAGE = 100; // OKX history-candles maximum per request
 
