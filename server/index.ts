@@ -14,7 +14,7 @@ await store.ensureIndexes();
 
 const engine = new EngineService(
   {
-    market: new BinanceMarketData({ spotUrl: config.scan.spotUrl, futuresUrl: config.scan.futuresUrl, timeoutMs: 8000 }),
+    market: createMarketData({ spotUrl: config.scan.spotUrl, futuresUrl: config.scan.futuresUrl, timeoutMs: 8000 }),
     store,
     exchange: "binance",
   },
