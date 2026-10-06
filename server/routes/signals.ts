@@ -81,7 +81,7 @@ router.get("/signals", async (req, res) => {
 
     const limit = Math.min(
       Math.max(Number(req.query.limit) || 50, 1),
-      100
+      2000
     );
 
     const db = getMongoDB();
