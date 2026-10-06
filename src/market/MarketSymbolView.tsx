@@ -214,6 +214,25 @@ export function MarketSymbolView({ symbol, rawSymbol, timeframe, onTimeframeChan
             </strong>
           </div>
 
+          <div className="data-card" style={snapshot.derivatives.topTraderRatio == null ? { display: "none" } : undefined}>
+            <label>Top Traders L/S</label>
+            <strong>{formatNumber(snapshot.derivatives.topTraderRatio ?? null, 2)}</strong>
+          </div>
+
+          <div className="data-card" style={snapshot.derivatives.takerBuySellRatio == null ? { display: "none" } : undefined}>
+            <label>Taker Buy/Sell</label>
+            <strong>{formatNumber(snapshot.derivatives.takerBuySellRatio ?? null, 2)}</strong>
+          </div>
+
+          <div className="data-card" style={snapshot.orderBook.imbalance === null ? { display: "none" } : undefined}>
+            <label>Order Book</label>
+            <strong>
+              {snapshot.orderBook.imbalance === null
+                ? "Unavailable"
+                : `${snapshot.orderBook.imbalance >= 0 ? "Bids +" : "Asks +"}${Math.abs(snapshot.orderBook.imbalance * 100).toFixed(0)}%`}
+            </strong>
+          </div>
+
           
         </div>
       )}
