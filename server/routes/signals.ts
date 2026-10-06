@@ -144,6 +144,11 @@ router.get("/signals", async (req, res) => {
             (t) => typeof t === "number",
           ),
           rationale: d?.reasoning?.primaryReason ?? "",
+          derivatives: d?.derivatives ?? {},
+          scoreBreakdown: d?.score ?? {},
+          confirmations: d?.reasoning?.confirmations ?? [],
+          conflicts: d?.reasoning?.conflicts ?? [],
+          warnings: d?.reasoning?.warnings ?? [],
           createdAt: Number.isFinite(created) ? created : Date.now(),
           ...(closed !== undefined && Number.isFinite(closed) ? { closedAt: closed } : {}),
           ...(d?.outcome
