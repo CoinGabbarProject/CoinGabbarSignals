@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { Candle, ProviderResponse, Timeframe } from "../../shared/market.js";
-import { BinanceMarketData } from "../engine/marketData.js";
+import { createMarketData } from "../engine/okxMarketData.js";
 import { SYMBOL_RE } from "../config/env.js";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as const;
