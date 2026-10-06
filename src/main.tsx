@@ -1160,7 +1160,7 @@ function renderAccuracy(
       <span>${shown}</span>
     </div>
     <div class="acc-info">
-      <b>Accuracy · last ${a.total} signals</b>
+            <b>Accuracy · ${accRange === "all" ? "all time" : "last " + accRange} · ${a.total} signals</b>
       <span class="acc-win">${a.wins} win</span> ·
       <span class="acc-loss">${a.losses} loss</span><br>
       ${a.open} active · ${a.skipped} expired/cancelled
