@@ -47,7 +47,7 @@ router.get("/market/snapshot", async (req, res) => {
     res.json({
       data,
       meta: {
-        sourceExchange: "binance",
+        sourceExchange: "okx",
         symbol: parsed.data.symbol,
         timeframe: parsed.data.timeframe,
         timestamp: Date.now(),
@@ -90,7 +90,7 @@ router.get("/candles", async (req, res) => {
     const body: ProviderResponse<Candle[]> = {
       data,
       meta: {
-        sourceExchange: "binance",
+        sourceExchange: "okx",
         symbol,
         timestamp: Date.now(),
         timeframe: timeframe as Timeframe,
