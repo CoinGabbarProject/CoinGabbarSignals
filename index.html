@@ -3243,7 +3243,7 @@ var bd = $("posCalcBackdrop");
 
   function getJson(path) {
     var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 8000);
-    return fetch(BASE + path, { signal: c.signal }).then(function (r) {
+    return OKXPX.fetch(path, { signal: c.signal }).then(function (r) {
       clearTimeout(t);
       if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return r.json();
@@ -3532,7 +3532,7 @@ var MIN = 60000, STALE = 15000;
 
   function get(path) {
     var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 8000);
-    return fetch(BASE + path, { signal: c.signal }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }, function (e) { clearTimeout(t); throw e; });
+    return OKXPX.fetch(path, { signal: c.signal }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }, function (e) { clearTimeout(t); throw e; });
   }
 
   /** Price where an isolated position is wiped out. Replaced by the leverage/margin part later. */
