@@ -6059,7 +6059,7 @@ X.badge = badge; X.notes = notes;
   }
 
   /* ---------- place it ---------- */
-  function run(g, by) {
+    function run(g, by, force) {
     var acc = P.acc(), s = sf(acc), fresh = sigOf(g.id), item = s.inbox.filter(function (i) { return i.id === g.id && (i.st === 'new' || i.st === 'failed'); })[0];
     var fin = function (st, why) {
       if (item) { item.st = st; item.by = by; item.why = why || ''; item.ts = Date.now(); } else add(s, g, st, by, why);
