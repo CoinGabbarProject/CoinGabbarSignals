@@ -6021,7 +6021,7 @@ X.badge = badge; X.notes = notes;
   }
 
   /* ---------- build an order from a signal: risk % sizing, same maths as the ticket ---------- */
-  function build(g, s, acc) {
+    function build(g, s, acc, force) {
     var mk = P.price(g.symbol), L = g.side === 'LONG', f = acc.fees, slip = f.slip / 100, tk = f.taker / 100;
     if (mk === null) return { error: 'No live price' };
     var inZ = mk >= g.lo * 0.9985 && mk <= g.hi * 1.0015, mkt = inZ;
