@@ -836,73 +836,36 @@ const okxSymbol = (raw: unknown): string => {
   return /(USDT|USDC|BUSD|FDUSD)$/.test(s) ? s : `${s}USDT`;
 };
 
-async function loadLivePrices(
-  signals: DashboardSignal[],
-): Promise<void> {
-  const symbols = [
-    ...new Set(
-      signals
-        .map((s) => okxSymbol(s.symbol))
-        .filter(Boolean),
-    ),
-  ];
 
-  if (symbols.length === 0) return;
 
-  const base = "https://data-api.binance.vision/api/v3/ticker/price";
+  async function loadLivePrices(signals: DashboardSignal[]): Promise<void> {
+  const want = new Set(signals.map((s) => okxSymbol(s.symbol)).filter(Boolean));
+  if (want.size === 0) return;
 
-  const apply = (rows: unknown): void => {
-    if (!Array.isArray(rows)) return;
-
-    for (const row of rows as { symbol?: string; price?: string }[]) {
-      const p = Number(row?.price);
-
-      if (row?.symbol && Number.isFinite(p)) {
-        livePrices[row.symbol] = p;
-      }
-    }
-  };
-
-  try {
-    let res = await fetch(
-      `${base}?symbols=${encodeURIComponent(JSON.stringify(symbols))}`,
-      { headers: { Accept: "application/json" } },
-    );
-
-    if (!res.ok) {
-      res = await fetch(base, {
+  const pull = async (type: "SWAP" | "SPOT"): Promise<Record<string, number>> => {
+    const out: Record<string, number> = {};
+    try {
+      const res = await fetch(`https://www.okx.com/api/v5/market/tickers?instType=${type}`, {
         headers: { Accept: "application/json" },
       });
+      if (!res.ok) return out;
+      const body = (await res.json()) as { data?: { instId?: string; last?: string }[] };
+      for (const r of body.data ?? []) {
+        const m = /^(.+)-USDT(-SWAP)?$/.exec(r.instId ?? "");
+        const p = Number(r.last);
+        if (m && Number.isFinite(p) && p > 0) out[`${m[1]}USDT`] = p;
+      }
+    } catch {
+      // keep the last known prices
     }
+    return out;
+  };
 
-        if (res.ok) apply(await res.json());
-  } catch {
-    // keep the last known prices
-  }
-
-  // Signals are built from OKX perpetual swap data, so show the OKX swap price
-  // where it exists (spot above stays as the fallback, like the engine does).
-  try {
-    const or = await fetch(
-      "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
-      { headers: { Accept: "application/json" } },
-    );
-    if (or.ok) {
-      const body = (await or.json()) as {
-        data?: { instId?: string; last?: string }[];
-      };
-      const want = new Set(symbols);
-      const rows = (body.data ?? [])
-        .filter((r) => r.instId && /-USDT-SWAP$/.test(r.instId))
-        .map((r) => ({
-          symbol: String(r.instId).replace("-USDT-SWAP", "USDT"),
-          price: r.last,
-        }))
-        .filter((r) => want.has(r.symbol));
-      apply(rows);
-    }
-  } catch {
-    // keep spot prices
+  const swap = await pull("SWAP");
+  const spot = [...want].some((s) => swap[s] === undefined) ? await pull("SPOT") : {};
+  for (const s of want) {
+    const p = swap[s] ?? spot[s];
+    if (p !== undefined) livePrices[s] = p;
   }
 }
 
