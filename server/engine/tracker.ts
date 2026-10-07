@@ -123,7 +123,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
       }
       const ev = evaluateOutcome(s, candles, now, TF_MS[exec] ?? 0);
 
-            if (ev?.kind === "expired") {
+            if (ev?.kind === "expired" && !s.entered) {
         const expMs = Date.parse(s.entry.expiry);
         await deps.store.setStatus(
           s.id,
