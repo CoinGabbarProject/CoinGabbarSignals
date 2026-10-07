@@ -887,20 +887,30 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   const st = String(signal.status ?? "");
   if (!/_HIT$/.test(st)) return "";
   const hits = (signal.hits ?? {}) as Record<string, number | undefined>;
-  const t = hits[st.replace("_HIT", "").toLowerCase()] ?? signal.outcomeAt;
   const line = (txt: string): string =>
     `<small style="display:block;font-weight:500;opacity:.8">${dashboardEscape(txt)}</small>`;
 
-  let out = typeof t === "number" ? line(formatCreated(t)) : "";
+  let out = "";
+
+  if (st === "TP1_HIT" || st === "TP2_HIT" || st === "TP3_HIT") {
+    for (const k of ["tp1", "tp2", "tp3"] as const) {
+      const ht = hits[k];
+      if (typeof ht === "number") {
+        out += line(`${k.toUpperCase()} hit · ${formatCreated(ht)}`);
+      }
+    }
+  } else {
+    const t = hits[st.replace("_HIT", "").toLowerCase()] ?? signal.outcomeAt;
+    if (typeof t === "number") out += line(formatCreated(t));
+  }
 
   const closedByTrail =
     signal.outcomeClosed === true &&
-    (st === "TP1_HIT" || st === "TP2_HIT") &&
-    typeof hits.sl !== "number";
+    (st === "TP1_HIT" || st === "TP2_HIT");
 
   if (closedByTrail) {
     out += line(
-      `Trail SL exit${signal.outcomeAt ? " · " + formatCreated(signal.outcomeAt) : ""}${
+      `Trail SL hit${signal.outcomeAt ? " · " + formatCreated(signal.outcomeAt) : ""}${
         typeof signal.exit === "number" ? " @ " + dashboardPrice(signal.exit) : ""
       }`,
     );
