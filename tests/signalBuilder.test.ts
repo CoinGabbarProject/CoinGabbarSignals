@@ -35,7 +35,7 @@ describe("planTrade", () => {
     if (!r.ok) return;
     const p = r.plan;
     expect(p.stop.price).toBe(96);
-expect(p.targets).toEqual([106, 110, 116]);
+expect(p.targets).toEqual([108, 112, 120]);
         expect(p.rr).toEqual({ tp1: 2, tp2: 3, tp3: 5, weighted: 2.9 });
     expect(p.entry.min).toBeLessThan(p.entry.ideal);
     expect(p.entry.max).toBeGreaterThan(p.entry.ideal);
