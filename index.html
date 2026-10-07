@@ -5837,6 +5837,55 @@ X.badge = badge; X.notes = notes;
     P.toast(inZ ? 'Ticket ready: market order' : 'Ticket ready: limit at ' + fp(s.entry));
   };
 
+    /* ---------- popup: choose Market or Limit, order is placed on tap ---------- */
+  var openTicket = P.tradeSignal;
+  P.tradeSignalTicket = openTicket;
+  P.tradeSignal = function (s) {
+    if (typeof s === 'string') s = X.sigs.filter(function (x) { return x.id === s; })[0];
+    if (!s) return P.toast('Signal not found');
+    if (s.status !== 'ACTIVE') return P.toast('This signal is not active');
+    var bad = notes(s).filter(function (n) { return n[0] === 'r'; })[0];
+    if (bad) return P.toast(bad[1]);
+    if (!P.x10b || !P.x10b.run) return openTicket(s);
+    var old = document.getElementById('x10-pop'); if (old) old.remove();
+    var mk = P.price(s.symbol), L = s.side === 'LONG';
+    var zone = s.lo && s.hi && s.lo !== s.hi ? fp(s.lo) + ' - ' + fp(s.hi) : fp(s.entry);
+    var warn = notes(s).map(function (n) { return '<div style="font-size:12px;margin-top:4px;opacity:.85">&#9888; ' + esc(n[1]) + '</div>'; }).join('');
+    var pop = document.createElement('div');
+    pop.id = 'x10-pop';
+    pop.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+    pop.innerHTML =
+      '<div style="width:100%;max-width:480px;background:var(--panel,#0b1b2e);color:var(--text,#dce9f4);border:1px solid var(--line,#18314e);border-radius:14px 14px 0 0;padding:16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">New signal: ' + base(s.symbol) + '/USDT</b>' +
+      '<span class="pt-tag ' + (L ? 'L' : 'S') + '">' + s.side + '</span></div>' +
+      '<div style="font-size:12px;margin:8px 0;opacity:.85;line-height:1.7">' + esc(s.tf) + ' &middot; score ' + s.score +
+      '<br>Entry ' + zone + ' &middot; Stop ' + fp(s.stop) + ' &middot; TP1 ' + fp(s.targets[0]) +
+      '<br>Live price ' + (mk === null ? '-' : fp(mk)) + '</div>' + warn +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+      '<button type="button" class="pt-btn grn" data-p="m" style="flex:1">Market</button>' +
+      '<button type="button" class="pt-btn" data-p="l" style="flex:1">Limit @ ' + fp(s.entry) + '</button></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<button type="button" class="pt-btn sm" data-p="t" style="flex:1">Review in ticket</button>' +
+      '<button type="button" class="pt-btn red sm" data-p="x" style="flex:1">Cancel</button></div>' +
+      '<div style="font-size:11px;opacity:.7;margin-top:8px">Size comes from your risk % and stop loss. Paper money only.</div></div>';
+    pop.addEventListener('click', function (e) {
+      if (e.target === pop) return pop.remove();
+      var btn = e.target.closest ? e.target.closest('[data-p]') : null;
+      if (!btn) return;
+      var k = btn.getAttribute('data-p');
+      if (k === 'x') return pop.remove();
+      if (k === 't') { pop.remove(); return openTicket(s); }
+      if (taken(s.id) && !window.confirm('You already traded this signal in paper. Trade it again?')) return;
+      pop.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+      P.x10b.run(s, 'you', k === 'm' ? 'MARKET' : 'LIMIT').then(function (r) {
+        pop.remove();
+        if (!r || !r.ok) P.toast((r && r.why) || 'Order not placed');
+        badge(); paint();
+      }, function () { pop.remove(); P.toast('Order failed. Try again.'); });
+    });
+    document.body.appendChild(pop);
+  };
+
   /* banner on top of the Trade tab */
   var tt = P.tabs.filter(function (t) { return t.id === 'trade'; })[0];
   if (tt) {
