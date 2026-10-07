@@ -21,7 +21,7 @@ function series(n: number, drift: number, seed = 7, start = 100, noise = 0.6): C
 }
 
 const base = (candles: Candle[]): BuildSignalInput => ({
-  symbol: "btcusdt", exchange: "binance", marketType: "spot",
+  symbol: "btcusdt", exchange: "okx", marketType: "swap",
   timeframe: { primary: "1H", confirmation: "4H", execution: "15m" },
   candles, change24hPct: 1.2,
 });
