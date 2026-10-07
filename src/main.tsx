@@ -778,7 +778,8 @@ const formatCreated = (value: unknown): string => {
 
   if (t === null) return "—";
 
-  return new Date(t).toLocaleString("en-IN", {
+    return new Date(t).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
     hour: "2-digit",
