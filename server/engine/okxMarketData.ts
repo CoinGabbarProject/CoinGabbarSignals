@@ -62,12 +62,21 @@ export class OkxMarketData implements MarketData {
     }
   }
 
+  private readonly kind = new Map<string, "swap" | "spot">();
+  marketTypeOf(symbol: string): "swap" | "spot" { return this.kind.get(symbol) ?? "swap"; }
+
   /** Try the perpetual swap first; fall back to the spot pair only if the swap does not exist. */
   private async withInst<T>(symbol: string, fn: (instId: string) => Promise<T>): Promise<T> {
     try {
-      return await fn(`${base(symbol)}-USDT-SWAP`);
+      const v = await fn(`${base(symbol)}-USDT-SWAP`);
+      this.kind.set(symbol, "swap");
+      return v;
     } catch (e) {
-      if ((e as { okxCode?: string }).okxCode === "51001") return fn(`${base(symbol)}-USDT`);
+      if ((e as { okxCode?: string }).okxCode === "51001") {
+        const v = await fn(`${base(symbol)}-USDT`);
+        this.kind.set(symbol, "spot");
+        return v;
+      }
       throw e;
     }
   }
