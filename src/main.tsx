@@ -885,6 +885,17 @@ const changePct = (signal: DashboardSignal): number | null => {
 
 const hitTimeLines = (signal: DashboardSignal): string => {
   const st = String(signal.status ?? "");
+  const trailHitLine = (signal: DashboardSignal): string => {
+  const st = String(signal.status ?? "");
+  const closedByTrail =
+    signal.outcomeClosed === true &&
+    (st === "TP1_HIT" || st === "TP2_HIT") &&
+    typeof signal.trailStop === "number";
+  if (!closedByTrail) return "";
+  const at = Number(signal.outcomeAt);
+  const txt = `Hit${Number.isFinite(at) && at > 0 ? " · " + formatCreated(at) : ""}`;
+  return `<small style="display:block;font-weight:500;opacity:.8">${dashboardEscape(txt)}</small>`;
+};
   if (!/_HIT$/.test(st)) return "";
   const hits = (signal.hits ?? {}) as Record<string, number | undefined>;
   const line = (txt: string): string =>
