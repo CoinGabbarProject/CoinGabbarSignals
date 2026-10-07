@@ -125,7 +125,9 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
       } else if (ev?.kind === "outcome") {
         const o = ev.outcome;
         if (s.status === o.status && Boolean(s.outcome?.closed) === o.closed && s.outcome?.hits && s.outcome?.trailStop === o.trailStop) continue;
-        await deps.store.setOutcome(s.id, o, atIso);
+                const hitTimes = Object.values(o.hits ?? {}).filter((t): t is number => typeof t === "number");
+        const outcomeIso = hitTimes.length ? new Date(Math.max(...hitTimes)).toISOString() : atIso;
+        await deps.store.setOutcome(s.id, o, outcomeIso);
         changed++;
       } else if (ev?.kind === "entered") {
         if (!s.entered) { await deps.store.markEntered(s.id, atIso); changed++; }
