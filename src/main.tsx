@@ -826,7 +826,7 @@ async function loadDashboardSignals(): Promise<DashboardSignal[]> {
 /* ---------- Live price + Change % (vs entry) ---------- */
 const livePrices: Record<string, number> = {};
 
-const binanceSymbol = (raw: unknown): string => {
+const okxSymbol = (raw: unknown): string => {
   const s = String(raw ?? "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
@@ -842,7 +842,7 @@ async function loadLivePrices(
   const symbols = [
     ...new Set(
       signals
-        .map((s) => binanceSymbol(s.symbol))
+        .map((s) => okxSymbol(s.symbol))
         .filter(Boolean),
     ),
   ];
@@ -909,7 +909,7 @@ async function loadLivePrices(
 /** % move from entry. LONG: price up = +. SHORT: price down = +. */
 const changePct = (signal: DashboardSignal): number | null => {
   const entry = dashboardNumber(signal.entry);
-  const price = livePrices[binanceSymbol(signal.symbol)];
+  const price = livePrices[okxSymbol(signal.symbol)];
 
   if (entry === null || entry <= 0 || price === undefined) {
     return null;
@@ -1277,7 +1277,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
           </td>
 
           <td>
-            <strong>${dashboardEscape(dashboardPrice(livePrices[binanceSymbol(signal.symbol)]))}</strong>
+            <strong>${dashboardEscape(dashboardPrice(livePrices[okxSymbol(signal.symbol)]))}</strong>
           </td>
 
           <td class="${sideClass}">
