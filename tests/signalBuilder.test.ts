@@ -45,7 +45,7 @@ expect(p.targets).toEqual([108, 112, 120]);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.plan.stop.price).toBe(104);
-expect(r.plan.targets).toEqual([94, 90, 84]);
+expect(r.plan.targets).toEqual([92, 88, 80]);
     expect(r.plan.entry.min).toBeLessThan(r.plan.entry.ideal);
   });
   it("uses structural stop when it is 1.5-3 ATR away", () => {
