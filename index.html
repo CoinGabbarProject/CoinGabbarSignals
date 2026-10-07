@@ -6071,7 +6071,7 @@ X.badge = badge; X.notes = notes;
     return ensurePrice(g.symbol).then(function () {
       var bad = X0.notes(fresh).filter(function (n) { return n[0] === 'r' || (by === 'auto' && n[0] === 'y'); })[0];
       if (bad) return fin(by === 'auto' ? 'skipped' : 'failed', bad[1]);
-      var b = build(fresh, s, acc); if (b.error) return fin('failed', b.error);
+      var b = build(fresh, s, acc, force); if (b.error) return fin('failed', b.error);
       /* run the order without touching the screen or the half-filled ticket */
       var keepTab = P.ui.tab, keepT = Object.assign({}, T), keepSig = X0.sig, res;
       X0.sig = null;
