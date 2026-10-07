@@ -3479,7 +3479,7 @@ var bd = $("posCalcBackdrop");
     if (U.custom.length >= 20) return P.toast('Maximum 20 custom coins');
     getJson('/ticker/24hr?symbol=' + s).then(function (r) {
       setPrices([r]); U.custom.push(s); saveUI(); P.selectSymbol(s); P.toast(base(s) + ' added');
-    }, function (e) { P.toast(e && e.status === 400 ? 'Coin not found on Binance' : 'Network error, try again'); });
+    }, function (e) { P.toast(e && e.status === 400 ? 'Coin not found on OKX' : 'Network error, try again'); });
   };
 
   document.addEventListener('input', function (e) {
@@ -6046,7 +6046,7 @@ X.badge = badge; X.notes = notes;
   X.fetchPx = function () {
     var syms = P.extraSyms(); if (!syms.length) return Promise.resolve();
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
-    return fetch('https://data-api.binance.vision/api/v3/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal })
+    return OKXPX.fetch('/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal })
       .then(function (r) { clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (rows) {
         (rows || []).forEach(function (r) { var p = Number(r.price); if (r.symbol && p > 0) P.prices[r.symbol] = p; });
@@ -6793,7 +6793,7 @@ X.badge = badge; X.notes = notes;
       if (S.price.some(function (a) { return a.on && a.symbol === sym && a.dir === dir && a.price === target; })) return say('You already have this alert.', true);
       S.price.unshift({ id: P.uid('al'), symbol: sym, dir: dir, price: target, note: note, on: true, created: Date.now(), fired: null });
       save(); say('Alert set: ' + base(sym) + ' ' + dir + ' ' + fp(target) + ' (now ' + fp(p) + ')', false); P.render();
-    }, function (e) { say(e && e.message === 'nf' ? 'Coin not found on Binance' : 'Network error. Try again.', true); });
+    }, function (e) { say(e && e.message === 'nf' ? 'Coin not found on OKX' : 'Network error. Try again.', true); });
   };
   A['x11b-rm'] = function (el) { S.price = S.price.filter(function (a) { return a.id !== el.dataset.id; }); save(); P.render(); };
   A['x11b-re'] = function (el) {
@@ -7329,7 +7329,7 @@ X.badge = badge; X.notes = notes;
   if (ac) { var ar = ac.render; P.addTab('accounts', 'Accounts', 90, function (acc) { return ar(acc) + backupBox(); }); }
 
   /* ---------- after every render: card, footer, warning, active tab in view, remember tab ---------- */
-  var FOOT = '<div class="pt-foot">Virtual money only. Prices come from Binance public data and fills are simulated, so real trading can differ (slippage, liquidity, funding, outages). Nothing here is financial advice.</div>';
+  var FOOT = '<div class="pt-foot">Virtual money only. Prices come from OKX public data and fills are simulated, so real trading can differ (slippage, liquidity, funding, outages). Nothing here is financial advice.</div>';
   var WARN = '<div class="pt-banner" style="border-color:var(--red);color:var(--red)"><span>Storage is full or blocked</span><small>Your paper data is not being saved. Open Accounts and download a backup.</small></div>';
   function post() {
     var pt = $('#paperRoot .pt'); if (!pt) return;
