@@ -60,7 +60,7 @@ expect(r.plan.targets).toEqual([92, 88, 80]);
     expect(far.ok && far.plan.stop.method).toBe("ATR");
   });
   it("caps TP1 before a nearby resistance", () => {
-    const r = planTrade(1, 100, 2, null, { price: 106, touches: 2 }, cfg);
+    const r = planTrade(1, 100, 2, null, { price: 112, touches: 2 }, { ...cfg, targetsR: [3, 4, 6] });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.plan.targets[0]).toBeLessThan(106);
