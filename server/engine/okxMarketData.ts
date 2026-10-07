@@ -163,8 +163,6 @@ export class OkxMarketData implements MarketData {
   }
 }
 
-/** MARKET_SOURCE=okx (default) | binance */
-export function createMarketData(cfg?: MarketDataConfig): MarketData {
-  const src = (process.env.MARKET_SOURCE ?? "okx").toLowerCase();
-  return src === "binance" || src === "futures" || src === "spot" ? new BinanceMarketData(cfg) : new OkxMarketData();
+export function createMarketData(_cfg?: MarketDataConfig): MarketData {
+  return new OkxMarketData();
 }
