@@ -888,8 +888,24 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   if (!/_HIT$/.test(st)) return "";
   const hits = (signal.hits ?? {}) as Record<string, number | undefined>;
   const t = hits[st.replace("_HIT", "").toLowerCase()] ?? signal.outcomeAt;
-  if (typeof t !== "number") return "";
-  return `<small style="display:block;font-weight:500;opacity:.8">${dashboardEscape(formatCreated(t))}</small>`;
+  const line = (txt: string): string =>
+    `<small style="display:block;font-weight:500;opacity:.8">${dashboardEscape(txt)}</small>`;
+
+  let out = typeof t === "number" ? line(formatCreated(t)) : "";
+
+  const closedByTrail =
+    signal.outcomeClosed === true &&
+    (st === "TP1_HIT" || st === "TP2_HIT") &&
+    typeof hits.sl !== "number";
+
+  if (closedByTrail) {
+    out += line(
+      `Trail SL exit${signal.outcomeAt ? " · " + formatCreated(signal.outcomeAt) : ""}${
+        typeof signal.exit === "number" ? " @ " + dashboardPrice(signal.exit) : ""
+      }`,
+    );
+  }
+  return out;
 };
 
 function renderPerformancePage(signals: DashboardSignal[]): void {
