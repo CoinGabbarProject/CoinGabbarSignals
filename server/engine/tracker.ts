@@ -33,11 +33,15 @@ export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number, 
 
   const createdMs = Date.parse(s.timestamps.createdAt);
   const expiryMs = Date.parse(s.entry.expiry);
-  let entered = false;
-let best = 0;
-let armed = false;
+    // OKX returns only the latest 300 candles. Once they no longer reach back to the
+  // signal's creation, trust what is already stored instead of re-detecting from scratch.
+  const windowShort = (candles[0]?.timestamp ?? Infinity) > createdMs;
+  const prev: SignalHits = windowShort ? { ...(s.outcome?.hits ?? {}) } : {};
+  let entered = windowShort && Boolean(s.entered);
+  let best = prev.tp3 ? 3 : prev.tp2 ? 2 : prev.tp1 ? 1 : 0;
+  let armed = false;
   let ext = 0;
-  const hits: SignalHits = {};
+  const hits: SignalHits = prev;
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
   const stopNow = (): number => {
