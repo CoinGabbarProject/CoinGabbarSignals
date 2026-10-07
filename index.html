@@ -6123,7 +6123,7 @@ X.badge = badge; X.notes = notes;
   if (!P || !X0 || !X0.notes || !X0.badge || P.x10b) return;
   var $ = function (s) { return document.querySelector(s); };
   var esc = P.esc, money = P.money, fp = P.fp, r8 = P.r8, T = P.ticket;
-  var BIN = 'https://data-api.binance.vision/api/v3';
+  var BIN = '';
   var base = function (s) { return String(s).replace(/USDT$/, ''); };
   var dir = function (s) { return s === 'LONG' ? 1 : -1; };
   var B = P.x10b = { version: '10B', busy: false };
@@ -6159,7 +6159,7 @@ X.badge = badge; X.notes = notes;
   /* ---------- live price for one coin (works even when the Paper page is not open) ---------- */
   function ensurePrice(sym) {
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
-    return fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) {
+    return OKXPX.fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) {
       clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
     }).then(function (d) {
       var p = Number(d.price); if (!(p > 0)) throw new Error('bad price');
@@ -6561,7 +6561,7 @@ X.badge = badge; X.notes = notes;
   if (!P || !P.x11 || P.x11.b) return;
   var $ = function (s) { return document.querySelector(s); };
   var esc = P.esc, money = P.money, fp = P.fp, fdate = P.fdate;
-  var BIN = 'https://data-api.binance.vision/api/v3', KEY = 'cg_paper_al', MAX_PRICE = 20, MAX_HIST = 100;
+  var BIN = '', KEY = 'cg_paper_al', MAX_PRICE = 20, MAX_HIST = 100;
   var base = function (s) { return String(s).replace(/USDT$/, ''); };
   var X = P.x11; X.b = true; X.version = '11B';
   var AL = P.x11b = { px: {}, near: {}, known: null, msg: '' };
@@ -6617,7 +6617,7 @@ X.badge = badge; X.notes = notes;
   function pull(syms) {
     if (!syms.length) return Promise.resolve();
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
-    return fetch(BIN + '/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal }).then(function (r) {
+    return OKXPX.fetch(BIN + '/ticker/price?symbols=' + encodeURIComponent(JSON.stringify(syms)), { signal: c.signal }).then(function (r) {
       clearTimeout(to); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
     }).then(function (rows) {
       (rows || []).forEach(function (r) { var p = Number(r.price); if (r.symbol && p > 0) AL.px[r.symbol] = p; });
@@ -6777,7 +6777,7 @@ X.badge = badge; X.notes = notes;
   var A = P.acts, say = function (t, bad) { AL.msg = t; AL.bad = !!bad; var m = $('#x11b-msg'); if (m) { m.className = 'pt-msg ' + (bad ? 'pt-dn' : 'pt-up'); m.textContent = t; } };
   var one = function (sym) {
     var c = new AbortController(), to = setTimeout(function () { c.abort(); }, 8000);
-    return fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) { clearTimeout(to); if (r.status === 400) throw new Error('nf'); if (!r.ok) throw new Error('net'); return r.json(); }, function () { clearTimeout(to); throw new Error('net'); })
+    return OKXPX.fetch(BIN + '/ticker/price?symbol=' + sym, { signal: c.signal }).then(function (r) { clearTimeout(to); if (r.status === 400) throw new Error('nf'); if (!r.ok) throw new Error('net'); return r.json(); }, function () { clearTimeout(to); throw new Error('net'); })
       .then(function (d) { var p = Number(d.price); if (!(p > 0)) throw new Error('net'); AL.px[sym] = p; return p; });
   };
   A['x11b-add'] = function () {
