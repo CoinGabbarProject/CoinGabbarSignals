@@ -1,6 +1,6 @@
 import type { Candle, Timeframe } from "../../shared/market.js";
 import type { DerivativesInput } from "../../shared/scoring.js";
-import { BinanceMarketData } from "./marketData.js";
+
 import type { MarketData, MarketDataConfig, MarketSnapshot, OrderBookSnapshot, Ticker24h } from "./marketData.js";
 
 const BAR: Record<Timeframe, string> = { "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1H": "1H", "4H": "4H", "1D": "1Dutc" };
