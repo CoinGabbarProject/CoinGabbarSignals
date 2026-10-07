@@ -52,12 +52,12 @@ const isClosedSignal = (s: DashboardSignal): boolean =>
     s.outcomeClosed === true);
 
 const STATUS_LABEL: Record<string, string> = {
-  EXPIRED: "EXPIRED · NO ENTRY",
-  TP1_HIT: "TP1 HIT ✅",
-  TP2_HIT: "TP2 HIT ✅",
-  TP3_HIT: "TP3 HIT ✅",
-  SL_HIT: "SL HIT ❌",
-  BE_HIT: "BREAKEVEN ⚪",
+  EXPIRED: "EXPIRED",
+  TP1_HIT: "TP1",
+  TP2_HIT: "TP2",
+  TP3_HIT: "TP3",
+  SL_HIT: "SL",
+  BE_HIT: "BE",
 };
 
 function calculatePerformance(
@@ -1267,16 +1267,12 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             ${dashboardEscape(dashboardPrice(targets[2]))}
           </td>
 
-          <td class="${statusClass}">
-                        ${dashboardEscape(STATUS_LABEL[status] ?? status)}
-            ${
-              status === "ACTIVE"
-                ? signal.entered
-                  ? '<small class="up" style="display:block;font-weight:500">▶ Entry filled · trade running</small>'
-                  : '<small style="display:block;font-weight:500;opacity:.8">⏳ Waiting for entry price</small>'
-                : ""
-            }
-            ${hitTimeLines(signal)}
+                    <td class="${statusClass}">
+            ${dashboardEscape(
+              status === "ACTIVE" && !signal.entered
+                ? "PENDING"
+                : (STATUS_LABEL[status] ?? status),
+            )}
           </td>
 
           <td>
