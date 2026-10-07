@@ -6024,7 +6024,7 @@ X.badge = badge; X.notes = notes;
     function build(g, s, acc, force) {
     var mk = P.price(g.symbol), L = g.side === 'LONG', f = acc.fees, slip = f.slip / 100, tk = f.taker / 100;
     if (mk === null) return { error: 'No live price' };
-    var inZ = mk >= g.lo * 0.9985 && mk <= g.hi * 1.0015, mkt = inZ;
+    var inZ = mk >= g.lo * 0.9985 && mk <= g.hi * 1.0015, mkt = force ? force === 'MARKET' : inZ;
     var e = mkt ? mk * (1 + dir(g.side) * slip) : g.entry, feePct = mkt ? f.taker : f.maker;
     var sl = g.stop, tp = g.targets[Math.min(s.tp, g.targets.length - 1)];
     if (L ? sl >= e : sl <= e) return { error: 'Stop is on the wrong side of entry' };
