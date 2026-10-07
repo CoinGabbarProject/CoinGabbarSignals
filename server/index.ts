@@ -14,7 +14,7 @@ await store.ensureIndexes();
 
 const engine = new EngineService(
   {
-    market: createMarketData({ spotUrl: config.scan.spotUrl, futuresUrl: config.scan.futuresUrl, timeoutMs: 8000 }),
+     market: createMarketData(),
     store,
     exchange: "okx",
   },
