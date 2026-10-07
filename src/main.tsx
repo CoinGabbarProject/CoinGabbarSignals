@@ -1236,7 +1236,8 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
         ? signal.targets
         : [];
 
-      const chg = changePct(signal);
+            const chg =
+        status === "ACTIVE" && !signal.entered ? null : changePct(signal);
 
       const chgClass =
         chg === null ? "" : chg >= 0 ? "up" : "down";
