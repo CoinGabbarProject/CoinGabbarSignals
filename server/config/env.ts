@@ -7,8 +7,7 @@ export type ScanConfig = {
   timeframe: Timeframe;
   minScore: number;
   concurrency: number;
-  spotUrl: string;
-  futuresUrl: string;
+
 };
 
 export type ServerConfig = {
@@ -47,8 +46,7 @@ if (symbols.length === 0 || symbols.length > 100) throw new Error("SCAN_SYMBOLS 
     timeframe: tf,
     minScore: clampInt(env.SCAN_MIN_SCORE, 75, 0, 100),
     concurrency: clampInt(env.SCAN_CONCURRENCY, 4, 1, 5),
-    spotUrl: env.BINANCE_SPOT_URL || "https://data-api.binance.vision",
-    futuresUrl: env.BINANCE_FUTURES_URL || "https://fapi.binance.com",
+    
   };
 }
 
