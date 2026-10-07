@@ -875,9 +875,34 @@ async function loadLivePrices(
       });
     }
 
-    if (res.ok) apply(await res.json());
+        if (res.ok) apply(await res.json());
   } catch {
     // keep the last known prices
+  }
+
+  // Signals are built from OKX perpetual swap data, so show the OKX swap price
+  // where it exists (spot above stays as the fallback, like the engine does).
+  try {
+    const or = await fetch(
+      "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
+      { headers: { Accept: "application/json" } },
+    );
+    if (or.ok) {
+      const body = (await or.json()) as {
+        data?: { instId?: string; last?: string }[];
+      };
+      const want = new Set(symbols);
+      const rows = (body.data ?? [])
+        .filter((r) => r.instId && /-USDT-SWAP$/.test(r.instId))
+        .map((r) => ({
+          symbol: String(r.instId).replace("-USDT-SWAP", "USDT"),
+          price: r.last,
+        }))
+        .filter((r) => want.has(r.symbol));
+      apply(rows);
+    }
+  } catch {
+    // keep spot prices
   }
 }
 
