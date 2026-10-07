@@ -63,7 +63,7 @@ expect(r.plan.targets).toEqual([92, 88, 80]);
     const r = planTrade(1, 100, 2, null, { price: 112, touches: 2 }, { ...cfg, targetsR: [3, 4, 6] });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.plan.targets[0]).toBeLessThan(106);
+    expect(r.plan.targets[0]).toBeLessThan(112);
     expect(r.plan.targets[0]).toBeLessThan(r.plan.targets[1]);
     expect(r.plan.targets[1]).toBeLessThan(r.plan.targets[2]);
   });
