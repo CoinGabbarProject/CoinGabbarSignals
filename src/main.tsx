@@ -1279,7 +1279,14 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
           </td>
 
           <td class="${statusClass}">
-            ${dashboardEscape(STATUS_LABEL[status] ?? status)}
+                        ${dashboardEscape(STATUS_LABEL[status] ?? status)}
+            ${
+              status === "ACTIVE"
+                ? signal.entered
+                  ? '<small class="up" style="display:block;font-weight:500">▶ Entry filled · trade running</small>'
+                  : '<small style="display:block;font-weight:500;opacity:.8">⏳ Waiting for entry price</small>'
+                : ""
+            }
             ${hitTimeLines(signal)}
           </td>
 
