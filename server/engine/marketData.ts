@@ -25,7 +25,9 @@ export interface MarketData {
   /** Each field is null when its endpoint failed or is unavailable. */
   getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput>;
   /** Combined real-time market-analysis snapshot. */
-  getMarketSnapshot(symbol: string, tf: Timeframe): Promise<MarketSnapshot>;
+    getMarketSnapshot(symbol: string, tf: Timeframe): Promise<MarketSnapshot>;
+  /** Which OKX market the data came from. */
+  marketTypeOf?(symbol: string): "swap" | "spot";
 }
 
 export interface MarketDataConfig { spotUrl: string; futuresUrl: string; timeoutMs: number }
