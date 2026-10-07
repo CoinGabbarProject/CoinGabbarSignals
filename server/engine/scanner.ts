@@ -152,7 +152,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
   ]);
   const failed = pr instanceof Error ? pr.message : undefined;
   const built = buildSignal({
-    symbol, exchange: deps.exchange ?? "binance", marketType: "spot",
+    symbol, exchange: deps.exchange ?? "okx", marketType: deps.market.marketTypeOf?.(symbol) ?? "swap",
     timeframe: { primary: tf, confirmation: confTf ?? "none", execution: EXECUTION_TF[tf] },
     candles: pr instanceof Error ? [] : pr,
     confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null,
