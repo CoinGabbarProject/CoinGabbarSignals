@@ -6203,7 +6203,7 @@ X.badge = badge; X.notes = notes;
   };
   A['x10b-skip'] = function (el) { var i = find(el.dataset.id); if (!i) return; i.st = 'skipped'; i.by = 'you'; i.why = 'You skipped it'; i.ts = Date.now(); repaint(); };
   A['x10b-skipall'] = function () { newOnes(sf()).forEach(function (i) { i.st = 'skipped'; i.by = 'you'; i.why = 'You skipped it'; i.ts = Date.now(); }); repaint(); };
-  A['x10b-rev'] = function (el) { var i = find(el.dataset.id); if (!i) return; var g = sigOf(i.id); if (!g) return P.toast('Signal is no longer active'); P.tradeSignal(g); };
+  A['x10b-rev'] = function (el) { var i = find(el.dataset.id); if (!i) return; var g = sigOf(i.id); if (!g) return P.toast('Signal is no longer active'); (P.tradeSignalTicket || P.tradeSignal)(g); };
   A['x10b-clear'] = function () { var s = sf(); s.inbox = newOnes(s); repaint(); };
   A['x10b-pull'] = function () {
     var s = sf(), n = 0;
