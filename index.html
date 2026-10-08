@@ -228,6 +228,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .recent th,.recent td{white-space:nowrap}
 .recent td:nth-child(9).up{color:var(--green);font-weight:600}
 .recent td:nth-child(9).down{color:var(--red);font-weight:600}
+.recent td:nth-child(3){font-weight:700!important}
 
 /* ---- Desktop (1051px and up) ---- */
 @media(min-width:1051px){
@@ -298,7 +299,8 @@ html,body{max-width:100%;overflow-x:hidden}
   .recent td:nth-child(3)::before{content:"Direction"}
   .recent td:nth-child(4)::before{content:"Entry"}
 .recent td:nth-child(5)::before{content:"Stop Loss"}
-  .recent td.trail-sl::before{content:"Trailing Stop Loss";color:#d9a441}
+    .recent td.trail-sl::before{content:"Trailing SL";color:#d9a441}
+  .recent td.trail-sl.trail-hit::before{content:"Trailing SL Hit"}
   .recent td:nth-child(6)::before{content:"TP1"}
   .recent td:nth-child(7)::before{content:"TP2"}
   .recent td:nth-child(8)::before{content:"TP3"}
