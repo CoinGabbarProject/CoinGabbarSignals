@@ -1255,7 +1255,7 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
   const light = document.documentElement.dataset.theme === "light";
   const chart = createChart(box, {
     autoSize: true,
-    height: 210,
+    height:250,
     layout: {
       background: { color: light ? "#FFFFFF" : "#07182b" },
       textColor: light ? "#5B6B80" : "#8ea3b9",
