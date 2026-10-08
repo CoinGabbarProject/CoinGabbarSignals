@@ -660,7 +660,20 @@ async function refreshDashboardAnalytics(): Promise<void> {
   try {
     const signals = await loadDashboardSignals();
 
-    await loadLivePrices(signals);
+        // prices load in the background; they must never block the table
+    if (!pricesBusy) {
+      pricesBusy = true;
+      void loadLivePrices(signals)
+        .then(() => {
+          renderRecentSignals(signals);
+          renderPerformanceSummary(signals);
+          renderPerformancePage(signals);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          pricesBusy = false;
+        });
+    }
 
     renderRecentSignals(signals);
     renderPerformanceSummary(signals);
