@@ -5,7 +5,7 @@ import {
   CandlestickSeries,
   LineStyle,
   createChart,
-  createSeriesMarkers,
+  
 } from "lightweight-charts";
 import type { AutoscaleInfo, IChartApi, IPriceLine, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 type DashboardSignal = {
