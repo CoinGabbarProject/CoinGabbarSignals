@@ -1587,6 +1587,8 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
       </tr>
     `;
 
+    syncSignalCharts(sortedSignals);
+
   const heading = section.querySelector("h3");
 
   if (heading) {
