@@ -1485,25 +1485,7 @@ async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<
     requestAnimationFrame(() => positionTags(m));
     setTimeout(() => positionTags(m), 150);
 
-    if (!m.markerSet) {
-      const created = dashboardDate(signal.createdAt);
-      if (created !== null) {
-        const sec = Math.floor(created / 1000);
-        let bar = data[0].time;
-        for (const c of data) if (c.time <= sec) bar = c.time;
-        const long = signal.side === "LONG";
-        createSeriesMarkers(m.series, [
-          {
-            time: bar,
-            position: long ? "belowBar" : "aboveBar",
-            shape: long ? "arrowUp" : "arrowDown",
-            color: long ? "#3be39a" : "#ff5c7c",
-            text: "Signal",
-          },
-        ]);
-        m.markerSet = true;
-      }
-    }
+    
 
     if (first) m.chart.timeScale().fitContent();
   } catch (e) {
