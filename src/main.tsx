@@ -867,7 +867,10 @@ const okxSymbol = (raw: unknown): string => {
   const fresh = new Set<string>();
   try {
     const r = await fetch(`${SIGNAL_API}/prices?symbols=${[...want].join(",")}`, {
-      signal: AbortSignal.timeout(15000),
+            signal:
+        typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(15000)
+          : undefined,
     });
     if (r.ok) {
       const body = (await r.json()) as { data?: Record<string, number> };
