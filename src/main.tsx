@@ -1206,6 +1206,241 @@ function renderAccuracy(
   });
 }
 
+/* ================= Signal mini charts ================= */
+type MiniChart = {
+  id: string;
+  box: HTMLDivElement;
+  chart: IChartApi;
+  series: ISeriesApi<"Candlestick">;
+  lines: IPriceLine[];
+  lineKey: string;
+  markerSet: boolean;
+  symbol: string;
+  tf: string;
+  busy: boolean;
+  lastFetch: number;
+};
+
+const miniCharts = new Map<string, MiniChart>();
+const userOpen = new Set<string>();
+const userClosed = new Set<string>();
+let latestSignalId = "";
+
+const chartTf = (tf?: string): string => {
+  const t = String(tf ?? "15m").trim();
+  const m = t.match(/^(\d+)\s*([mhdMHD])$/);
+  if (!m) return "15m";
+  const n = m[1];
+  const u = m[2].toLowerCase();
+  return u === "m" ? `${n}m` : u === "h" ? `${n}H` : `${n}D`;
+};
+
+const isChartOpen = (id: string): boolean =>
+  userOpen.has(id) || (id === latestSignalId && !userClosed.has(id));
+
+function destroyMiniChart(id: string): void {
+  const m = miniCharts.get(id);
+  if (!m) return;
+  try { m.chart.remove(); } catch { /* ignore */ }
+  m.box.remove();
+  miniCharts.delete(id);
+}
+
+function createMiniChart(signal: DashboardSignal): MiniChart {
+  const id = String(signal.id);
+  const box = document.createElement("div");
+  box.style.cssText = "width:100%;height:210px;position:relative";
+
+  const light = document.documentElement.dataset.theme === "light";
+  const chart = createChart(box, {
+    autoSize: true,
+    height: 210,
+    layout: {
+      background: { color: light ? "#FFFFFF" : "#07182b" },
+      textColor: light ? "#5B6B80" : "#8ea3b9",
+      fontSize: 10,
+    },
+    grid: {
+      vertLines: { color: light ? "#E6EDF5" : "#10243b" },
+      horzLines: { color: light ? "#E6EDF5" : "#10243b" },
+    },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    // view-only: no scroll, zoom, drag or drawing
+    handleScroll: false,
+    handleScale: false,
+    crosshair: { mode: 0 },
+  });
+
+  const series = chart.addSeries(CandlestickSeries, {
+    upColor: "#3be39a",
+    downColor: "#ff5c7c",
+    wickUpColor: "#3be39a",
+    wickDownColor: "#ff5c7c",
+    borderVisible: false,
+    priceLineVisible: false,
+  });
+
+  return {
+    id,
+    box,
+    chart,
+    series,
+    lines: [],
+    lineKey: "",
+    markerSet: false,
+    symbol: String(signal.symbol ?? ""),
+    tf: chartTf(signal.timeframe),
+    busy: false,
+    lastFetch: 0,
+  };
+}
+
+function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
+  const t = Array.isArray(signal.targets) ? signal.targets : [];
+  const stop =
+    typeof signal.trailStop === "number" ? signal.trailStop : signal.stop;
+  const key = [signal.entry, stop, t[0], t[1], t[2]].join("|");
+  if (key === m.lineKey) return;
+  m.lineKey = key;
+
+  m.lines.forEach((l) => m.series.removePriceLine(l));
+  m.lines = [];
+
+  const add = (price: unknown, color: string, title: string, dashed = false) => {
+    const p = Number(price);
+    if (!Number.isFinite(p) || p <= 0) return;
+    m.lines.push(
+      m.series.createPriceLine({
+        price: p,
+        color,
+        lineWidth: 1,
+        lineStyle: dashed ? LineStyle.Dashed : LineStyle.Solid,
+        axisLabelVisible: true,
+        title,
+      }),
+    );
+  };
+
+  add(signal.entry, "#3b9cff", "Entry");
+  add(stop, "#ff5c7c", "SL");
+  add(t[0], "#7ef0b8", "TP1", true);
+  add(t[1], "#3be39a", "TP2", true);
+  add(t[2], "#13b36d", "TP3", true);
+}
+
+async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<void> {
+  if (m.busy) return;
+  m.busy = true;
+  try {
+    const url =
+      `${SIGNAL_API}/candles?symbol=${encodeURIComponent(m.symbol)}` +
+      `&timeframe=${encodeURIComponent(m.tf)}&limit=150`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = (await res.json()) as {
+      data?: Array<{ timestamp: number; open: number; high: number; low: number; close: number }>;
+    };
+
+    const seen = new Set<number>();
+    const data = (body.data ?? [])
+      .filter((c) => Number.isFinite(c.timestamp) && Number.isFinite(c.close))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((c) => ({
+        time: Math.floor(c.timestamp / 1000) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
+      .filter((c) => (seen.has(c.time) ? false : (seen.add(c.time), true)));
+
+    if (!data.length) return;
+
+    const first = m.lastFetch === 0;
+    m.series.setData(data);
+    m.lastFetch = Date.now();
+    drawSignalLines(m, signal);
+
+    if (!m.markerSet) {
+      const created = dashboardDate(signal.createdAt);
+      if (created !== null) {
+        const sec = Math.floor(created / 1000);
+        let bar = data[0].time;
+        for (const c of data) if (c.time <= sec) bar = c.time;
+        const long = signal.side === "LONG";
+        createSeriesMarkers(m.series, [
+          {
+            time: bar,
+            position: long ? "belowBar" : "aboveBar",
+            shape: long ? "arrowUp" : "arrowDown",
+            color: long ? "#3be39a" : "#ff5c7c",
+            text: "Signal",
+          },
+        ]);
+        m.markerSet = true;
+      }
+    }
+
+    if (first) m.chart.timeScale().fitContent();
+  } catch (e) {
+    console.error("signal chart:", e);
+  } finally {
+    m.busy = false;
+  }
+}
+
+/** Called after every table rebuild: re-attaches live charts into the fresh slots. */
+function syncSignalCharts(signals: DashboardSignal[]): void {
+  const ids = new Set(signals.map((s) => String(s.id)));
+
+  // drop charts whose card no longer exists or was closed
+  for (const id of [...miniCharts.keys()]) {
+    if (!ids.has(id) || !isChartOpen(id)) destroyMiniChart(id);
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-chart-slot]").forEach((slot) => {
+    const id = slot.dataset.chartSlot ?? "";
+    const signal = signals.find((s) => String(s.id) === id);
+    if (!signal || !isChartOpen(id)) {
+      slot.style.display = "none";
+      return;
+    }
+
+    slot.style.display = "block";
+    let m = miniCharts.get(id);
+    if (!m) {
+      m = createMiniChart(signal);
+      miniCharts.set(id, m);
+    }
+
+    // move the SAME chart element into the new slot (no re-create, no flicker)
+    if (m.box.parentElement !== slot) slot.appendChild(m.box);
+
+    void refreshMiniChart(m, signal);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-chart-btn]").forEach((btn) => {
+    const id = btn.dataset.chartBtn ?? "";
+    btn.textContent = isChartOpen(id) ? "Hide chart" : "Chart";
+  });
+}
+
+// one click handler for all Chart buttons (survives table rebuilds)
+document.addEventListener("click", (ev) => {
+  const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-chart-btn]");
+  if (!btn) return;
+  const id = btn.dataset.chartBtn ?? "";
+  if (isChartOpen(id)) {
+    userOpen.delete(id);
+    userClosed.add(id);
+  } else {
+    userClosed.delete(id);
+    userOpen.add(id);
+  }
+  void refreshDashboardAnalytics();
+});
+
 function renderRecentSignals(signals: DashboardSignal[]): void {
   const section = document.querySelector(".panel.recent");
 
