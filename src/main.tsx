@@ -1455,7 +1455,9 @@ function syncSignalCharts(signals: DashboardSignal[]): void {
 
   document.querySelectorAll<HTMLButtonElement>("[data-chart-btn]").forEach((btn) => {
     const id = btn.dataset.chartBtn ?? "";
-    btn.textContent = isChartOpen(id) ? "Hide chart" : "Chart";
+        btn.textContent = isChartOpen(id) ? "Hide chart" : "Chart";
+    const btnCell = btn.closest("td") as HTMLElement | null;
+    if (btnCell) btnCell.style.display = id === latestSignalId ? "none" : "";
   });
 }
 
