@@ -1521,7 +1521,7 @@ function syncSignalCharts(signals: DashboardSignal[]): void {
       return;
     }
 
-    if (cell) cell.style.display = "block";
+if (cell) cell.style.display = isRow ? "table-row" : "block";
     let m = miniCharts.get(id);
     if (!m) {
       m = createMiniChart(signal);
