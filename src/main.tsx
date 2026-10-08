@@ -1,7 +1,13 @@
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { MarketSymbolApp } from "./market/MarketSymbolApp.js";
-
+import {
+  CandlestickSeries,
+  LineStyle,
+  createChart,
+  createSeriesMarkers,
+} from "lightweight-charts";
+import type { IChartApi, IPriceLine, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 type DashboardSignal = {
   id?: string;
   symbol?: string;
