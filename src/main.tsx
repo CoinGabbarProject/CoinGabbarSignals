@@ -815,7 +815,7 @@ async function loadDashboardSignals(): Promise<DashboardSignal[]> {
 
   const timeout = window.setTimeout(
     () => controller.abort(),
-    8000,
+  25000,
   );
 
   try {
