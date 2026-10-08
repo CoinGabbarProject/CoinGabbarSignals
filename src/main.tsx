@@ -1678,8 +1678,13 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             <div class="sig-chart-slot" data-chart-slot="${dashboardEscape(signal.id)}"></div>
           </td>
 
-          <td class="sig-btn-cell">
+                    <td class="sig-btn-cell">
             <button type="button" class="sig-chart-btn" data-chart-btn="${dashboardEscape(signal.id)}">Chart</button>
+          </td>
+        </tr>
+        <tr class="sig-chart-row" style="display:none">
+          <td colspan="12" style="padding:0;border:0">
+            <div class="sig-chart-slot" data-chart-slot="${dashboardEscape(signal.id)}"></div>
           </td>
         </tr>
       `;
