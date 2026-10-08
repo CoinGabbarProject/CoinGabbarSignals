@@ -1329,7 +1329,8 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
 
   const add = (price: unknown, color: string, title: string, dashed = false) => {
     const p = Number(price);
-    if (!Number.isFinite(p) || p <= 0) return;
+        if (!Number.isFinite(p) || p <= 0) return;
+    m.levels.push(p);
     m.lines.push(
       m.series.createPriceLine({
         price: p,
