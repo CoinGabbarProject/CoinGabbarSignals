@@ -199,7 +199,8 @@ async function runSymbol(
     const side: 1 | -1 = sig.direction === "LONG" ? 1 : -1;
     if (opts.btcFilter && h.symbol !== "BTCUSDT" && btc) {
       const bias = biasAt(btcBiases, btc, tfMs, decisionTime);
-      if (bias !== 0 && bias !== side) { skips.btcFilter++; continue; }
+            const strictBtc = (process.env.BTC_FILTER ?? "strict").toLowerCase() === "strict";
+      if (strictBtc ? bias !== side : bias !== 0 && bias !== side) { skips.btcFilter++; continue; }
     }
     if (next.open < sig.entry.min || next.open > sig.entry.max) { skips.noEntry++; continue; }
 
