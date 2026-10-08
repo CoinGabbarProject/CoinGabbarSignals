@@ -1223,8 +1223,7 @@ type MiniChart = {
 };
 
 const miniCharts = new Map<string, MiniChart>();
-const userOpen = new Set<string>();
-const userClosed = new Set<string>();
+let openId = ""; // the one extra chart (besides the latest) that is open
 let latestSignalId = "";
 
 const chartTf = (tf?: string): string => {
