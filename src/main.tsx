@@ -1258,7 +1258,11 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
   box.append(gutter, host);
 
   const light = document.documentElement.dataset.theme === "light";
-  const chart = createChart(box, {
+    gutter.style.cssText =
+    "flex:0 0 53px;position:relative;overflow:hidden;" +
+    `background:${light ? "#F4F8FC" : "#0a2036"}`;
+
+  const chart = createChart(host, {
     autoSize: true,
     height:250,
     layout: {
