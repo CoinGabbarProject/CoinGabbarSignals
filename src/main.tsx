@@ -1236,7 +1236,7 @@ const chartTf = (tf?: string): string => {
 };
 
 const isChartOpen = (id: string): boolean =>
-  userOpen.has(id) || (id === latestSignalId && !userClosed.has(id));
+  id === latestSignalId || id === openId;
 
 function destroyMiniChart(id: string): void {
   const m = miniCharts.get(id);
