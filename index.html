@@ -558,7 +558,14 @@ html[data-theme=light] [style*="color:#19df91"]{color:#0a9b62!important}
 .sig-chart-btn:active{background:#0d2540}
 .sig-chart-slot{width:100%;border-radius:6px;overflow:hidden}
 html[data-theme=light] .sig-chart-btn{border-color:#d9e2ec;color:#4a5d75}
-@media(min-width:761px){.sig-chart-cell,.sig-btn-cell{display:none!important}}
+@media(min-width:761px){.sig-chart-cell,.sig-btn-cell{display:none!important}
+html body .panel.recent .sig-chart-btn-d{display:block;width:auto;margin-top:6px;padding:4px 12px}
+html body .panel.recent .sig-chart-slot{padding:6px 0}
+html body .panel.recent .sig-chart-slot table{width:100%!important;min-width:0!important;font-size:inherit!important}
+html body .panel.recent .sig-chart-slot tr{background:none!important;border:0!important}
+html body .panel.recent .sig-chart-slot td:nth-child(n){padding:0!important;border:0!important}
+html body .panel.recent .sig-chart-slot td:nth-child(n)::before{content:none!important;display:none!important}}
+@media(max-width:760px){html body .panel.recent tr.sig-chart-row,html body .panel.recent .sig-chart-btn-d{display:none!important}}
 @media(max-width:760px){
 html body .panel.recent tr{grid-template-areas:"chart chart chart chart" "pair pair dir status" "price chg entry sl" "tp1 tp2 tp3 rr" "created created created created" "cbtn cbtn cbtn cbtn"}
 html body .panel.recent td.sig-chart-cell{grid-area:chart;order:0;padding:0;border:0;margin:0}
