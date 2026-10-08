@@ -1326,6 +1326,27 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
   };
 }
 
+/** Puts each left chip (SL / Entry / TP1-3) at its line's height. */
+function positionTags(m: MiniChart): void {
+  const pts: { el: HTMLDivElement; y: number }[] = [];
+  m.tags.forEach((t) => {
+    const y = m.series.priceToCoordinate(t.price);
+    if (y === null) {
+      t.el.style.display = "none";
+      return;
+    }
+    t.el.style.display = "block";
+    pts.push({ el: t.el, y: y as number });
+  });
+  pts.sort((a, b) => a.y - b.y);
+  let last = -Infinity;
+  pts.forEach((p) => {
+    const y = Math.max(p.y, last + 16); // chips overlap na karein
+    last = y;
+    p.el.style.top = `${Math.round(y - 8)}px`;
+  });
+}
+
 function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
   const t = Array.isArray(signal.targets) ? signal.targets : [];
   const stop =
