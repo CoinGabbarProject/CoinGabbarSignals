@@ -1215,7 +1215,9 @@ type MiniChart = {
   lines: IPriceLine[];
     lineKey: string;
   levels: number[];
-  markerSet: boolean;
+    markerSet: boolean;
+  gutter: HTMLDivElement;
+  tags: { price: number; el: HTMLDivElement }[];
   symbol: string;
   tf: string;
   busy: boolean;
