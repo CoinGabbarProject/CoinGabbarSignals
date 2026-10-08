@@ -1365,7 +1365,16 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
     const title = ""; // right axis par sirf price number
     const p = Number(price);
         if (!Number.isFinite(p) || p <= 0) return;
-    m.levels.push(p);
+        m.levels.push(p);
+    const el = document.createElement("div");
+    el.textContent = tagText;
+    el.style.cssText =
+      "position:absolute;left:4px;top:0;width:46px;box-sizing:border-box;" +
+      "text-align:left;padding:1px 6px;border-radius:4px;" +
+      "font:700 10px/14px system-ui,sans-serif;" +
+      `color:${tagText === "TP1" ? "#0b3d26" : "#fff"};background:${color}`;
+    m.gutter.appendChild(el);
+    m.tags.push({ price: p, el });
     m.lines.push(
       m.series.createPriceLine({
         price: p,
