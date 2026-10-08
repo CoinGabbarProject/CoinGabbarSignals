@@ -1464,13 +1464,8 @@ document.addEventListener("click", (ev) => {
   const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-chart-btn]");
   if (!btn) return;
   const id = btn.dataset.chartBtn ?? "";
-  if (isChartOpen(id)) {
-    userOpen.delete(id);
-    userClosed.add(id);
-  } else {
-    userClosed.delete(id);
-    userOpen.add(id);
-  }
+  if (id === latestSignalId) return; // latest chart always stays open
+  openId = openId === id ? "" : id; // opening one closes the previous one
   void refreshDashboardAnalytics();
 });
 
