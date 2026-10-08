@@ -1450,14 +1450,18 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
 
   if (!(tbody instanceof HTMLTableSectionElement)) return;
 
-  const rows = signals
+    const sortedSignals = signals
     .slice()
     .sort(
       (a, b) =>
         (dashboardDate(b.createdAt) ?? 0) -
         (dashboardDate(a.createdAt) ?? 0),
     )
-    .slice(0, section.closest(".page-body") ? 20 : 10)
+    .slice(0, section.closest(".page-body") ? 20 : 10);
+
+  latestSignalId = sortedSignals[0]?.id ? String(sortedSignals[0].id) : "";
+
+  const rows = sortedSignals
     .map((signal) => {
       const side = signal.side ?? "NO_TRADE";
       const sideClass =
