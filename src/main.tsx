@@ -1422,6 +1422,21 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
   add(t[0], "#7ef0b8", "TP1", true);
   add(t[1], "#3be39a", "TP2", true);
   add(t[2], "#13b36d", "TP3", true);
+
+  // Signal chip: gutter me SL ke upar (SHORT) / neeche (LONG), candles ko overlap nahi karega
+  const sigLong = signal.side === "LONG";
+  const sigStop = Number(stop);
+  if (Number.isFinite(sigStop) && sigStop > 0) {
+    const sigEl = document.createElement("div");
+    sigEl.textContent = sigLong ? "Sig ▲" : "Sig ▼";
+    sigEl.style.cssText =
+      "position:absolute;left:4px;top:0;width:46px;box-sizing:border-box;" +
+      "text-align:left;padding:1px 6px;border-radius:4px;white-space:nowrap;" +
+      "font:700 10px/14px system-ui,sans-serif;" +
+      `color:${sigLong ? "#0b3d26" : "#fff"};background:${sigLong ? "#3be39a" : "#ff5c7c"}`;
+    m.gutter.appendChild(sigEl);
+    m.tags.push({ price: sigStop, el: sigEl, off: sigLong ? 17 : -17 });
+  }
 }
 
 async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<void> {
