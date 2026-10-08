@@ -1491,7 +1491,9 @@ function syncSignalCharts(signals: DashboardSignal[]): void {
     let m = miniCharts.get(id);
     if (!m) {
       m = createMiniChart(signal);
-      miniCharts.set(id, m);
+            miniCharts.set(id, m);
+      const created = m;
+      new ResizeObserver(() => positionTags(created)).observe(created.box);
     }
 
     // move the SAME chart element into the new slot (no re-create, no flicker)
