@@ -1672,6 +1672,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
 
   <td>
             ${dashboardEscape(formatCreated(signal.createdAt))}
+            <button type="button" class="sig-chart-btn sig-chart-btn-d" data-chart-btn="${dashboardEscape(signal.id)}">Chart</button>
           </td>
 
                     <td class="sig-chart-cell" style="display:none">
