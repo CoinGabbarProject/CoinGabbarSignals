@@ -1358,6 +1358,8 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
     m.lines.forEach((l) => m.series.removePriceLine(l));
   m.lines = [];
   m.levels.length = 0;
+  m.tags.forEach((t) => t.el.remove());
+  m.tags = [];
 
   const add = (price: unknown, color: string, title: string, dashed = false) => {
     const p = Number(price);
