@@ -1544,6 +1544,11 @@ if (cell) cell.style.display = isRow ? "table-row" : "block";
   });
 }
 
+// desktop <-> mobile switch par chart sahi slot me aa jaye
+window.matchMedia("(min-width:761px)").addEventListener("change", () => {
+  void refreshDashboardAnalytics();
+});
+
 // one click handler for all Chart buttons (survives table rebuilds)
 document.addEventListener("click", (ev) => {
   const btn = (ev.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-chart-btn]");
