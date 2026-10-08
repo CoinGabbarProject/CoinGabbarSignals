@@ -1361,7 +1361,8 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
   m.tags.forEach((t) => t.el.remove());
   m.tags = [];
 
-  const add = (price: unknown, color: string, title: string, dashed = false) => {
+    const add = (price: unknown, color: string, tagText: string, dashed = false) => {
+    const title = ""; // right axis par sirf price number
     const p = Number(price);
         if (!Number.isFinite(p) || p <= 0) return;
     m.levels.push(p);
