@@ -1436,7 +1436,9 @@ async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<
     m.series.setData(view);
     m.lastFetch = Date.now();
     drawSignalLines(m, signal);
-    m.series.priceScale().applyOptions({ autoScale: true });
+        m.series.priceScale().applyOptions({ autoScale: true });
+    requestAnimationFrame(() => positionTags(m));
+    setTimeout(() => positionTags(m), 150);
 
     if (!m.markerSet) {
       const created = dashboardDate(signal.createdAt);
