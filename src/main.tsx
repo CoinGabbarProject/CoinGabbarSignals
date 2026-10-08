@@ -1251,7 +1251,11 @@ function destroyMiniChart(id: string): void {
 function createMiniChart(signal: DashboardSignal): MiniChart {
   const id = String(signal.id);
   const box = document.createElement("div");
-  box.style.cssText = "width:100%;height:250px;position:relative";
+    box.style.cssText = "width:100%;height:250px;position:relative;display:flex";
+  const gutter = document.createElement("div");
+  const host = document.createElement("div");
+  host.style.cssText = "flex:1 1 auto;min-width:0;height:250px";
+  box.append(gutter, host);
 
   const light = document.documentElement.dataset.theme === "light";
   const chart = createChart(box, {
