@@ -1560,8 +1560,13 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             ${chg === null ? "—" : dashboardPercent(chg)}
           </td>
 
- <td>
+  <td>
             ${dashboardEscape(formatCreated(signal.createdAt))}
+          </td>
+
+          <td class="sig-chart-cell">
+            <button type="button" class="sig-chart-btn" data-chart-btn="${dashboardEscape(signal.id)}">Chart</button>
+            <div class="sig-chart-slot" data-chart-slot="${dashboardEscape(signal.id)}" style="display:none"></div>
           </td>
         </tr>
       `;
