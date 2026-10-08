@@ -642,6 +642,8 @@ function renderPerformanceSummary(
   }
 }
 
+let pricesBusy = false;
+
 async function refreshDashboardAnalytics(): Promise<void> {
   const recent = document.querySelector(
     ".panel.recent",
