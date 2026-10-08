@@ -1273,7 +1273,24 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
     crosshair: { mode: 0 },
   });
 
+    const levels: number[] = [];
+  const ref = Number(signal.entry) || 1;
+  const precision = Math.min(8, Math.max(2, Math.ceil(-Math.log10(ref)) + 3));
+
   const series = chart.addSeries(CandlestickSeries, {
+    priceFormat: { type: "price", precision, minMove: Math.pow(10, -precision) },
+    // keep Entry / SL / TP1-3 inside the visible price range
+    autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
+      const r = original();
+      if (!r || !levels.length) return r;
+      return {
+        ...r,
+        priceRange: {
+          minValue: Math.min(r.priceRange.minValue, ...levels),
+          maxValue: Math.max(r.priceRange.maxValue, ...levels),
+        },
+      };
+    },
     upColor: "#3be39a",
     downColor: "#ff5c7c",
     wickUpColor: "#3be39a",
