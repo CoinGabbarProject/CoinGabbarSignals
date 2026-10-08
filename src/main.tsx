@@ -1360,7 +1360,12 @@ function positionTags(m: MiniChart): void {
       t.el.style.display = "none";
       return;
     }
-    t.el.style.display = "block";
+        t.el.style.display = "block";
+    if (t.off !== undefined) {
+      // Signal chip: SL ke upar/neeche fixed offset, push-apart me nahi
+      t.el.style.top = `${Math.max(0, Math.round((y as number) + t.off - 8))}px`;
+      return;
+    }
     pts.push({ el: t.el, y: y as number });
   });
   pts.sort((a, b) => a.y - b.y);
