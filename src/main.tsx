@@ -905,8 +905,15 @@ const okxSymbol = (raw: unknown): string => {
     return out;
   };
 
-  const swap = await pull("SWAP");
-  const spot = [...want].some((s) => swap[s] === undefined) ? await pull("SPOT") : {};
+    const cap = (p: Promise<Record<string, number>>): Promise<Record<string, number>> =>
+    Promise.race([
+      p,
+      new Promise<Record<string, number>>((resolve) =>
+        window.setTimeout(() => resolve({}), 8000),
+      ),
+    ]);
+  const swap = await cap(pull("SWAP"));
+  const spot = [...want].some((s) => swap[s] === undefined) ? await cap(pull("SPOT")) : {};
   for (const s of want) {
     const p = swap[s] ?? spot[s];
     if (p !== undefined) livePrices[s] = p;
