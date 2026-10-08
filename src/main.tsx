@@ -1507,7 +1507,14 @@ function syncSignalCharts(signals: DashboardSignal[]): void {
   document.querySelectorAll<HTMLElement>("[data-chart-slot]").forEach((slot) => {
     const id = slot.dataset.chartSlot ?? "";
     const signal = signals.find((s) => String(s.id) === id);
-        const cell = slot.parentElement as HTMLElement | null;
+        const cell = slot.closest<HTMLElement>(".sig-chart-cell, .sig-chart-row");
+    const isRow = !!cell && cell.classList.contains("sig-chart-row");
+    const wide = window.matchMedia("(min-width:761px)").matches;
+    if (isRow !== wide) {
+      // ye slot is screen size par nahi dikhna chahiye
+      if (cell) cell.style.display = "none";
+      return;
+    }
 
     if (!signal || !isChartOpen(id)) {
       if (cell) cell.style.display = "none";
