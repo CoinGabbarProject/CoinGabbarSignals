@@ -1376,12 +1376,23 @@ async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<
       }))
       .filter((c) => (seen.has(c.time) ? false : (seen.add(c.time), true)));
 
-    if (!data.length) return;
+        if (!data.length) return;
+
+    // show at least the last 60 bars, and always include the signal candle
+    const createdMs = dashboardDate(signal.createdAt);
+    const createdSec = createdMs !== null ? Math.floor(createdMs / 1000) : 0;
+    let sigIdx = 0;
+    data.forEach((c, i) => {
+      if (c.time <= createdSec) sigIdx = i;
+    });
+    const start = Math.max(0, Math.min(data.length - 60, sigIdx - 15));
+    const view = data.slice(start);
 
     const first = m.lastFetch === 0;
-    m.series.setData(data);
+    m.series.setData(view);
     m.lastFetch = Date.now();
     drawSignalLines(m, signal);
+    m.series.priceScale().applyOptions({ autoScale: true });
 
     if (!m.markerSet) {
       const created = dashboardDate(signal.createdAt);
