@@ -840,7 +840,27 @@ const okxSymbol = (raw: unknown): string => {
 
   async function loadLivePrices(signals: DashboardSignal[]): Promise<void> {
   const want = new Set(signals.map((s) => okxSymbol(s.symbol)).filter(Boolean));
-  if (want.size === 0) return;
+    if (want.size === 0) return;
+
+  // 1) Ask our own server first (works on every network).
+  const fresh = new Set<string>();
+  try {
+    const r = await fetch(`${SIGNAL_API}/prices?symbols=${[...want].join(",")}`, {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (r.ok) {
+      const body = (await r.json()) as { data?: Record<string, number> };
+      for (const [k, v] of Object.entries(body.data ?? {})) {
+        if (Number.isFinite(v) && v > 0) {
+          livePrices[k] = v;
+          fresh.add(k);
+        }
+      }
+    }
+  } catch {
+    // fall back to OKX directly below
+  }
+  if ([...want].every((s) => fresh.has(s))) return;
 
   const pull = async (type: "SWAP" | "SPOT"): Promise<Record<string, number>> => {
     const out: Record<string, number> = {};
