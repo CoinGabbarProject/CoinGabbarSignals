@@ -53,10 +53,10 @@ const isClosedSignal = (s: DashboardSignal): boolean =>
 
 const STATUS_LABEL: Record<string, string> = {
   EXPIRED: "EXPIRED",
-  TP1_HIT: "TP1",
-  TP2_HIT: "TP2",
-  TP3_HIT: "TP3",
-  SL_HIT: "SL",
+    TP1_HIT: "TP1 Hit",
+  TP2_HIT: "TP2 Hit",
+  TP3_HIT: "TP3 Hit",
+  SL_HIT: "SL Hit",
   BE_HIT: "BE",
 };
 
@@ -913,10 +913,13 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   let out = "";
 
   if (st === "TP1_HIT" || st === "TP2_HIT" || st === "TP3_HIT") {
+        const cur = st.slice(0, 3).toLowerCase();
+    const curTime = hits[cur];
+    if (typeof curTime === "number") out += line(formatCreated(curTime));
     for (const k of ["tp1", "tp2", "tp3"] as const) {
       const ht = hits[k];
-      if (typeof ht === "number") {
-        out += line(`${k.toUpperCase()} hit · ${formatCreated(ht)}`);
+      if (k !== cur && typeof ht === "number") {
+        out += line(`${k.toUpperCase()} · ${formatCreated(ht)}`);
       }
     }
   } else {
@@ -927,15 +930,20 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   return out;
 };
 
-const trailHitLine = (signal: DashboardSignal): string => {
+const isTrailHit = (signal: DashboardSignal): boolean => {
   const st = String(signal.status ?? "");
-  const closedByTrail =
+  return (
     signal.outcomeClosed === true &&
     (st === "TP1_HIT" || st === "TP2_HIT") &&
-    typeof signal.trailStop === "number";
-  if (!closedByTrail) return "";
+    typeof signal.trailStop === "number"
+  );
+};
+
+const trailHitLine = (signal: DashboardSignal): string => {
+  if (!isTrailHit(signal)) return "";
   const at = Number(signal.outcomeAt);
-  const txt = `Hit${Number.isFinite(at) && at > 0 ? " · " + formatCreated(at) : ""}`;
+  const txt = Number.isFinite(at) && at > 0 ? formatCreated(at) : "";
+  if (txt === "") return "";
   return `<small style="display:block;font-weight:500;opacity:.8">${dashboardEscape(txt)}</small>`;
 };
 
@@ -1246,8 +1254,15 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
             const chg =
         status === "ACTIVE" && !signal.entered ? null : changePct(signal);
 
-      const chgClass =
+            const chgClass =
         chg === null ? "" : chg >= 0 ? "up" : "down";
+
+      const trailClass =
+        typeof signal.trailStop === "number"
+          ? isTrailHit(signal)
+            ? ' class="trail-sl trail-hit"'
+            : ' class="trail-sl"'
+          : "";
 
       return `
         <tr>
