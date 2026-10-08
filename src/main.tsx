@@ -1213,7 +1213,8 @@ type MiniChart = {
   chart: IChartApi;
   series: ISeriesApi<"Candlestick">;
   lines: IPriceLine[];
-  lineKey: string;
+    lineKey: string;
+  levels: number[];
   markerSet: boolean;
   symbol: string;
   tf: string;
