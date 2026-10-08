@@ -1300,7 +1300,8 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
       horzLines: { color: light ? "#E6EDF5" : "#10243b" },
     },
     rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 } },
-    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, tickMarkFormatter: miniIstTick },
+    localization: { timeFormatter: miniIstCrosshair },
     // view-only: no scroll, zoom, drag or drawing
     handleScroll: false,
     handleScale: false,
