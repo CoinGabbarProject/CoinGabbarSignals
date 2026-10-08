@@ -1573,8 +1573,14 @@ if (cell) cell.style.display = isRow ? "table-row" : "block";
   document.querySelectorAll<HTMLButtonElement>("[data-chart-btn]").forEach((btn) => {
     const id = btn.dataset.chartBtn ?? "";
         btn.textContent = isChartOpen(id) ? "Hide chart" : "Chart";
+        const isLatest = id === latestSignalId;
+    if (btn.classList.contains("sig-chart-btn-d")) {
+      // desktop button Created cell ke andar hai: cell nahi, sirf button hide karo
+      btn.style.display = isLatest ? "none" : "";
+      return;
+    }
     const btnCell = btn.closest("td") as HTMLElement | null;
-    if (btnCell) btnCell.style.display = id === latestSignalId ? "none" : "";
+    if (btnCell) btnCell.style.display = isLatest ? "none" : "";
   });
 }
 
