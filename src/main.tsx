@@ -1402,12 +1402,14 @@ function syncSignalCharts(signals: DashboardSignal[]): void {
   document.querySelectorAll<HTMLElement>("[data-chart-slot]").forEach((slot) => {
     const id = slot.dataset.chartSlot ?? "";
     const signal = signals.find((s) => String(s.id) === id);
+        const cell = slot.parentElement as HTMLElement | null;
+
     if (!signal || !isChartOpen(id)) {
-      slot.style.display = "none";
+      if (cell) cell.style.display = "none";
       return;
     }
 
-    slot.style.display = "block";
+    if (cell) cell.style.display = "block";
     let m = miniCharts.get(id);
     if (!m) {
       m = createMiniChart(signal);
