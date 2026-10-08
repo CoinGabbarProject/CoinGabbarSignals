@@ -1242,7 +1242,7 @@ type MiniChart = {
   levels: number[];
     markerSet: boolean;
   gutter: HTMLDivElement;
-  tags: { price: number; el: HTMLDivElement }[];
+    tags: { price: number; el: HTMLDivElement; off?: number }[];
   symbol: string;
   tf: string;
   busy: boolean;
