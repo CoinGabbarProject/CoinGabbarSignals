@@ -1419,6 +1419,86 @@ function positionTags(m: MiniChart): void {
   });
 }
 
+/** Entry / TP1-3 / SL hit hone par us candle par halki vertical line */
+function drawHitLines(
+  m: MiniChart,
+  signal: DashboardSignal,
+  view: { time: UTCTimestamp; low: number; high: number }[],
+): void {
+  m.vlines.forEach((v) => v.el.remove());
+  m.vlines = [];
+  if (!view.length) return;
+
+  const snap = (ms: number): number => {
+    const sec = Math.floor(ms / 1000);
+    let bar = view[0].time as number;
+    for (const c of view) if ((c.time as number) <= sec) bar = c.time as number;
+    return bar;
+  };
+
+  const hits = signal.hits ?? {};
+  const items: { label: string; time: number; color: string }[] = [];
+
+  // Entry time: server sirf entered=true bhejta hai, isliye candles se nikaalte hain
+  const created = dashboardDate(signal.createdAt);
+  const entry = Number(signal.entry);
+  const anyHit = Boolean(hits.tp1 || hits.tp2 || hits.tp3 || hits.sl);
+  if (created !== null && Number.isFinite(entry) && (signal.entered || anyHit)) {
+    const from = snap(created);
+    const c = view.find((x) => (x.time as number) >= from && x.low <= entry && x.high >= entry);
+    if (c) items.push({ label: "Entry", time: c.time as number, color: "#4da3ff" });
+  }
+  if (hits.tp1) items.push({ label: "TP1", time: snap(hits.tp1), color: "#3be39a" });
+  if (hits.tp2) items.push({ label: "TP2", time: snap(hits.tp2), color: "#3be39a" });
+  if (hits.tp3) items.push({ label: "TP3", time: snap(hits.tp3), color: "#13b36d" });
+  if (hits.sl) items.push({ label: "SL", time: snap(hits.sl), color: "#ff5c7c" });
+
+  // same candle par do hit ho to ek line, label joint
+  const byTime = new Map<number, { labels: string[]; color: string }>();
+  for (const it of items) {
+    const g = byTime.get(it.time) ?? { labels: [], color: it.color };
+    g.labels.push(it.label);
+    g.color = it.color;
+    byTime.set(it.time, g);
+  }
+
+  byTime.forEach((g, time) => {
+    const el = document.createElement("div");
+    el.style.cssText =
+      "position:absolute;top:0;width:0;pointer-events:none;z-index:3;" +
+      `border-left:1px dashed ${g.color};opacity:.55`;
+    const tag = document.createElement("span");
+    tag.textContent = g.labels.join("·");
+    tag.style.cssText =
+      "position:absolute;top:2px;left:3px;white-space:nowrap;" +
+      `font:700 9px/1 system-ui,sans-serif;color:${g.color}`;
+    el.appendChild(tag);
+    m.box.appendChild(el);
+    m.vlines.push({ time, el });
+  });
+
+  requestAnimationFrame(() => positionVLines(m));
+  setTimeout(() => positionVLines(m), 150);
+}
+
+/** Scroll karne par vertical lines ko sahi x par rakhta hai */
+function positionVLines(m: MiniChart): void {
+  const gw = m.gutter.offsetWidth;
+  const h = Math.max(0, m.box.clientHeight - 24);
+  let maxX = m.box.clientWidth - gw;
+  try { maxX -= m.chart.priceScale("right").width(); } catch { /* ignore */ }
+  m.vlines.forEach((v) => {
+    const x = m.chart.timeScale().timeToCoordinate(v.time as UTCTimestamp);
+    if (x === null || x < 0 || x > maxX) {
+      v.el.style.display = "none";
+      return;
+    }
+    v.el.style.display = "block";
+    v.el.style.left = `${gw + Math.round(x)}px`;
+    v.el.style.height = `${h}px`;
+  });
+}
+
 function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
   const t = Array.isArray(signal.targets) ? signal.targets : [];
   const stop =
@@ -1516,7 +1596,7 @@ async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<
     data.forEach((c, i) => {
       if (c.time <= createdSec) sigIdx = i;
     });
-    const start = Math.max(0, Math.min(data.length - 60, sigIdx - 15));
+    const start = Math.max(0, sigIdx - 3); // peeche sirf signal/entry candle tak
     const view = data.slice(start);
 
     const first = m.lastFetch === 0;
@@ -1529,7 +1609,16 @@ async function refreshMiniChart(m: MiniChart, signal: DashboardSignal): Promise<
 
     
 
-    if (first) m.chart.timeScale().fitContent();
+    if (first) {
+      m.chart.timeScale().subscribeVisibleLogicalRangeChange(() => positionVLines(m));
+      // shuru me last 60 candles; peeche scroll karke entry tak ja sakte ho
+      if (view.length > 60) {
+        m.chart.timeScale().setVisibleLogicalRange({ from: view.length - 60, to: view.length - 1 });
+      } else {
+        m.chart.timeScale().fitContent();
+      }
+    }
+    drawHitLines(m, signal, view);
   } catch (e) {
     console.error("signal chart:", e);
   } finally {
