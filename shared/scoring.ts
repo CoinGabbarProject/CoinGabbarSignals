@@ -69,7 +69,11 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
     v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + v(ind.macd.histogram > 0) +
     (adv.adx.bias === "bullish" ? 1 : adv.adx.bias === "bearish" ? -1 : 0) +
     (ind.vwap.relationship === "above" ? 1 : ind.vwap.relationship === "below" ? -1 : 0);
-  const side: ScoreSide = votes >= 2 ? "LONG" : votes <= -2 ? "SHORT" : "NEUTRAL";
+  // Fib pullback mode: direction = trend structure, because MACD / DI / VWAP flip during a pullback.
+  const trendVotes = v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + (ind.sma200 === null ? 0 : v(close > ind.sma200));
+  const side: ScoreSide = input.gates?.requireFib
+    ? (trendVotes >= 2 ? "LONG" : trendVotes <= -2 ? "SHORT" : "NEUTRAL")
+    : (votes >= 2 ? "LONG" : votes <= -2 ? "SHORT" : "NEUTRAL");
   if (side === "NEUTRAL") return early("NEUTRAL", null, ["No clear directional bias"]);
   const s = side === "LONG" ? 1 : -1;
   const want = { dir: s > 0 ? "up" : "down", bias: s > 0 ? "bullish" : "bearish", opp: s > 0 ? "bearish" : "bullish" } as const;
