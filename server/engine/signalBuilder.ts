@@ -156,7 +156,23 @@ if (fib && cfg.fibStop) {
   const tp2R = Math.max(cfg.targetsR[1], tp1R + 0.5);
   const tp3R = Math.max(cfg.targetsR[2], tp2R + 0.5);
   const tp = (r: number): number => roundPrice(ideal + side * risk * r);
-  const targets: [number, number, number] = [tp(tp1R), tp(tp2R), tp(tp3R)];
+  let targets: [number, number, number] = [tp(tp1R), tp(tp2R), tp(tp3R)];
+  if (fib && cfg.fibStop) {
+    // Fib targets: TP1 = retest of the swing extreme, TP2 / TP3 = 1.272 / 1.618 extensions
+    const f = fib;
+    const rng = f.swingHigh - f.swingLow;
+    const ext = (x: number): number => (side > 0 ? f.swingLow + x * rng : f.swingHigh - x * rng);
+    let t1 = side > 0 ? f.swingHigh : f.swingLow;
+    if (ahead) { // a level sitting before the swing extreme caps TP1
+      const capped = ahead.price - side * cfg.levelBufferAtr * atr;
+      if (side * (capped - t1) < 0) t1 = capped;
+    }
+    const room = Math.max(side * (t1 - ideal), 0) / risk;
+    if (room < cfg.fibMinTp1R) return { ok: false, reason: `Fib target leaves only ${room.toFixed(1)}R of room (minimum ${cfg.fibMinTp1R}R)` };
+    const t2 = side > 0 ? Math.max(ext(1.272), t1 + 0.5 * risk) : Math.min(ext(1.272), t1 - 0.5 * risk);
+    const t3 = side > 0 ? Math.max(ext(1.618), t2 + 0.5 * risk) : Math.min(ext(1.618), t2 - 0.5 * risk);
+    targets = [roundPrice(t1), roundPrice(t2), roundPrice(t3)];
+  }
   if (targets.some((t) => !fin(t) || t <= 0)) return { ok: false, reason: "Take-profit could not be placed on a valid price" };
 
   // ---- R:R from the ROUNDED prices so stored numbers are self-consistent ----
