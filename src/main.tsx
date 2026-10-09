@@ -1855,12 +1855,12 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
     })
     .join("");
 
-  tbody.innerHTML =
+    tbody.innerHTML =
     rows ||
     `
       <tr>
         <td colspan="12" style="text-align:center;opacity:.65">
-          No signals available
+          ${isHistoryPage ? "No signals available" : "No active signals right now"}
         </td>
       </tr>
     `;
