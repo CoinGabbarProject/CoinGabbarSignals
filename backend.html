@@ -877,6 +877,127 @@ async function scoreViewOld() {
   }
 }
 
+async function scoreView() {
+  host.innerHTML = panel("Score Breakdown", "Loading...", "Loading...");
+  try {
+    const [sd, ld] = await Promise.all([api("/engine/signals?limit=100"), api("/signals?limit=300")]);
+    const scans = [...(sd.signals || [])].sort((a, b) => (b.score?.total || 0) - (a.score?.total || 0));
+    const LIVE = ["ACTIVE", "TP1_HIT", "TP2_HIT"], seen = new Set();
+    // live = still running: SL hit / closed / expired signals are skipped
+    const live = (ld.signals || []).filter(x => x.source === "engine" && LIVE.includes(x.status) && !x.outcomeClosed && !(x.hits && x.hits.sl))
+      .filter(x => { const k = x.symbol + "|" + x.timeframe; if (seen.has(k)) return false; seen.add(k); return true; });
+    const liveBy = {};
+    live.forEach(x => { (liveBy[x.symbol] = liveBy[x.symbol] || []).push(x); });
+    const names = [...new Set([...live.map(x => x.symbol), ...scans.map(x => x.symbol)])];
+    if (!names.length) { host.innerHTML = panel("Score Breakdown", "", "Abhi koi scan data nahi hai. Pehle scan chalne do."); return; }
+
+    const MAXS = { marketContext: 10, trendMTF: 20, structure: 15, liquiditySR: 10, volumeMomentum: 15, derivativesOrderbook: 10, newsFundamentals: 5, riskExecution: 15 };
+    const LBL = { marketContext: "Market context", trendMTF: "Trend + MTF", structure: "Structure", liquiditySR: "Liquidity / S-R", volumeMomentum: "Volume + momentum", derivativesOrderbook: "Derivatives + order book", newsFundamentals: "News + fundamentals", riskExecution: "Risk + execution" };
+    const sg = (x) => x > 0 ? 1 : x < 0 ? -1 : 0;
+    const n2 = (v, k = 2) => v == null || !Number.isFinite(+v) ? "-" : (+v).toFixed(k);
+    const cls = (side) => side === "LONG" ? "green" : side === "SHORT" ? "red" : "";
+    const scanScore = (n) => (scans.find(x => x.symbol === n)?.score?.total ?? 0);
+    const scoreOf = (n) => liveBy[n] ? liveBy[n][0].score : scanScore(n);
+
+    const liveRows = live.map(x => `<tr>
+      <td><b>${esc(x.symbol)}</b></td><td class="${cls(x.side)}">${esc(x.side)}</td><td>${esc(x.timeframe)}</td><td>${esc(x.score)}</td>
+      <td>${esc(x.entry)}</td><td>${esc(x.stop)}</td><td><span class="status active">${esc(x.status)}</span></td>
+      <td><button class="btn" data-sym="${esc(x.symbol)}">View</button></td></tr>`).join("");
+    host.innerHTML = panel("Score Breakdown", `<span>${live.length} live</span>`, `
+      <b>Live signals (SL hit hone par hat jayenge)</b>
+      <div style="overflow:auto"><table class="table" style="margin:6px 0 14px">${th(["Coin", "Side", "TF", "Score", "Entry", "SL", "Status", ""])}<tbody>${liveRows || '<tr><td colspan="8">Abhi koi live signal nahi hai</td></tr>'}</tbody></table></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input id="scQ" class="btn" placeholder="Search coin (jaise BCH)..." autocomplete="off" style="flex:1;min-width:140px;text-align:left">
+        <select id="scSym" class="btn" style="flex:1;min-width:150px"></select>
+      </div>
+      <div id="scBody"></div>`);
+
+    const sel = $("scSym"), q = $("scQ");
+    const fill = (text) => {
+      const qq = (text || "").trim().toUpperCase();
+      const m = names.filter(n => !qq || n.includes(qq));
+      sel.innerHTML = m.map(n => `<option value="${esc(n)}">${liveBy[n] ? "● " : ""}${esc(n)} · ${esc(scoreOf(n))}${liveBy[n] ? " · LIVE " + esc(liveBy[n][0].side) : ""}</option>`).join("") || '<option value="">No match</option>';
+      return m;
+    };
+
+    const draw = (sym) => {
+      const body = $("scBody");
+      if (!sym) { body.innerHTML = '<p style="opacity:.7">Is naam ka koi coin nahi mila.</p>'; return; }
+      const lv = (liveBy[sym] || [])[0];
+      const s = (lv && scans.find(x => x.symbol === sym && x.timeframe?.primary === lv.timeframe)) || scans.find(x => x.symbol === sym);
+      const t = s?.technical || {}, dv = s?.derivatives || {}, p = s?.market?.currentPrice;
+      const side = lv ? lv.side : s?.structure?.bias;
+      const dir = side === "LONG" ? 1 : side === "SHORT" ? -1 : 0;
+      const stat = (bull) => bull === null ? ["N/A", "yellow"]
+        : dir === 0 ? [bull > 0 ? "Bullish" : bull < 0 ? "Bearish" : "Neutral", bull > 0 ? "green" : bull < 0 ? "red" : "yellow"]
+        : bull * dir > 0 ? ["Supports", "green"] : bull * dir < 0 ? ["Against", "red"] : ["Neutral", "yellow"];
+      const rows = [];
+      const add = (name, group, reading, bull) => rows.push({ name, group, reading, bull });
+
+      if (t.ema20 != null) add("EMA 20 / EMA 50", "Trend", `${n2(t.ema20, 4)} / ${n2(t.ema50, 4)}`, sg(t.ema20 - t.ema50));
+      if (t.ema50 != null && p) add("Price vs EMA 50", "Trend", `${n2(p, 4)} vs ${n2(t.ema50, 4)}`, sg(p - t.ema50));
+      if (t.ema20 != null) add("SMA 200", "Trend", t.sma200 == null ? "not enough candles" : n2(t.sma200, 4), t.sma200 == null || !p ? null : sg(p - t.sma200));
+      if (t.adx) add("ADX / DI", "Trend", `${n2(t.adx.adx, 0)} · ${t.adx.strength} · ${t.adx.bias}`, t.adx.bias === "bullish" ? 1 : t.adx.bias === "bearish" ? -1 : 0);
+      if (t.bollinger) add("Bollinger", "Structure", `${t.bollinger.context} · ${t.bollinger.direction}`, t.bollinger.direction === "up" ? 1 : t.bollinger.direction === "down" ? -1 : 0);
+      if (t.macd) add("MACD", "Momentum", `hist ${n2(t.macd.histogram, 5)} · ${t.macd.histogramState} · cross ${t.macd.crossover}`, sg(t.macd.histogram));
+      if (t.rsi) add("RSI 14", "Momentum", `${n2(t.rsi.value, 1)} · ${t.rsi.zone} · ${t.rsi.momentum}`, t.rsi.value > 72 || t.rsi.value < 28 ? 0 : t.rsi.value >= 50 ? 1 : -1);
+      if (t.stochRsi) add("Stoch RSI", "Momentum", `K ${n2(t.stochRsi.k, 0)} / D ${n2(t.stochRsi.d, 0)} · ${t.stochRsi.zone}`, sg(t.stochRsi.k - t.stochRsi.d));
+      if (t.obv) add("OBV", "Volume", `slope ${t.obv.slope} · divergence ${t.obv.divergence}`, t.obv.slope === "up" ? 1 : t.obv.slope === "down" ? -1 : 0);
+      if (t.vwap) add("VWAP", "Volume", `price ${t.vwap.relationship} VWAP`, t.vwap.relationship === "above" ? 1 : t.vwap.relationship === "below" ? -1 : 0);
+      if (t.atr && p) { const ap = t.atr.value / p * 100; add("ATR", "Risk", `${n2(t.atr.value, 5)} (${n2(ap, 2)}% of price)`, ap >= 0.3 && ap <= 6 ? 0 : null); }
+      if (s) {
+        const f = dv.fundingRate;
+        add("Funding rate", "Derivatives", f == null ? "not available" : n2(f * 100, 4) + "%", f == null ? null : f > 0.0003 ? -1 : f < -0.0003 ? 1 : 0);
+        add("Open interest change", "Derivatives", dv.oiChangePct == null ? "not available" : n2(dv.oiChangePct, 2) + "%", dv.oiChangePct == null ? null : sg(dv.oiChangePct));
+        add("Long/Short ratio", "Derivatives", dv.longShortRatio == null ? "not available" : n2(dv.longShortRatio, 2), dv.longShortRatio == null ? null : dv.longShortRatio > 2.5 ? -1 : dv.longShortRatio < 0.4 ? 1 : 0);
+        add("Order book imbalance", "Derivatives", dv.bookImbalance == null ? "not available" : n2(dv.bookImbalance, 3), dv.bookImbalance == null ? null : Math.abs(dv.bookImbalance) < 0.05 ? 0 : sg(dv.bookImbalance));
+        add("Top trader ratio", "Derivatives", dv.topTraderRatio == null ? "not available" : n2(dv.topTraderRatio, 2), dv.topTraderRatio == null ? null : dv.topTraderRatio >= 1.1 ? 1 : dv.topTraderRatio <= 0.9 ? -1 : 0);
+        add("Taker buy/sell", "Derivatives", dv.takerBuySellRatio == null ? "not available" : n2(dv.takerBuySellRatio, 2), dv.takerBuySellRatio == null ? null : dv.takerBuySellRatio >= 1.1 ? 1 : dv.takerBuySellRatio <= 0.9 ? -1 : 0);
+      }
+
+      const indRows = rows.map(r => { const [txt, c] = r.name === "ATR" && r.bull === 0 ? ["OK range", "green"] : r.name === "ATR" ? ["Quiet/Volatile", "red"] : stat(r.bull);
+        return `<tr><td>${esc(r.name)}</td><td>${esc(r.group)}</td><td>${esc(r.reading)}</td><td class="${c}">${txt}</td></tr>`; }).join("");
+
+      const sc = (lv ? lv.scoreBreakdown : s?.score) || {};
+      const scoreRows = Object.keys(MAXS).map(k => { const v = sc[k] ?? 0, pc = Math.round(v / MAXS[k] * 100);
+        return `<tr><td>${LBL[k]}</td><td>${v} / ${MAXS[k]}</td><td style="width:45%"><div style="background:#1d3550;height:6px;border-radius:3px"><div style="width:${pc}%;background:${pc >= 70 ? "#40eaa8" : pc >= 40 ? "#e5b94b" : "#ef5b6b"};height:6px;border-radius:3px"></div></div></td></tr>`; }).join("");
+
+      const rs = lv ? { primaryReason: lv.rationale, confirmations: lv.confirmations, conflicts: lv.conflicts, warnings: lv.warnings } : (s?.reasoning || {});
+      const ul = (a, c) => (a && a.length) ? `<ul style="margin:4px 0 10px 18px">${a.map(x => `<li class="${c}">${esc(x)}</li>`).join("")}</ul>` : '<div style="opacity:.6;margin:4px 0 10px">none</div>';
+      const miss = (s?.marketContext && s.marketContext.unavailable) || [];
+
+      const head = lv
+        ? `<b>${esc(sym)}</b> · ${esc(lv.timeframe)} · <b class="${cls(lv.side)}">LIVE ${esc(lv.side)}</b> · ${esc(lv.status)} · Score <b class="cyan">${esc(lv.score)}/100</b><br>
+           <small>Entry ${esc(lv.entry)} · SL ${esc(lv.stop)} · TP ${esc((lv.targets || []).join(" / "))}<br>${esc(rs.primaryReason || "")}<br>Created ${new Date(lv.createdAt).toLocaleString()}${s ? " · Indicators: latest scan " + new Date(s.timestamps?.updatedAt).toLocaleString() : ""}</small>`
+        : s ? `<b>${esc(s.symbol)}</b> · ${esc(s.timeframe?.primary || "")} · Direction <b class="${cls(s.direction)}">${esc(s.direction)}</b> · Bias ${esc(s.structure?.bias || "-")} · Total score <b class="cyan">${esc(sc.total ?? 0)}/100</b><br>
+           <small>${esc(rs.primaryReason || "")}<br>Data: ${esc(s.dataQuality?.status || "-")} · Updated ${s.timestamps?.updatedAt ? new Date(s.timestamps.updatedAt).toLocaleString() : "-"}</small>`
+        : `<b>${esc(sym)}</b>`;
+
+      $("scBody").innerHTML = `
+        <p>${head}</p>
+        <b>Score breakdown${lv ? " (signal ke time ka)" : ""}</b>
+        <table class="table" style="margin:6px 0 12px">${th(["Category", "Points", ""])}<tbody>${scoreRows}</tbody></table>
+        <b>Indicators used in scoring${lv ? " (abhi ki scan reading)" : ""}</b>
+        <table class="table" style="margin:6px 0 12px">${th(["Indicator", "Group", "Reading", "Status"])}<tbody>${indRows || '<tr><td colspan="4">Is coin ka latest scan data abhi nahi hai</td></tr>'}</tbody></table>
+        <b>Confirmations</b>${ul(rs.confirmations, "green")}
+        <b>Conflicts</b>${ul(rs.conflicts, "red")}
+        <b>Warnings</b>${ul(rs.warnings, "yellow")}
+        <b>Data not available (scored 0)</b>${ul(miss, "")}`;
+    };
+
+    const pick = (sym) => { if (!names.includes(sym)) return; q.value = ""; fill(""); sel.value = sym; draw(sym); };
+    q.oninput = () => { const m = fill(q.value); draw(m[0]); };
+    q.onkeydown = (e) => { if (e.key === "Enter") { const m = fill(q.value); if (m[0]) { sel.value = m[0]; draw(m[0]); } q.blur(); } };
+    sel.onchange = () => draw(sel.value);
+    host.querySelectorAll("[data-sym]").forEach(b => b.addEventListener("click", () => { pick(b.dataset.sym); $("scBody").scrollIntoView({ behavior: "smooth" }); }));
+
+    fill("");
+    draw(names[0]);
+  } catch (e) {
+    host.innerHTML = panel("Score Breakdown", "", `<span class="red">${esc(e.message)}</span>`);
+  }
+}
+
 const VIEW_MAP = {
 "Scan Health": scanView, "Score Breakdown": scoreView,
   "Market Data": marketView, "Indicators": indicatorsView,
