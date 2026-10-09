@@ -317,7 +317,43 @@ html,body{max-width:100%;overflow-x:hidden}
   .recent td:nth-child(12){order:12}
 }
 </style>
-  <!-- ===== CGS SETTINGS + THEME (injected) ===== -->
+<style id="cg-fix-p1-header">
+/* ===== DESKTOP 1051px+ ===== */
+@media(min-width:1051px){
+  .topbar{height:62px;padding:0 20px;gap:14px}
+  .brand{width:160px;min-width:160px;gap:8px;font-size:15px}
+  .brand-mark{width:34px;height:34px;font-size:15px}
+  .brand small{font-size:10px;margin-top:3px}
+  .topnav{gap:4px}
+  .topnav a{font-size:12px;padding:8px 12px;gap:5px}
+  .topnav a span{font-size:12px}
+  .top-badge{font-size:9px;padding:2px 6px}
+  .search{width:220px;min-width:220px;height:34px;padding:0 12px}
+  .search input{font-size:12px}
+  .login{height:34px;padding:0 16px;font-size:12px}
+  .layout{min-height:calc(100vh - 94px)}
+  .recent table{font-size:12px}
+  .recent th{font-size:11px}
+}
+
+/* ===== TABLET 761px - 1050px ===== */
+@media(min-width:761px) and (max-width:1050px){
+  .topbar{height:58px;padding:0 14px;gap:10px}
+  .brand{width:auto;min-width:0;gap:7px;font-size:13px}
+  .brand-mark{width:30px;height:30px;font-size:13px}
+  .brand small{font-size:9px}
+  .topnav{overflow-x:auto;overflow-y:hidden;justify-content:flex-start;gap:3px;scrollbar-width:none}
+  .topnav a{flex:0 0 auto;font-size:11px;padding:7px 10px;gap:4px}
+  .topnav a span{font-size:11px}
+  .top-badge{font-size:8px;padding:2px 5px}
+  .search{width:130px;min-width:130px;height:32px}
+  .search input{font-size:11px}
+  .login{height:32px;padding:0 12px;font-size:11px}
+  .recent table{font-size:11px;min-width:820px}
+  .recent th{font-size:10.5px}
+}
+</style>
+<!-- ===== CGS SETTINGS + THEME (injected) ===== -->
 <script>
 (function(){
   var KEY='cgs-settings', THEME_KEY='cgs-theme';
