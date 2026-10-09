@@ -142,7 +142,17 @@ async function guardEntry(input: FinalSignal, tf: Timeframe, deps: EngineDeps, n
   };
 }
 
-/** Fetch everything for one symbol and build the signal. Primary-candle failure yields a NO_TRADE/UNAVAILABLE signal. */
+// Daily candles barely change: cache per symbol for 30 min (higher-timeframe filter).
+const htfCache = new Map<string, { at: number; c: Candle[] }>();
+async function htfCandles(deps: EngineDeps, symbol: string, now: number): Promise<Candle[]> {
+  const hit = htfCache.get(symbol);
+  if (hit && now - hit.at < 30 * 60_000) return hit.c;
+  const c = await deps.market.getCandles(symbol, "1D", 120, now);
+  htfCache.set(symbol, { at: now, c });
+  return c;
+}
+
+/** Fetch everything for one symbol and build the signal.
 export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
