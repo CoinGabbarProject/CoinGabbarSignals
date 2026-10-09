@@ -148,7 +148,7 @@ if (fib && cfg.fibStop) {
 
   // ---- targets: R multiples, TP1 capped just before the opposing level ----
   let tp1R: number = cfg.targetsR[0];
-  if (ahead) {
+  if (ahead && !(fib && cfg.fibStop)) {
     const roomR = (Math.abs(ahead.price - ideal) - cfg.levelBufferAtr * atr) / risk;
     if (roomR < cfg.minTp1R) return { ok: false, reason: `Next opposing level leaves only ${Math.max(roomR, 0).toFixed(1)}R of room (minimum ${cfg.minTp1R}R)` };
     if (roomR < tp1R) { tp1R = roomR; notes.push("TP1 placed just before the next opposing level"); }
