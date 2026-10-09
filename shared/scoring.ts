@@ -72,7 +72,7 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   // Fib pullback mode: direction = trend structure, because MACD / DI / VWAP flip during a pullback.
   const trendVotes = v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + (ind.sma200 === null ? 0 : v(close > ind.sma200));
   const side: ScoreSide = input.gates?.requireFib
-    ? (trendVotes >= 2 ? "LONG" : trendVotes <= -2 ? "SHORT" : "NEUTRAL")
+    ? (trendVotes >= 1 ? "LONG" : trendVotes <= -1 ? "SHORT" : "NEUTRAL")
     : (votes >= 2 ? "LONG" : votes <= -2 ? "SHORT" : "NEUTRAL");
   if (side === "NEUTRAL") return early("NEUTRAL", null, ["No clear directional bias"]);
   const s = side === "LONG" ? 1 : -1;
