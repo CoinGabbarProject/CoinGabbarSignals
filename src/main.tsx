@@ -1351,6 +1351,7 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
         levels,
     gutter,
     tags: [],
+    vlines: [],
     markerSet: false,
     symbol: String(signal.symbol ?? ""),
     tf: chartTf(signal.timeframe),
