@@ -666,6 +666,48 @@ html body .panel.recent .sig-chart-slot td:nth-child(n)::before{content:none!imp
 .page-body .score-circle span{font-size:22px}
 @media(max-width:1050px){.layout{min-height:0!important}}
 </style>
+<style id="cg-fix-p2-history">
+/* ===== DESKTOP 1051px+ ===== */
+@media(min-width:1051px){
+  .hero{padding:22px 26px;border-radius:8px}
+  .hero-title{font-size:26px;line-height:1.25}
+  .hero-sub{font-size:14px;margin-top:8px;max-width:760px}
+  .hero .powered{font-size:12px}
+  .page-body .panel h3,
+  .panel.recent h3{font-size:15px!important;margin:0 0 14px!important;opacity:1}
+  .page-body .panel.recent{padding:18px 20px!important}
+  .recent table{width:100%;font-size:12.5px}
+  .recent th{padding:12px 14px;font-size:11px;text-align:left}
+  .recent td{padding:13px 14px}
+  .panel.recent .acc-card{gap:18px;padding:14px;margin:4px 0 14px}
+  .panel.recent .acc-circle{width:76px;height:76px}
+  .panel.recent .acc-circle:after{inset:8px}
+  .panel.recent .acc-circle span{font-size:18px}
+  .panel.recent .acc-info{font-size:12.5px;line-height:1.6}
+  .panel.recent .acc-info b{font-size:15px}
+}
+
+/* ===== TABLET 761px - 1050px ===== */
+@media(min-width:761px) and (max-width:1050px){
+  .hero{padding:18px 20px;border-radius:8px}
+  .hero-title{font-size:21px;line-height:1.25}
+  .hero-sub{font-size:12.5px;margin-top:6px}
+  .hero .powered{font-size:11px}
+  .page-body .panel h3,
+  .panel.recent h3{font-size:14px!important;margin:0 0 12px!important;opacity:1}
+  .page-body .panel.recent{padding:14px 14px!important}
+  .panel.recent{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .recent table{width:100%;min-width:820px;font-size:11.5px}
+  .recent th{padding:10px 10px;font-size:10.5px;text-align:left}
+  .recent td{padding:11px 10px}
+  .panel.recent .acc-card{gap:14px;padding:12px;margin:4px 0 12px}
+  .panel.recent .acc-circle{width:64px;height:64px}
+  .panel.recent .acc-circle:after{inset:7px}
+  .panel.recent .acc-circle span{font-size:16px}
+  .panel.recent .acc-info{font-size:11.5px;line-height:1.6}
+  .panel.recent .acc-info b{font-size:13.5px}
+}
+</style>
 <style id="cgs-light-p4">
 /* ===== Light theme — Part 4 ===== */
 /* chart section (React app): inline-styled buttons */
