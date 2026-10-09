@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { Timeframe } from "../../shared/market.js";
 import { calcAdvanced, calcIndicators } from "../../shared/indicators.js";
-import type { SRLevel } from "../../shared/indicators.js";
+import type { FibPlan, SRLevel } from "../../shared/indicators.js";
 import { scoreSetup } from "../../shared/scoring.js";
-import type { ScoreInput, ScoreResult } from "../../shared/scoring.js";
+import type { ScoreInput, ScoreResult, SetupGates } from "../../shared/scoring.js";
 import type { FinalSignal } from "../models/signal.js";
 
 /**
