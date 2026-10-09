@@ -1,5 +1,6 @@
 import type { Candle } from "./market.js";
-import { calcAdvanced, calcIndicators } from "./indicators.js";
+import { calcAdvanced, calcCandleConfirm, calcFib, calcIndicators } from "./indicators.js";
+import type { FibPlan } from "./indicators.js";
 
 export type ScoreSide = "LONG" | "SHORT" | "NEUTRAL";
 
