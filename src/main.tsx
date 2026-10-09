@@ -1705,14 +1705,28 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
 
   if (!(tbody instanceof HTMLTableSectionElement)) return;
 
-    const sortedSignals = signals
+      // Signal History page = inside .page-body (unchanged, shows everything).
+  // Active Signals page = not inside .page-body -> show only live signals
+  // (hide SL hit / TP3 hit / BE / closed / cancelled / expired).
+  const isHistoryPage = !!section.closest(".page-body");
+
+  const visibleSignals = isHistoryPage
+    ? signals
+    : signals.filter(
+        (s) =>
+          s.status !== "CANCELLED" &&
+          s.status !== "EXPIRED" &&
+          !isClosedSignal(s),
+      );
+
+    const sortedSignals = visibleSignals
     .slice()
     .sort(
       (a, b) =>
         (dashboardDate(b.createdAt) ?? 0) -
         (dashboardDate(a.createdAt) ?? 0),
     )
-    .slice(0, section.closest(".page-body") ? 20 : 10);
+    .slice(0, isHistoryPage ? 20 : 10);
 
   latestSignalId = sortedSignals[0]?.id ? String(sortedSignals[0].id) : "";
 
