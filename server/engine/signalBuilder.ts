@@ -189,7 +189,7 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
   const iso = new Date(now).toISOString();
   const { candles } = input;
 
-  const scored = scoreSetup(input);
+  const scored = scoreSetup({ ...input, gates: cfg.gates });
   const ind = calcIndicators(candles);
   const adv = calcAdvanced(candles);
   const last = candles[candles.length - 1];
