@@ -128,7 +128,13 @@ export function planTrade(
   let dist = cfg.atrStopMult * atr;
   let method: TradePlan["stop"]["method"] = "ATR";
   let reason = `${cfg.atrStopMult} x ATR from entry`;
-  if (behind) {
+if (fib && cfg.fibStop) {
+    // Fib stop: beyond the 0.786 level + ATR buffer, kept between min and max stop distance
+    const d = Math.abs(ideal - fib.invalid) + cfg.stopBufferAtr * atr;
+    dist = Math.min(cfg.maxStopAtr * atr, Math.max(cfg.minStopAtr * atr, d));
+    method = "STRUCTURE_ATR";
+    reason = `Beyond Fib 0.786 (${roundPrice(fib.invalid)}) plus ${cfg.stopBufferAtr} ATR buffer`;
+  } else if (behind) {
     const d = Math.abs(ideal - behind.price) + cfg.stopBufferAtr * atr;
     const inAtr = d / atr;
     if (inAtr >= cfg.minStopAtr && inAtr <= cfg.maxStopAtr) {
