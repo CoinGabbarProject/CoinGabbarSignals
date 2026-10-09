@@ -25,6 +25,8 @@ export interface ScoreInput {
   change24hPct?: number | null;
   derivatives?: Partial<DerivativesInput> | null;
   news?: NewsInput | null;
+  htf?: Candle[] | null;          // daily candles for the higher-timeframe filter
+  gates?: Partial<SetupGates> | null;
 }
 export interface ScoreResult {
   side: ScoreSide; score: SetupScore;
