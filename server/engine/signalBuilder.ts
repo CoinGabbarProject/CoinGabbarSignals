@@ -179,7 +179,7 @@ function decide(scored: ScoreResult, close: number, atr: number, ind: { ns: SRLe
   if (scored.score.total < cfg.minScore) return { kind: "WAIT", reason: `Setup score ${scored.score.total} is below the ${cfg.minScore} minimum` };
   if (!ind) return { kind: "NO_TRADE", reason: "Support/resistance levels unavailable" };
   const s = scored.side === "LONG" ? 1 : -1;
-  const planned = planTrade(s, close, atr, s > 0 ? ind.ns : ind.nr, s > 0 ? ind.nr : ind.ns, cfg);
+  const planned = planTrade(s, close, atr, s > 0 ? ind.ns : ind.nr, s > 0 ? ind.nr : ind.ns, cfg, scored.fib ?? null);
   return planned.ok ? { kind: "TRADE", plan: planned.plan } : { kind: "NO_TRADE", reason: planned.reason };
 }
 
