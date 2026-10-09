@@ -182,12 +182,11 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   else if (ext * s < 0) st += 2;
   else { st += 1; warnings.push("Price is at the band in the setup direction (chasing risk)"); }
     let penalty = 0;
-  const stretch = Math.abs(close - ind.ema20) / atr;if (stretch <= 1.5) st += 2;
-  if (stretch > 1.8) penalty += 4;
-  else {
-    warnings.push(`Price is ${stretch.toFixed(1)} ATR away from EMA20`);
-    if (stretch > 2) critical = critical ?? "Price is overextended from EMA20 (chasing risk)";
-  }
+    const stretch = Math.abs(close - ind.ema20) / atr;
+  if (stretch <= 1.5) st += 2;
+  else if (stretch > 2) critical = critical ?? "Price is overextended from EMA20 (chasing risk)";
+  else if (stretch > 1.8) penalty += 4;
+  if (stretch > 1.5) warnings.push(`Price is ${stretch.toFixed(1)} ATR away from EMA20`);
 
   // ---- 4. Liquidity / support-resistance (10) ----
   let lq = 0;
