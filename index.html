@@ -708,6 +708,36 @@ html body .panel.recent .sig-chart-slot td:nth-child(n)::before{content:none!imp
   .panel.recent .acc-info b{font-size:13.5px}
 }
 </style>
+<style id="cg-fix-p4-performance">
+/* ===== DESKTOP 1051px+ ===== */
+@media(min-width:1051px){
+  html body .page-body .analysis-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  html body .page-body .panel{padding:22px 24px!important}
+  html body .page-body .panel h3{font-size:15px!important;margin:0 0 16px!important}
+  html body .page-body .analysis-grid div[style*="font-size:24px"]{font-size:40px!important;margin:0 0 12px!important}
+  html body .page-body .score-circle{width:130px;height:130px;margin:6px auto 4px!important}
+  html body .page-body .score-circle:after{inset:13px}
+  html body .page-body .score-circle span{font-size:32px}
+  html body .page-body .mini-row{font-size:14px!important;padding:12px 0 0!important;margin:12px 0 0!important}
+  html body .page-body .mini-row b{font-size:14px!important}
+  html body .page-body .analysis-grid+.panel{margin-top:16px!important}
+}
+
+/* ===== TABLET 761px - 1050px ===== */
+@media(min-width:761px) and (max-width:1050px){
+  html body .page-body .analysis-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  html body .page-body .analysis-grid>:first-child{grid-column:auto}
+  html body .page-body .panel{padding:18px 18px!important}
+  html body .page-body .panel h3{font-size:14px!important;margin:0 0 12px!important}
+  html body .page-body .analysis-grid div[style*="font-size:24px"]{font-size:32px!important;margin:0 0 10px!important}
+  html body .page-body .score-circle{width:104px;height:104px;margin:4px auto 2px!important}
+  html body .page-body .score-circle:after{inset:10px}
+  html body .page-body .score-circle span{font-size:26px}
+  html body .page-body .mini-row{font-size:13px!important;padding:10px 0 0!important;margin:10px 0 0!important}
+  html body .page-body .mini-row b{font-size:13px!important}
+  html body .page-body .analysis-grid+.panel{margin-top:12px!important}
+}
+</style>
 <style id="cgs-light-p4">
 /* ===== Light theme — Part 4 ===== */
 /* chart section (React app): inline-styled buttons */
