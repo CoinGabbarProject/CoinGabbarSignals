@@ -32,6 +32,7 @@ export interface ScoreResult {
   side: ScoreSide; score: SetupScore;
   confirmations: string[]; conflicts: string[]; warnings: string[]; unavailable: string[];
   criticalFailure: string | null;
+  fib?: FibPlan | null;
 }
 
 const zeroScore = (): SetupScore => ({
