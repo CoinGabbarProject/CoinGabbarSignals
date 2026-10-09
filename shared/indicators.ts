@@ -284,6 +284,95 @@ export function calcAdvanced(candles:Candle[]):AdvancedSnapshot | null {
   return { adx: calcADX(candles), stochRsi: calcStochRSI(candles), obv: calcOBV(candles), levels: calcLevels(candles) };
 }
 
+// ---- Fibonacci pullback (golden pocket 50-61.8%) ----
+export interface FibPlan { swingHigh:number; swingLow:number; pocketMin:number; pocketMax:number; invalid:number; retrace:number; inPocket:boolean; }
+
+function fibLong(c:Candle[], atr:number, left:number, right:number):FibPlan | null {
+  const n = c.length, last = c[n - 1];
+  if (!last || n < left + right + 5) return null;
+  const pivH:number[] = [], pivL:number[] = [];
+  for (let i = left; i < n - right; i++) {
+    const k = c[i];
+    if (!k) continue;
+    let isH = true, isL = true;
+    for (let j = i - left; j <= i + right; j++) {
+      const o = c[j];
+      if (j === i || !o) continue;
+      if (o.high >= k.high) isH = false;
+      if (o.low <= k.low) isL = false;
+    }
+    if (isH) pivH.push(i);
+    if (isL) pivL.push(i);
+  }
+  const ih = pivH[pivH.length - 1];
+  if (ih === undefined) return null;
+  // impulse start = lowest pivot low in the 40 bars before the swing high
+  let il = -1, L = Infinity;
+  for (const idx of pivL) {
+    const k = c[idx];
+    if (k && idx < ih && ih - idx <= 40 && k.low < L) { L = k.low; il = idx; }
+  }
+  if (il < 0) return null;
+  let H = -Infinity, minAfter = Infinity;
+  for (let i = il; i < n; i++) {
+    const k = c[i];
+    if (!k) continue;
+    if (k.high > H) H = k.high;
+    if (i > il && k.low < minAfter) minAfter = k.low;
+  }
+  const R = H - L;
+  if (!(R >= 2.5 * atr) || minAfter < L) return null; // impulse too small, or its low was broken
+  const retrace = (H - last.close) / R;
+  const tol = 0.04;
+  return {
+    swingHigh: H, swingLow: L,
+    pocketMin: H - 0.618 * R, pocketMax: H - 0.5 * R, invalid: H - 0.786 * R,
+    retrace, inPocket: retrace >= 0.5 - tol && retrace <= 0.618 + tol,
+  };
+}
+
+/** side 1 = LONG (pullback after an up-impulse), -1 = SHORT (pullback after a down-impulse). */
+export function calcFib(candles:Candle[], side:1|-1, lookback = 120):FibPlan | null {
+  const c = candles.slice(-lookback);
+  if (c.length < 30) return null;
+  const atr = at(atrSeries(c), -1);
+  if (!Number.isFinite(atr) || atr <= 0) return null;
+  if (side > 0) return fibLong(c, atr, 3, 3);
+  const m = c.map((k) => ({ ...k, open: -k.open, high: -k.low, low: -k.high, close: -k.close }));
+  const p = fibLong(m, atr, 3, 3);
+  if (!p) return null;
+  return {
+    swingHigh: -p.swingLow, swingLow: -p.swingHigh,
+    pocketMin: -p.pocketMax, pocketMax: -p.pocketMin, invalid: -p.invalid,
+    retrace: p.retrace, inPocket: p.inPocket,
+  };
+}
+
+// ---- Candle confirmation: engulfing / pin-bar (rejection) on the last closed candle ----
+export interface CandleConfirm { pattern:"engulfing" | "pin-bar" | null; volRatio:number; }
+export function calcCandleConfirm(candles:Candle[], side:1|-1):CandleConfirm {
+  const k = candles[candles.length - 1], p = candles[candles.length - 2];
+  if (!k || !p) return { pattern: null, volRatio: 0 };
+  const vols = candles.slice(-21, -1).map((x) => x.volume);
+  const avg = vols.length ? vols.reduce((a, b) => a + b, 0) / vols.length : 0;
+  const volRatio = avg > 0 ? k.volume / avg : 0;
+  const range = k.high - k.low, body = Math.abs(k.close - k.open);
+  if (!(range > 0)) return { pattern: null, volRatio };
+  const upper = k.high - Math.max(k.open, k.close), lower = Math.min(k.open, k.close) - k.low;
+  const minBody = Math.max(body, range * 0.05);
+  let pattern:CandleConfirm["pattern"] = null;
+  if (side > 0) {
+    const engulf = k.close > k.open && p.close < p.open && k.close >= p.open && k.open <= p.close;
+    const pin = lower >= 2 * minBody && lower >= 0.5 * range && (k.close - k.low) / range >= 0.6;
+    pattern = engulf ? "engulfing" : pin ? "pin-bar" : null;
+  } else {
+    const engulf = k.close < k.open && p.close > p.open && k.close <= p.open && k.open >= p.close;
+    const pin = upper >= 2 * minBody && upper >= 0.5 * range && (k.high - k.close) / range >= 0.6;
+    pattern = engulf ? "engulfing" : pin ? "pin-bar" : null;
+  }
+  return { pattern, volRatio };
+}
+
 // ---- all-in-one (used by scoring in Step 3) ----
 export function calcIndicators(candles:Candle[]):IndicatorSnapshot | null {
   if (candles.length < MIN_CANDLES) return null;
