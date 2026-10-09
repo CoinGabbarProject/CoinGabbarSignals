@@ -79,6 +79,43 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   const n = candles.length;
   const closeAgo = (b: number): number => candles[n - 1 - b]?.close ?? close;
 
+  // ---- hard gates (accuracy filters) ----
+  const g: SetupGates = { adxMin: 0, htfFilter: false, requireCandle: false, candleVolMin: 1, requireFib: false, ...(input.gates ?? {}) };
+  let fib: FibPlan | null = null;
+
+  // Gate 1: ADX regime. Ranging market (low ADX) = no trade. (+DI/-DI is not checked: it flips during a pullback.)
+  if (g.adxMin > 0) {
+    if (!(adv.adx.adx >= g.adxMin)) critical = critical ?? `ADX ${adv.adx.adx.toFixed(0)} is below ${g.adxMin}: market is ranging`;
+  }
+
+  // Gate 2: higher timeframes (confirmation TF + daily) must agree: EMA20>EMA50 and price on the right side of EMA50.
+  if (g.htfFilter) {
+    const htfCheck = (arr: Candle[] | null | undefined, label: string): void => {
+      const hi = arr ? calcIndicators(arr) : null;
+      const hl = arr?.[arr.length - 1];
+      if (!hi || !hl) return;
+      if ((hi.ema20 - hi.ema50) * s <= 0 || (hl.close - hi.ema50) * s <= 0) critical = critical ?? `${label} trend is against the ${side}`;
+    };
+    htfCheck(input.confirmation, "Confirmation timeframe");
+    htfCheck(input.htf, "Daily");
+  }
+
+  // Gate 3: candle confirmation (engulfing or pin-bar rejection, with volume).
+  if (g.requireCandle) {
+    const cc = calcCandleConfirm(candles, s);
+    if (!cc.pattern) critical = critical ?? "No engulfing or pin-bar confirmation candle";
+    else if (cc.volRatio < g.candleVolMin) critical = critical ?? `Confirmation candle volume is only ${cc.volRatio.toFixed(1)}x average`;
+    else conf.push(`${cc.pattern === "engulfing" ? "Engulfing" : "Pin-bar rejection"} candle with ${cc.volRatio.toFixed(1)}x volume`);
+  }
+
+  // Gate 4: Fibonacci pullback. Price must be inside the 50-61.8% pocket of the last impulse.
+  if (g.requireFib) {
+    fib = calcFib(candles, s);
+    if (!fib) critical = critical ?? "No clean impulse swing for a Fibonacci pullback entry";
+    else if (!fib.inPocket) critical = critical ?? `Price is at ${(fib.retrace * 100).toFixed(0)}% retrace, outside the 50-61.8% Fibonacci pocket`;
+    else conf.push(`Price in the Fibonacci golden pocket (${(fib.retrace * 100).toFixed(0)}% retrace)`);
+  }
+
   const { nearestSupport: ns, nearestResistance: nr } = adv.levels;
   const ahead = s > 0 ? nr : ns;
   const behind = s > 0 ? ns : nr;
