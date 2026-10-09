@@ -152,7 +152,7 @@ async function htfCandles(deps: EngineDeps, symbol: string, now: number): Promis
   return c;
 }
 
-/** Fetch everything for one symbol and build the signal.
+/** Fetch everything for one symbol and build the signal. */
 export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
