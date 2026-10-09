@@ -60,6 +60,17 @@ export const DEFAULT_CONFIG: BuilderConfig = {
   entryAheadAtr: 0.1,
   expiryCandles: 3,
   staleAfterCandles: 2,
+  // Each gate can be switched off from the server env without a code change.
+  gates: {
+    adxMin: Number(process.env.ADX_MIN ?? "22"),                            // 0 = off
+    htfFilter: (process.env.HTF_FILTER ?? "true") !== "false",
+    requireCandle: (process.env.CANDLE_CONFIRM ?? "true") !== "false",
+    candleVolMin: Number(process.env.CANDLE_VOL_MIN ?? "1"),                // raise to 1.2 for stricter volume
+    requireFib: (process.env.FIB_ENTRY ?? "true") !== "false",
+  },
+  fibStop: (process.env.FIB_ENTRY ?? "true") !== "false",
+  fibMinScore: Number(process.env.FIB_MIN_SCORE ?? "65"),    // score needed in Fib mode (pullbacks score lower on momentum)
+  fibMinTp1R: Number(process.env.FIB_MIN_TP1R ?? "1.5"),
 };
 
 export interface BuildSignalInput extends ScoreInput {
