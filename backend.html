@@ -803,6 +803,80 @@ async function scanView() {
   }
 }
 
+async function scoreView() {
+  host.innerHTML = panel("Score Breakdown", "Loading...", "Loading...");
+  try {
+    const d = await api("/engine/signals?limit=100");
+    const list = [...(d.signals || [])].sort((a, b) => (b.score?.total || 0) - (a.score?.total || 0));
+    if (!list.length) { host.innerHTML = panel("Score Breakdown", "", "Abhi koi scan data nahi hai. Pehle scan chalne do."); return; }
+    const MAXS = { marketContext: 10, trendMTF: 20, structure: 15, liquiditySR: 10, volumeMomentum: 15, derivativesOrderbook: 10, newsFundamentals: 5, riskExecution: 15 };
+    const LBL = { marketContext: "Market context", trendMTF: "Trend + MTF", structure: "Structure", liquiditySR: "Liquidity / S-R", volumeMomentum: "Volume + momentum", derivativesOrderbook: "Derivatives + order book", newsFundamentals: "News + fundamentals", riskExecution: "Risk + execution" };
+    const sg = (x) => x > 0 ? 1 : x < 0 ? -1 : 0;
+    const n2 = (v, k = 2) => v == null || !Number.isFinite(+v) ? "-" : (+v).toFixed(k);
+
+    const draw = (sym) => {
+      const s = list.find(x => x.symbol === sym) || list[0];
+      const t = s.technical || {}, dv = s.derivatives || {}, p = s.market?.currentPrice;
+      const dir = s.structure?.bias === "LONG" ? 1 : s.structure?.bias === "SHORT" ? -1 : 0;
+      const stat = (bull) => bull === null ? ["N/A", "yellow"]
+        : dir === 0 ? [bull > 0 ? "Bullish" : bull < 0 ? "Bearish" : "Neutral", bull > 0 ? "green" : bull < 0 ? "red" : "yellow"]
+        : bull * dir > 0 ? ["Supports", "green"] : bull * dir < 0 ? ["Against", "red"] : ["Neutral", "yellow"];
+      const rows = [];
+      const add = (name, group, reading, bull) => rows.push({ name, group, reading, bull });
+
+      if (t.ema20 != null) add("EMA 20 / EMA 50", "Trend", `${n2(t.ema20, 4)} / ${n2(t.ema50, 4)}`, sg(t.ema20 - t.ema50));
+      if (t.ema50 != null && p) add("Price vs EMA 50", "Trend", `${n2(p, 4)} vs ${n2(t.ema50, 4)}`, sg(p - t.ema50));
+      if (t.ema20 != null) add("SMA 200", "Trend", t.sma200 == null ? "not enough candles" : n2(t.sma200, 4), t.sma200 == null || !p ? null : sg(p - t.sma200));
+      if (t.adx) add("ADX / DI", "Trend", `${n2(t.adx.adx, 0)} · ${t.adx.strength} · ${t.adx.bias}`, t.adx.bias === "bullish" ? 1 : t.adx.bias === "bearish" ? -1 : 0);
+      if (t.bollinger) add("Bollinger", "Structure", `${t.bollinger.context} · ${t.bollinger.direction}`, t.bollinger.direction === "up" ? 1 : t.bollinger.direction === "down" ? -1 : 0);
+      if (t.macd) add("MACD", "Momentum", `hist ${n2(t.macd.histogram, 5)} · ${t.macd.histogramState} · cross ${t.macd.crossover}`, sg(t.macd.histogram));
+      if (t.rsi) add("RSI 14", "Momentum", `${n2(t.rsi.value, 1)} · ${t.rsi.zone} · ${t.rsi.momentum}`, t.rsi.value > 72 || t.rsi.value < 28 ? 0 : t.rsi.value >= 50 ? 1 : -1);
+      if (t.stochRsi) add("Stoch RSI", "Momentum", `K ${n2(t.stochRsi.k, 0)} / D ${n2(t.stochRsi.d, 0)} · ${t.stochRsi.zone}`, sg(t.stochRsi.k - t.stochRsi.d));
+      if (t.obv) add("OBV", "Volume", `slope ${t.obv.slope} · divergence ${t.obv.divergence}`, t.obv.slope === "up" ? 1 : t.obv.slope === "down" ? -1 : 0);
+      if (t.vwap) add("VWAP", "Volume", `price ${t.vwap.relationship} VWAP`, t.vwap.relationship === "above" ? 1 : t.vwap.relationship === "below" ? -1 : 0);
+      if (t.atr && p) { const ap = t.atr.value / p * 100; add("ATR", "Risk", `${n2(t.atr.value, 5)} (${n2(ap, 2)}% of price)`, ap >= 0.3 && ap <= 6 ? 0 : null); }
+
+      const f = dv.fundingRate;
+      add("Funding rate", "Derivatives", f == null ? "not available" : n2(f * 100, 4) + "%", f == null ? null : f > 0.0003 ? -1 : f < -0.0003 ? 1 : 0);
+      add("Open interest change", "Derivatives", dv.oiChangePct == null ? "not available" : n2(dv.oiChangePct, 2) + "%", dv.oiChangePct == null ? null : sg(dv.oiChangePct));
+      add("Long/Short ratio", "Derivatives", dv.longShortRatio == null ? "not available" : n2(dv.longShortRatio, 2), dv.longShortRatio == null ? null : dv.longShortRatio > 2.5 ? -1 : dv.longShortRatio < 0.4 ? 1 : 0);
+      add("Order book imbalance", "Derivatives", dv.bookImbalance == null ? "not available" : n2(dv.bookImbalance, 3), dv.bookImbalance == null ? null : Math.abs(dv.bookImbalance) < 0.05 ? 0 : sg(dv.bookImbalance));
+      add("Top trader ratio", "Derivatives", dv.topTraderRatio == null ? "not available" : n2(dv.topTraderRatio, 2), dv.topTraderRatio == null ? null : dv.topTraderRatio >= 1.1 ? 1 : dv.topTraderRatio <= 0.9 ? -1 : 0);
+      add("Taker buy/sell", "Derivatives", dv.takerBuySellRatio == null ? "not available" : n2(dv.takerBuySellRatio, 2), dv.takerBuySellRatio == null ? null : dv.takerBuySellRatio >= 1.1 ? 1 : dv.takerBuySellRatio <= 0.9 ? -1 : 0);
+
+      const indRows = rows.map(r => { const [txt, c] = r.name === "ATR" && r.bull === 0 ? ["OK range", "green"] : r.name === "ATR" ? ["Quiet/Volatile", "red"] : stat(r.bull);
+        return `<tr><td>${esc(r.name)}</td><td>${esc(r.group)}</td><td>${esc(r.reading)}</td><td class="${c}">${txt}</td></tr>`; }).join("");
+
+      const sc = s.score || {};
+      const scoreRows = Object.keys(MAXS).map(k => { const v = sc[k] ?? 0, pc = Math.round(v / MAXS[k] * 100);
+        return `<tr><td>${LBL[k]}</td><td>${v} / ${MAXS[k]}</td><td style="width:45%"><div style="background:#1d3550;height:6px;border-radius:3px"><div style="width:${pc}%;background:${pc >= 70 ? "#40eaa8" : pc >= 40 ? "#e5b94b" : "#ef5b6b"};height:6px;border-radius:3px"></div></div></td></tr>`; }).join("");
+
+      const rs = s.reasoning || {};
+      const ul = (a, c) => (a && a.length) ? `<ul style="margin:4px 0 10px 18px">${a.map(x => `<li class="${c}">${esc(x)}</li>`).join("")}</ul>` : '<div style="opacity:.6;margin:4px 0 10px">none</div>';
+      const miss = (s.marketContext && s.marketContext.unavailable) || [];
+
+      const body = `
+        <p><b>${esc(s.symbol)}</b> · ${esc(s.timeframe?.primary || "")} · Direction <b class="${s.direction === "LONG" ? "green" : s.direction === "SHORT" ? "red" : ""}">${esc(s.direction)}</b> · Bias ${esc(s.structure?.bias || "-")} · Total score <b class="cyan">${esc(sc.total ?? 0)}/100</b><br>
+        <small>${esc(rs.primaryReason || "")}<br>Data: ${esc(s.dataQuality?.status || "-")} · Updated ${s.timestamps?.updatedAt ? new Date(s.timestamps.updatedAt).toLocaleString() : "-"}</small></p>
+        <b>Score breakdown</b>
+        <table class="table" style="margin:6px 0 12px">${th(["Category", "Points", ""])}<tbody>${scoreRows}</tbody></table>
+        <b>Indicators used in scoring</b>
+        <table class="table" style="margin:6px 0 12px">${th(["Indicator", "Group", "Reading", "Status"])}<tbody>${indRows}</tbody></table>
+        <b>Confirmations</b>${ul(rs.confirmations, "green")}
+        <b>Conflicts</b>${ul(rs.conflicts, "red")}
+        <b>Warnings</b>${ul(rs.warnings, "yellow")}
+        <b>Data not available (scored 0)</b>${ul(miss, "")}`;
+
+      host.innerHTML = panel("Score Breakdown",
+        `<select id="scSym" class="btn">${list.map(x => `<option value="${esc(x.symbol)}" ${x.symbol === s.symbol ? "selected" : ""}>${esc(x.symbol)} · ${esc(x.score?.total ?? 0)}</option>`).join("")}</select>`, body);
+      $("scSym").onchange = () => draw($("scSym").value);
+    };
+    draw(list[0].symbol);
+  } catch (e) {
+    host.innerHTML = panel("Score Breakdown", "", `<span class="red">${esc(e.message)}</span>`);
+  }
+}
+
 const VIEW_MAP = {
 "Scan Health": scanView, "Score Breakdown": scoreView,
   "Market Data": marketView, "Indicators": indicatorsView,
