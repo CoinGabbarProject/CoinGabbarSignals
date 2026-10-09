@@ -803,7 +803,7 @@ async function scanView() {
   }
 }
 
-async function scoreView() {
+async function scoreViewOld() {
   host.innerHTML = panel("Score Breakdown", "Loading...", "Loading...");
   try {
     const d = await api("/engine/signals?limit=100");
