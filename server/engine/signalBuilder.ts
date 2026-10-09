@@ -113,6 +113,7 @@ export function planTrade(
   side: 1 | -1, close: number, atr: number,
   behind: SRLevel | null, ahead: SRLevel | null,
   cfg: BuilderConfig = DEFAULT_CONFIG,
+  fib: FibPlan | null = null,
 ): PlanResult {
   if (!fin(close) || close <= 0 || !fin(atr) || atr <= 0) return { ok: false, reason: "Price or ATR invalid for level planning" };
   const notes: string[] = [];
