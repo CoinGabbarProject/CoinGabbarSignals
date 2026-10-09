@@ -176,7 +176,8 @@ type Decision =
 function decide(scored: ScoreResult, close: number, atr: number, ind: { ns: SRLevel | null; nr: SRLevel | null } | null, cfg: BuilderConfig): Decision {
   if (scored.criticalFailure) return { kind: "NO_TRADE", reason: scored.criticalFailure };
   if (scored.side === "NEUTRAL") return { kind: "WAIT", reason: "No clear directional bias" };
-  if (scored.score.total < cfg.minScore) return { kind: "WAIT", reason: `Setup score ${scored.score.total} is below the ${cfg.minScore} minimum` };
+const minScore = cfg.gates.requireFib ? Math.min(cfg.minScore, cfg.fibMinScore) : cfg.minScore;
+  if (scored.score.total < minScore) return { kind: "WAIT", reason: `Setup score ${scored.score.total} is below the ${minScore} minimum` };
   if (!ind) return { kind: "NO_TRADE", reason: "Support/resistance levels unavailable" };
   const s = scored.side === "LONG" ? 1 : -1;
   const planned = planTrade(s, close, atr, s > 0 ? ind.ns : ind.nr, s > 0 ? ind.nr : ind.ns, cfg, scored.fib ?? null);
