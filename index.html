@@ -7196,6 +7196,76 @@ X.badge = badge; X.notes = notes;
   if ($('#paperRoot .pt')) P.render();
 })();
 </script>
+<style id="cg-fix-p3-paper">
+/* ===== DESKTOP 1051px+ ===== */
+@media(min-width:1051px){
+  .pt{max-width:1180px;font-size:14px;padding:0 4px 32px}
+  .pt-banner{font-size:13px;padding:12px 16px}
+  .pt-banner small{font-size:12px}
+  .pt-tab{font-size:14px;padding:12px 18px}
+  .pt-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .pt-card{padding:16px}
+  .pt-card label{font-size:12px}
+  .pt-card strong{font-size:22px}
+  .pt-card small{font-size:12px}
+  .pt-box{padding:20px;margin-bottom:16px}
+  .pt-box h3{font-size:16px;margin-bottom:14px}
+  .pt-in{font-size:14px;padding:12px}
+  .pt-btn{font-size:14px;padding:11px 18px}
+  .pt-btn.sm{font-size:13px;padding:8px 12px}
+  .pt-chip{font-size:13px;padding:7px 14px}
+  .pt-li{font-size:13.5px;padding:12px 0}
+  .pt-li small,.pt-kv span,.pt-lbl,.pt-hint{font-size:12px}
+  .pt-px{font-size:36px}
+  .pt-hl{font-size:13px;gap:20px}
+  .pt-chart{min-height:260px}
+  .pt-mk{max-height:420px}
+  .pt-side button{padding:14px;font-size:15px}
+  .pt-two{gap:12px}
+  .pt-prev{font-size:13px;padding:12px 14px}
+  .pt-go{padding:15px;font-size:16px}
+  .pt-book{font-size:13.5px;gap:16px}
+  .pt-pos{padding:16px}
+  .pt-pos-h b{font-size:17px}
+  .pt-kv{grid-template-columns:repeat(4,minmax(0,1fr));font-size:13.5px;gap:10px 16px}
+  .pt-pnl{font-size:22px}
+  .pt-big{font-size:34px}
+  .pt-bd{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .pt-b{padding:14px}
+  .pt-b b{font-size:13px}
+  .pt-tip,.pt-rk-n,.pt-x5{font-size:13px}
+  .pt-rf{font-size:14px}
+  .pt-rf small{font-size:12px}
+  .pt-hrow select{font-size:14px;padding:10px}
+  .pt-hi-m{font-size:14px}
+}
+
+/* ===== TABLET 761px - 1050px ===== */
+@media(min-width:761px) and (max-width:1050px){
+  .pt{max-width:100%;font-size:13.5px;padding:0 2px 28px}
+  .pt-banner{font-size:12.5px;padding:10px 14px}
+  .pt-tab{font-size:13.5px;padding:11px 14px}
+  .pt-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .pt-card{padding:13px}
+  .pt-card strong{font-size:18px}
+  .pt-box{padding:16px;margin-bottom:14px}
+  .pt-box h3{font-size:15px}
+  .pt-in{font-size:14px}
+  .pt-li{font-size:13px;padding:11px 0}
+  .pt-px{font-size:30px}
+  .pt-hl{font-size:12px}
+  .pt-chart{min-height:200px}
+  .pt-mk{max-height:360px}
+  .pt-prev{font-size:12.5px}
+  .pt-go{padding:14px;font-size:15px}
+  .pt-book{font-size:13px;gap:14px}
+  .pt-kv{grid-template-columns:repeat(3,minmax(0,1fr));font-size:13px}
+  .pt-pnl{font-size:20px}
+  .pt-big{font-size:30px}
+  .pt-bd{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pt-tip,.pt-rk-n,.pt-x5{font-size:12.5px}
+}
+</style>
 <style id="paper-css-12b">
 .pt button:focus-visible,.pt select:focus-visible,.pt input:focus-visible,.pt textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .pt button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
