@@ -37,6 +37,10 @@ export interface BuilderConfig {
   entryAheadAtr: number;     // entry zone depth on the chase side
   expiryCandles: number;     // entry idea expires after this many primary candles
   staleAfterCandles: number; // last candle older than this many candles -> DELAYED
+  gates: SetupGates;         // hard accuracy filters (ADX, HTF, candle, Fib)
+  fibStop: boolean;          // stop beyond the Fib 0.786 level when a Fib plan exists
+  fibMinScore: number;       // min score used instead of minScore while the Fib gate is on
+  fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
 }
 
 export const DEFAULT_MIN_SCORE = 75;
