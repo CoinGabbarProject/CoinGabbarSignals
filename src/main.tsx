@@ -1241,7 +1241,8 @@ type MiniChart = {
     lineKey: string;
   levels: number[];
     markerSet: boolean;
-  gutter: HTMLDivElement;
+    gutter: HTMLDivElement;
+  vlines: { time: number; el: HTMLDivElement }[];
     tags: { price: number; el: HTMLDivElement; off?: number }[];
   symbol: string;
   tf: string;
@@ -1303,11 +1304,17 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
     timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, tickMarkFormatter: miniIstTick },
     localization: { timeFormatter: miniIstCrosshair },
     // view-only: no scroll, zoom, drag or drawing
-    handleScroll: false,
+        handleScroll: {
+      horzTouchDrag: true,
+      vertTouchDrag: false,
+      pressedMouseMove: true,
+      mouseWheel: false,
+    },
     handleScale: false,
     crosshair: { mode: 0 },
   });
 
+    chart.timeScale().applyOptions({ fixLeftEdge: true, fixRightEdge: true });
     const levels: number[] = [];
   const ref = Number(signal.entry) || 1;
   const precision = Math.min(8, Math.max(2, Math.ceil(-Math.log10(ref)) + 3));
