@@ -1,4 +1,4 @@
-import type { Candle, Timeframe } from "../../shared/market.js";
+import type { Candle, Liquidation, Timeframe } from "../../shared/market.js";
 import type { DerivativesInput } from "../../shared/scoring.js";
 
 import type { MarketData, MarketDataConfig, MarketSnapshot, OrderBookSnapshot, Ticker24h } from "./marketData.js";
