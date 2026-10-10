@@ -2186,7 +2186,26 @@ function calcPnL() {
     setTxt("ti_rsi_d", "RSI zone: " + v.rz[0] + " (30 oversold / 70 overbought).");
     setTxt("ti_macd_d", "MACD " + num(i.macd) + " vs signal " + num(i.signal) + ", histogram " + num(i.hist) + ".");
     setTxt("ti_bb_d", "Price is: " + v.bb + ". Middle band " + num(i.bbM) + ".");
-    setTxt("ti_vwap_d", "Price is " + (i.price >= i.vwap ? "above" : "below") + " VWAP.");
+        setTxt("ti_vwap_d", "Price is " + (i.price >= i.vwap ? "above" : "below") + " VWAP.");
+    // --- Extra signal-engine indicators ---
+    const adxLbl = !Number.isFinite(i.adx) ? "n/a" : i.adx >= 40 ? "Very strong" : i.adx >= 25 ? "Strong" : i.adx >= 20 ? "Weak trend" : "Ranging";
+    setTxt("ti_adx", Number.isFinite(i.adx) ? num(i.adx, 1) + " · " + adxLbl : "Need more candles");
+    setTxt("ti_adx_d", Number.isFinite(i.adx) ? "+DI " + num(i.pdi, 1) + " vs -DI " + num(i.mdi, 1) + " (" + (i.pdi > i.mdi ? "bullish" : "bearish") + " bias). Signals need ADX of at least 20." : "Not enough candles.");
+    const stZone = i.stK >= 80 ? "Overbought" : i.stK <= 20 ? "Oversold" : "Neutral";
+    setTxt("ti_stoch", Number.isFinite(i.stK) ? "K " + num(i.stK, 1) + " / D " + num(i.stD, 1) + " · " + stZone : "n/a");
+    setTxt("ti_stoch_d", "Crossover: " + i.stX + " (80 overbought / 20 oversold).");
+    setTxt("ti_obv", i.obvDir + (i.obvDiv !== "none" ? " · " + i.obvDiv + " divergence" : ""));
+    setTxt("ti_obv_d", "OBV is " + i.obvDir.toLowerCase() + " over the last 14 candles. Divergence: " + i.obvDiv + ".");
+    setTxt("ti_atr", num(i.atr) + " · " + v.vol[0]);
+    setTxt("ti_atr_d", "ATR is " + num(i.atrPct, 2) + "% of price. Stop-loss distance is based on ATR.");
+    setTxt("ti_sr", (i.sup ? "S " + num(i.sup) : "S n/a") + " / " + (i.res ? "R " + num(i.res) : "R n/a"));
+    setTxt("ti_sr_d", (i.sup ? "Support is " + num((i.price - i.sup) / i.price * 100, 2) + "% below. " : "") + (i.res ? "Resistance is " + num((i.res - i.price) / i.price * 100, 2) + "% above." : ""));
+    setTxt("ti_fib", i.fib ? num(i.fib.pMin) + "–" + num(i.fib.pMax) + " · " + (i.fib.inPocket ? "In pocket" : "Outside") : "No valid swing");
+    setTxt("ti_fib_d", i.fib ? i.fib.side + " pullback. Retrace " + num(i.fib.retrace * 100, 1) + "% (golden pocket is 50-61.8%)." : "No clear impulse move found in the last 120 candles.");
+    setTxt("ti_candle", i.candle);
+    setTxt("ti_candle_d", i.candle === "None" ? "No engulfing or pin-bar on the last closed candle." : i.candle + " on the last closed candle.");
+    setTxt("ti_volr", Number.isFinite(i.volR) ? num(i.volR, 2) + "x average" : "n/a");
+    setTxt("ti_volr_d", "Last closed candle volume vs the 20-candle average.");
     // --- Right panel ---
     setHtml("tp_e20", num(i.e20) + " " + tag(v.e20[0], v.e20[1]));
     setHtml("tp_e50", num(i.e50) + " " + tag(v.e50[0], v.e50[1]));
