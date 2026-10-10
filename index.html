@@ -2869,7 +2869,9 @@ var bd = $("posCalcBackdrop");
       { label: "Volume + Momentum", score: cVM, max: 15 },
       { label: "Derivatives / Orderbook", score: cDer, max: 15, pending: dPend },
       { label: "News / Fundamentals", score: cNews, max: 5, pending: nPend },
-      { label: "Risk / Execution", score: cRisk, max: 10 }
+      { label: "Risk / Execution", score: cRisk, max: 10 },
+      { label: "SMC (bonus)", score: clamp(smcS.pts, 0, 5), adj: smcS.pts, max: 5 },
+      { label: "Liquidations (bonus)", score: clamp(lqS.pts, 0, 3), adj: lqS.pts, max: 3, pending: lqPend }
     ];
     var total = clamp(cats.reduce(function (x, c) { return x + c.score; }, 0), 0, 100);
     return { sym: sym, tf: s.tf, side: s.side, d: d, cats: cats, total: total, info: info, price: price, sl: s.sl, e20: a.e20, e50: a.e50, s200: a.s200, atr: atr };
