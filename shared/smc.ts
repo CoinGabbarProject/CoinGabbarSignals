@@ -138,3 +138,18 @@ export function scoreSmc(r: SmcResult, s: 1 | -1, close: number, atr: number): S
 
   return { pts: Math.max(-4, Math.min(5, pts)), confirmations: conf, conflicts, hasConfluence, againstRecentBreak };
 }
+/** Plain-JSON summary of an SmcResult for storage and the dashboards. Levels are direction-aware (same side as the trade). */
+export function describeSmc(r: SmcResult, mode: string, pts: number, s: 1 | -1, close: number, atr: number): Record<string, unknown> {
+  const want: SmcSide = s > 0 ? "bullish" : "bearish";
+  const near = (lo: number, hi: number, below: number, above: number): boolean => close >= lo - below * atr && close <= hi + above * atr;
+  const ob = r.orderBlocks.find((o) => o.side === want && near(o.low, o.high, 0.25, 0.25)) ?? r.orderBlocks.find((o) => o.side === want) ?? null;
+  const gap = r.fvgs.find((g) => g.side === want && near(g.low, g.high, 0.5, 1)) ?? r.fvgs.find((g) => g.side === want) ?? null;
+  return {
+    available: true, mode, pts, trend: r.trend, zone: r.zone, rangeHigh: r.rangeHigh, rangeLow: r.rangeLow,
+    lastBreak: r.lastBreak,
+    orderBlock: ob ? { side: ob.side, low: ob.low, high: ob.high, atPrice: near(ob.low, ob.high, 0.25, 0.25) } : null,
+    fvg: gap ? { side: gap.side, low: gap.low, high: gap.high, atPrice: near(gap.low, gap.high, 0.5, 1) } : null,
+    sweep: r.sweep,
+  };
+}
+                                                                                                                                                 
