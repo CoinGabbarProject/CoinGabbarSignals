@@ -1403,12 +1403,9 @@ function positionTags(m: MiniChart): void {
       return;
     }
         t.el.style.display = "block";
-    if (t.off !== undefined) {
-      // Signal chip: SL ke upar/neeche fixed offset, push-apart me nahi
-      t.el.style.top = `${Math.max(0, Math.round((y as number) + t.off - 8))}px`;
-      return;
-    }
-    pts.push({ el: t.el, y: y as number });
+        // The signal chip joins the same push-apart pass as the other tags.
+    // SHORT: chip sits above SL. LONG: chip sits below SL. This prevents overlap.
+    pts.push({ el: t.el, y: (y as number) + (t.off ?? 0) });
   });
   pts.sort((a, b) => a.y - b.y);
   let last = -Infinity;
