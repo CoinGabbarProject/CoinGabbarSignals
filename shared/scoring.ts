@@ -341,5 +341,5 @@ else unavailable.push("orderBook");
     (unavailable.includes("news") ? 5 : 0);
     score.total = Math.min(100, Math.max(0, Math.round(((rawTotal - penalty) * 100) / (100 - lostMax)) + extraPts));
   score.smcLiquidity = extraPts;
-  return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical, fib };
+  return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical, fib, smc: smcOut, liquidation: liqOut };
                             }
