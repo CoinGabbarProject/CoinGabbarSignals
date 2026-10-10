@@ -967,7 +967,7 @@ async function scoreView() {
       const sRows = [];
       const sAdd = (name, reading, bull) => sRows.push({ name, reading, bull });
       const bonus = sc.smcLiquidity ?? ((sm.pts || 0) + (lq.pts || 0));
-      if (sm.available || lq.available) sAdd("Bonus points (SMC + Liquidation)", (bonus > 0 ? "+" : "") + bonus + " (max +8)", dir === 0 ? 0 : sg(bonus) * dir);
+      if (sm.available || lq.available) sAdd("Bonus points (SMC + Liquidation)" + (lv && sc.smcLiquidity === undefined ? " · latest scan" : ""), (bonus > 0 ? "+" : "") + bonus + " (max +8)", dir === 0 ? 0 : sg(bonus) * dir);
       if (sm.available) {
         const lb = sm.lastBreak, ob = sm.orderBlock, fv = sm.fvg, sw = sm.sweep;
         sAdd("Market structure", lb ? `${lb.side} ${lb.type === "CHOCH" ? "CHoCH" : "BOS"} · ${lb.barsAgo} candles ago · trend ${sm.trend}` : `no break yet · trend ${sm.trend}`, lb && lb.barsAgo <= 30 ? (lb.side === "bullish" ? 1 : -1) : 0);
