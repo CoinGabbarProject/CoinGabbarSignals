@@ -738,6 +738,30 @@ html body .panel.recent .sig-chart-slot td:nth-child(n)::before{content:none!imp
   html body .page-body .analysis-grid+.panel{margin-top:12px!important}
 }
 </style>
+<style id="cg-fix-indicators-card">
+/* Indicators tab: full-width card, bigger rows */
+#indicator-panel .data-grid{grid-template-columns:minmax(0,1fr)!important;gap:0;margin-top:6px}
+#indicator-panel .data-card{width:100%;max-width:100%;box-sizing:border-box;padding:12px 14px}
+#indicator-panel .data-card>label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+#indicator-panel .detail-list{gap:0;margin-top:4px}
+#indicator-panel .detail-row{padding:11px 4px;gap:12px}
+#indicator-panel .indicator-row .indicator-name{gap:9px;font-size:13px;min-width:0}
+#indicator-panel .indicator-dot{width:8px;height:8px;flex:0 0 8px}
+#indicator-panel .detail-row>b{font-size:13px;text-align:right;min-width:0;overflow-wrap:anywhere}
+#indicator-panel .indicator-detail{grid-column:1/-1;font-size:11.5px;line-height:1.5;padding:6px 0 2px 17px}
+#indicator-panel #ti_stamp{font-size:11px!important;margin-top:10px!important}
+#indicator-panel .inline-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#indicator-panel .inline-actions .mini-action{flex:1 1 150px;font-size:12px;padding:10px 12px}
+
+/* Tablet and desktop: two columns of rows */
+@media(min-width:761px){
+  #indicator-panel .data-card{padding:16px 20px}
+  #indicator-panel .detail-list{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px}
+  #indicator-panel .indicator-row .indicator-name,
+  #indicator-panel .detail-row>b{font-size:14px}
+  #indicator-panel .indicator-detail{font-size:12.5px}
+}
+</style>
 <style id="cgs-light-p4">
 /* ===== Light theme — Part 4 ===== */
 /* chart section (React app): inline-styled buttons */
