@@ -1410,7 +1410,8 @@ function positionTags(m: MiniChart): void {
   pts.sort((a, b) => a.y - b.y);
   let last = -Infinity;
   pts.forEach((p) => {
-    const y = Math.max(p.y, last + 16); // chips overlap na karein
+        // Keep chips at least 16px apart and never let the first one clip off the top
+    const y = Math.max(p.y, last + 16, 9);
     last = y;
     p.el.style.top = `${Math.round(y - 8)}px`;
   });
