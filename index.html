@@ -2745,7 +2745,7 @@ var bd = $("posCalcBackdrop");
   // events: [{ ts, side: "long"|"short", price, qty }]
   function liqSummary(events, atr, now) {
     if (!events || !(atr > 0)) return null;
-    var rec = events.filter(function (e) { return now - e.ts <= 3 * 3600e3 && e.price > 0 && e.qty > 0; });
+    var rec = events.filter(function (e) { return now - e.ts <= 6 * 3600e3 && e.price > 0 && e.qty > 0; });
     if (rec.length < 5) return null;
     var lv = 0, sv = 0, step = atr * 0.5, bl = new Map(), bs = new Map();
     rec.forEach(function (e) {
