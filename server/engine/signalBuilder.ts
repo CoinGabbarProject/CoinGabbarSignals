@@ -276,6 +276,8 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
     score: scored.score,
     technical: ind && adv ? { rsi: ind.rsi, macd: ind.macd, bollinger: ind.bollinger, atr: ind.atr, vwap: ind.vwap, ema20: ind.ema20, ema50: ind.ema50, sma200: ind.sma200, adx: adv.adx, stochRsi: adv.stochRsi, obv: adv.obv } : {},
     structure: { bias: scored.side },
+    smc: scored.smc ?? {},
+    liquidation: scored.liquidation ?? {},
     liquidity: adv ? { supports: adv.levels.supports, resistances: adv.levels.resistances } : {},
     derivatives: { ...(input.derivatives ?? {}) },
     marketContext: { change24hPct: input.change24hPct ?? null, unavailable: scored.unavailable },
