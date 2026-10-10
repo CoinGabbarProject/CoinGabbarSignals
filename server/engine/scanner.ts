@@ -152,6 +152,16 @@ async function htfCandles(deps: EngineDeps, symbol: string, now: number): Promis
   return c;
 }
 
+// Liquidation events: cached per symbol for 60 s so each scan does not hit the exchange again.
+const liqCache = new Map<string, { at: number; v: Liquidation[] }>();
+async function liquidationEvents(deps: EngineDeps, symbol: string, now: number): Promise<Liquidation[]> {
+  const hit = liqCache.get(symbol);
+  if (hit && now - hit.at < 60_000) return hit.v;
+  const v = (await deps.market.getLiquidations?.(symbol)) ?? [];
+  liqCache.set(symbol, { at: now, v });
+  return v;
+}
+
 /** Fetch everything for one symbol and build the signal. */
 export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
