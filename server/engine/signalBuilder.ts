@@ -70,6 +70,8 @@ export const DEFAULT_CONFIG: BuilderConfig = {
     requireCandle: (process.env.CANDLE_CONFIRM ?? "true") !== "false",
     candleVolMin: Number(process.env.CANDLE_VOL_MIN ?? "1"),                // raise to 1.2 for stricter volume
     requireFib: (process.env.FIB_ENTRY ?? "true") !== "false",
+    smc: signalMode(process.env.SMC_MODE, "soft"),   // off | soft | strict
+    liq: signalMode(process.env.LIQ_MODE, "soft"),   // off | soft | strict
   },
   fibStop: (process.env.FIB_ENTRY ?? "true") !== "false",
   fibMinScore: Number(process.env.FIB_MIN_SCORE ?? "65"),    // score needed in Fib mode (pullbacks score lower on momentum)
