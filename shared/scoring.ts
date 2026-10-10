@@ -292,6 +292,29 @@ else unavailable.push("orderBook");
   if (range > 4 * atr) critical = critical ?? "Extreme volatility spike on the last candle";
   if (range <= 2.5 * atr) rk += 3; else warnings.push("Last candle is over-extended");
 
+  // ---- 9. SMC + liquidation confluence (score bonus/penalty; optional hard gates) ----
+  let extraPts = 0;
+  const smcMode = g.smc ?? "off", liqMode = g.liq ?? "off";
+  if (smcMode !== "off") {
+    const smc = calcSmc(candles, atr);
+    if (smc) {
+      const ss = scoreSmc(smc, s, close, atr);
+      extraPts += ss.pts; conf.push(...ss.confirmations); conflicts.push(...ss.conflicts);
+      if (smcMode === "strict") {
+        if (ss.againstRecentBreak) critical = critical ?? "SMC: a recent structure break is against the setup";
+        else if (!ss.hasConfluence) critical = critical ?? "SMC: no order block, sweep, FVG or structure break confirms the setup";
+      }
+    }
+  }
+  if (liqMode !== "off") {
+    const lr = calcLiquidation(input.liquidations, atr, Date.now());
+    if (lr) {
+      const lsc = scoreLiquidation(lr, s, close, atr);
+      extraPts += lsc.pts; conf.push(...lsc.confirmations); conflicts.push(...lsc.conflicts);
+      if (liqMode === "strict" && lsc.againstCascade) critical = critical ?? "Liquidation cascade is still active against the setup";
+    }
+  }
+
   const score: SetupScore = {
     total: 0,
     marketContext: clamp(mc, SCORE_MAX.marketContext), trendMTF: clamp(tr, SCORE_MAX.trendMTF),
