@@ -2854,6 +2854,13 @@ var bd = $("posCalcBackdrop");
     var dPend = !(ext.deriv && Number.isFinite(ext.deriv.score)), nPend = !(ext.news && Number.isFinite(ext.news.score));
     var cDer = dPend ? 8 : clamp(Math.round(ext.deriv.score), 0, 15), cNews = nPend ? 3 : clamp(Math.round(ext.news.score), 0, 5);
 
+    // SMC + Liquidation: bonus/penalty points added on top of the 8 categories above
+    var smcR = smcCalc(closed, atr), smcS = smcR ? smcScore(smcR, d, price, atr) : { pts: 0, notes: [] };
+    ensureLiq(sym);
+    var lqD = CG.liqData[sym], lqPend = !(lqD && lqD.ok);
+    var lqS = lqPend ? { pts: 0, note: "" } : liqScore(liqSummary(lqD.events, atr, Date.now()), d, price, atr);
+    info.smc = smcR ? { r: smcR, s: smcS } : null; info.liq = lqPend ? null : lqS;
+
     var cats = [
       { label: "Market Context", score: cCtx, max: 15, pending: ctxPending },
       { label: "Trend + MTF", score: cTrend, max: 15 },
