@@ -14,7 +14,7 @@ export interface LiquidationResult {
 export function calcLiquidation(events: Liquidation[] | null | undefined, atr: number, now: number, windowMs = 6 * 3_600_000): LiquidationResult | null {
   if (!events || !(atr > 0)) return null;
   const recent = events.filter((e) => now - e.timestamp <= windowMs && e.price > 0 && e.quantity > 0);
-  if (recent.length < 5) return null;
+  if (recent.length < 3) return null;
   let longVolume = 0, shortVolume = 0;
   const step = atr * 0.5;
   const binsL = new Map<number, number>(), binsS = new Map<number, number>();
