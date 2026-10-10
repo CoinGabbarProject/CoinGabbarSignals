@@ -10,6 +10,7 @@ export type ScoreSide = "LONG" | "SHORT" | "NEUTRAL";
 export interface SetupScore {
   total: number; marketContext: number; trendMTF: number; structure: number; liquiditySR: number;
   volumeMomentum: number; derivativesOrderbook: number; newsFundamentals: number; riskExecution: number;
+  smcLiquidity?: number;   // SMC + liquidation bonus/penalty (about -7..+8), already included in total
 }
 
 export const SCORE_MAX: SetupScore = {
