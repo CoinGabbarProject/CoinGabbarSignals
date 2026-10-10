@@ -120,6 +120,28 @@ export class OkxMarketData implements MarketData {
     };
   }
 
+  /** Recent filled liquidation orders (public endpoint, no API key). Quantity is in contracts: use ratios only. */
+  async getLiquidations(symbol: string): Promise<Liquidation[]> {
+    const rows = await this.get("/api/v5/public/liquidation-orders", {
+      instType: "SWAP", uly: `${base(symbol)}-USDT`, state: "filled", limit: 100,
+    });
+    const out: Liquidation[] = [];
+    for (const row of rows) {
+      const details = obj(row).details;
+      if (!Array.isArray(details)) continue;
+      for (const d of details) {
+        const o = obj(d);
+        // A liquidated LONG is closed by a forced SELL; a liquidated SHORT by a forced BUY.
+        const side: "long" | "short" = o.posSide === "long" || o.posSide === "short" ? o.posSide : o.side === "sell" ? "long" : "short";
+        const price = Number(o.bkPx), quantity = Number(o.sz), timestamp = Number(o.ts);
+        if (Number.isFinite(price) && Number.isFinite(quantity) && Number.isFinite(timestamp) && price > 0 && quantity > 0) {
+          out.push({ timestamp, side, price, quantity });
+        }
+      }
+    }
+    return out;
+  }
+
   async getDerivatives(symbol: string, tf: Timeframe): Promise<DerivativesInput> {
     const instId = `${base(symbol)}-USDT-SWAP`;
     const period = STAT[tf];
