@@ -9,7 +9,7 @@ export interface FinalSignal {
  takeProfit:{tp1:number|null;tp2:number|null;tp3:number|null};
  riskReward:{tp1:number;tp2:number;tp3:number;weighted:number};
  score:{total:number;marketContext:number;trendMTF:number;structure:number;liquiditySR:number;volumeMomentum:number;derivativesOrderbook:number;newsFundamentals:number;riskExecution:number;smcLiquidity?:number}
- technical:Record<string,unknown>;structure:Record<string,unknown>;liquidity:Record<string,unknown>;derivatives:Record<string,unknown>;marketContext:Record<string,unknown>;
+ technical:Record<string,unknown>;structure:Record<string,unknown>;liquidity:Record<string,unknown>;derivatives:Record<string,unknown>;marketContext:Record<string,unknown>;smc?:Record<string,unknown>;liquidation?:Record<string,unknown>;
  reasoning:{primaryReason:string;confirmations:string[];conflicts:string[];warnings:string[];invalidation:string};
  dataQuality:{status:"FRESH"|"DELAYED"|"UNAVAILABLE"|"PARTIAL";timestamp:string;sources:string[]};
  events:unknown[];timestamps:{createdAt:string;updatedAt:string;closedAt:string|null};
