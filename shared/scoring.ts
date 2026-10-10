@@ -1,4 +1,4 @@
-import type { Candle } from "./market.js";
+import type { Candle, Liquidation } from "./market.js";
 import { calcAdvanced, calcCandleConfirm, calcFib, calcIndicators } from "./indicators.js";
 import type { FibPlan } from "./indicators.js";
 
