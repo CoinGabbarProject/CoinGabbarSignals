@@ -2034,6 +2034,119 @@ function calcPnL() {
              bbU: m20 + 2 * sd, bbM: m20, bbL: m20 - 2 * sd, atr: a, atrPct: a / price * 100, vwap: vv ? pv / vv : NaN };
   }
 
+    // ---- Extra indicators used by the signal engine (ported from shared/indicators.ts) ----
+  function smaV(v, p) {
+    const o = new Array(v.length).fill(NaN), s = v.findIndex(Number.isFinite);
+    if (s < 0) return o;
+    for (let i = s + p - 1; i < v.length; i++) { let t = 0; for (let j = i - p + 1; j <= i; j++) t += v[j]; o[i] = t / p; }
+    return o;
+  }
+  function fibLong(cs, atrV) {
+    const n = cs.length, L = 3, R = 3;
+    if (n < L + R + 5) return null;
+    const pH = [], pL = [];
+    for (let i = L; i < n - R; i++) {
+      let isH = true, isL = true;
+      for (let j = i - L; j <= i + R; j++) {
+        if (j === i) continue;
+        if (cs[j].h >= cs[i].h) isH = false;
+        if (cs[j].l <= cs[i].l) isL = false;
+      }
+      if (isH) pH.push(i);
+      if (isL) pL.push(i);
+    }
+    const ih = pH[pH.length - 1];
+    if (ih === undefined) return null;
+    let il = -1, low = Infinity;
+    for (const idx of pL) if (idx < ih && ih - idx <= 40 && cs[idx].l < low) { low = cs[idx].l; il = idx; }
+    if (il < 0) return null;
+    let hi = -Infinity, minAfter = Infinity;
+    for (let i = il; i < n; i++) { if (cs[i].h > hi) hi = cs[i].h; if (i > il && cs[i].l < minAfter) minAfter = cs[i].l; }
+    const rng = hi - low;
+    if (!(rng >= 2.5 * atrV) || minAfter < low) return null;
+    const retrace = (hi - cs[n - 1].c) / rng;
+    return { pMin: hi - 0.618 * rng, pMax: hi - 0.5 * rng, retrace, inPocket: retrace >= 0.46 && retrace <= 0.658 };
+  }
+  function extra(k, c, a) {
+    const n = k.length, price = last(c), P = 14;
+    // ADX / +DI / -DI (Wilder 14)
+    let adx = NaN, adxPrev = NaN, pdi = NaN, mdi = NaN;
+    if (n >= 2 * P + 1) {
+      const dx = new Array(n).fill(NaN), plus = new Array(n).fill(NaN), minus = new Array(n).fill(NaN), ser = new Array(n).fill(NaN);
+      let sTR = 0, sP = 0, sM = 0;
+      for (let i = 1; i < n; i++) {
+        const up = k[i].h - k[i - 1].h, dn = k[i - 1].l - k[i].l;
+        const pm = up > dn && up > 0 ? up : 0, mm = dn > up && dn > 0 ? dn : 0;
+        const tr = Math.max(k[i].h - k[i].l, Math.abs(k[i].h - k[i - 1].c), Math.abs(k[i].l - k[i - 1].c));
+        if (i <= P) { sTR += tr; sP += pm; sM += mm; } else { sTR = sTR - sTR / P + tr; sP = sP - sP / P + pm; sM = sM - sM / P + mm; }
+        if (i >= P) {
+          const p = sTR ? 100 * sP / sTR : 0, m = sTR ? 100 * sM / sTR : 0;
+          plus[i] = p; minus[i] = m; dx[i] = p + m ? 100 * Math.abs(p - m) / (p + m) : 0;
+        }
+      }
+      let av = 0;
+      for (let i = P; i < 2 * P; i++) av += dx[i];
+      av /= P; ser[2 * P - 1] = av;
+      for (let i = 2 * P; i < n; i++) { av = (av * (P - 1) + dx[i]) / P; ser[i] = av; }
+      adx = last(ser); adxPrev = ser[n - 2]; pdi = last(plus); mdi = last(minus);
+    }
+    // Stochastic RSI (14, 14, 3, 3)
+    const r = rsi(c, 14), st = new Array(r.length).fill(NaN);
+    for (let i = 27; i < r.length; i++) {
+      const w = r.slice(i - 13, i + 1);
+      if (!w.every(Number.isFinite)) continue;
+      const hi = Math.max(...w), lo = Math.min(...w);
+      st[i] = hi === lo ? (r[i] >= 70 ? 100 : r[i] <= 30 ? 0 : 50) : 100 * (r[i] - lo) / (hi - lo);
+    }
+    const sk = smaV(st, 3), sd = smaV(sk, 3);
+    const stK = last(sk), stD = last(sd), kp = sk[sk.length - 2], dp = sd[sd.length - 2];
+    const stX = kp <= dp && stK > stD ? "bullish" : kp >= dp && stK < stD ? "bearish" : "none";
+    // OBV + divergence (14-bar lookback)
+    let obv = 0; const os = k.map((x, i) => { const pc = i ? k[i - 1].c : x.c; obv += x.c > pc ? x.v : x.c < pc ? -x.v : 0; return obv; });
+    const dObv = os[n - 1] - os[n - 15], dPx = c[n - 1] - c[n - 15];
+    const obvDir = dObv > 0 ? "Rising" : dObv < 0 ? "Falling" : "Flat";
+    const obvDiv = dPx > 0 && dObv < 0 ? "bearish" : dPx < 0 && dObv > 0 ? "bullish" : "none";
+    // Support / Resistance (swing pivots, clustered by 0.5 ATR)
+    const w2 = k.slice(-200), tol = Number.isFinite(a) && a > 0 ? a * 0.5 : price * 0.003, piv = [];
+    for (let i = 3; i < w2.length - 3; i++) {
+      let isH = true, isL = true;
+      for (let j = i - 3; j <= i + 3; j++) { if (j === i) continue; if (w2[j].h >= w2[i].h) isH = false; if (w2[j].l <= w2[i].l) isL = false; }
+      if (isH) piv.push(w2[i].h);
+      if (isL) piv.push(w2[i].l);
+    }
+    const lv = []; let grp = [];
+    const flush = () => { if (grp.length) { lv.push(grp.reduce((x, y) => x + y, 0) / grp.length); grp = []; } };
+    for (const p of piv.sort((x, y) => x - y)) { if (grp.length && p - grp[0] > tol) flush(); grp.push(p); }
+    flush();
+    const sup = lv.filter(x => x < price).pop(), res = lv.find(x => x > price);
+    // Fibonacci golden pocket (long and short pullbacks)
+    const cs = k.slice(-120).map(x => ({ h: x.h, l: x.l, c: x.c }));
+    const fl = fibLong(cs, a);
+    const fsRaw = fibLong(cs.map(x => ({ h: -x.l, l: -x.h, c: -x.c })), a);
+    const fs = fsRaw ? { pMin: -fsRaw.pMax, pMax: -fsRaw.pMin, retrace: fsRaw.retrace, inPocket: fsRaw.inPocket } : null;
+    let fib = null;
+    if (fl && fl.inPocket) fib = { ...fl, side: "Long" };
+    else if (fs && fs.inPocket) fib = { ...fs, side: "Short" };
+    else if (fl || fs) fib = (!fs || (fl && Math.abs(fl.retrace - 0.55) <= Math.abs(fs.retrace - 0.55))) ? { ...fl, side: "Long" } : { ...fs, side: "Short" };
+    // Candle confirmation on the last CLOSED candle + volume ratio
+    let candle = "None", volR = NaN;
+    if (n >= 23) {
+      const k1 = k[n - 2], p1 = k[n - 3];
+      const avg = k.slice(-22, -2).reduce((s, x) => s + x.v, 0) / 20;
+      volR = avg > 0 ? k1.v / avg : NaN;
+      const rg = k1.h - k1.l, body = Math.abs(k1.c - k1.o);
+      if (rg > 0) {
+        const up = k1.h - Math.max(k1.o, k1.c), lo = Math.min(k1.o, k1.c) - k1.l, mb = Math.max(body, rg * 0.05);
+        const bullEng = k1.c > k1.o && p1.c < p1.o && k1.c >= p1.o && k1.o <= p1.c;
+        const bearEng = k1.c < k1.o && p1.c > p1.o && k1.c <= p1.o && k1.o >= p1.c;
+        const bullPin = lo >= 2 * mb && lo >= 0.5 * rg && (k1.c - k1.l) / rg >= 0.6;
+        const bearPin = up >= 2 * mb && up >= 0.5 * rg && (k1.h - k1.c) / rg >= 0.6;
+        candle = bullEng ? "Bullish engulfing" : bullPin ? "Bullish pin-bar" : bearEng ? "Bearish engulfing" : bearPin ? "Bearish pin-bar" : "None";
+      }
+    }
+    return { adx, adxPrev, pdi, mdi, stK, stD, stX, obvDir, obvDiv, sup, res, fib, candle, volR };
+  }
+
   const side = (p, x) => !Number.isFinite(x) ? ["n/a", "neutral"] : p >= x ? ["Bullish", "up"] : ["Bearish", "down"];
 
   function view(i) {
