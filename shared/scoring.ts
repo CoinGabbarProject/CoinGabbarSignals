@@ -39,6 +39,8 @@ export interface ScoreResult {
   confirmations: string[]; conflicts: string[]; warnings: string[]; unavailable: string[];
   criticalFailure: string | null;
   fib?: FibPlan | null;
+  smc?: Record<string, unknown> | null;          // SMC details for dashboards
+  liquidation?: Record<string, unknown> | null;  // liquidation details for dashboards
 }
 
 const zeroScore = (): SetupScore => ({
