@@ -308,6 +308,7 @@ else unavailable.push("orderBook");
     if (smc) {
       const ss = scoreSmc(smc, s, close, atr);
       extraPts += ss.pts; conf.push(...ss.confirmations); conflicts.push(...ss.conflicts);
+      smcOut = describeSmc(smc, smcMode, ss.pts, s, close, atr);
       if (smcMode === "strict") {
         if (ss.againstRecentBreak) critical = critical ?? "SMC: a recent structure break is against the setup";
         else if (!ss.hasConfluence) critical = critical ?? "SMC: no order block, sweep, FVG or structure break confirms the setup";
