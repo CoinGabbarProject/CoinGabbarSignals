@@ -29,6 +29,7 @@ export interface ScoreInput {
   news?: NewsInput | null;
   htf?: Candle[] | null;          // daily candles for the higher-timeframe filter
   gates?: Partial<SetupGates> | null;
+  liquidations?: Liquidation[] | null;   // recent liquidation events (optional)
 }
 export interface ScoreResult {
   side: ScoreSide; score: SetupScore;
