@@ -320,6 +320,7 @@ else unavailable.push("orderBook");
     if (lr) {
       const lsc = scoreLiquidation(lr, s, close, atr);
       extraPts += lsc.pts; conf.push(...lsc.confirmations); conflicts.push(...lsc.conflicts);
+      liqOut = describeLiquidation(lr, liqMode, lsc.pts);
       if (liqMode === "strict" && lsc.againstCascade) critical = critical ?? "Liquidation cascade is still active against the setup";
     }
   }
