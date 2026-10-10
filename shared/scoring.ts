@@ -301,6 +301,8 @@ else unavailable.push("orderBook");
   let extraPts = 0;
   let smcOut: Record<string, unknown> | null = null, liqOut: Record<string, unknown> | null = null;
   const smcMode = g.smc ?? "off", liqMode = g.liq ?? "off";
+  smcOut = { available: false, mode: smcMode };
+  liqOut = { available: false, mode: liqMode };
   if (smcMode !== "off") {
     const smc = calcSmc(candles, atr);
     if (smc) {
