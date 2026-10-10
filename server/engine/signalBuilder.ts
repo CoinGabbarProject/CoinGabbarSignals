@@ -43,6 +43,9 @@ export interface BuilderConfig {
   fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
 }
 
+const signalMode = (v: string | undefined, d: "off" | "soft" | "strict"): "off" | "soft" | "strict" =>
+  v === "off" || v === "soft" || v === "strict" ? v : d;
+
 export const DEFAULT_MIN_SCORE = 75;
 
 export const DEFAULT_CONFIG: BuilderConfig = {
