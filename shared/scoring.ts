@@ -18,7 +18,9 @@ export const SCORE_MAX: SetupScore = {
 export interface DerivativesInput { fundingRate: number | null; oiChangePct: number | null; longShortRatio: number | null; bookImbalance: number | null; topTraderRatio?: number | null; takerBuySellRatio?: number | null; }
 export interface NewsInput { sentiment: number; highImpactSoon: boolean; }
 /** Hard filters. Any failed gate = criticalFailure = NO_TRADE. Defaults are all OFF here; signalBuilder turns them on. */
-export interface SetupGates { adxMin: number; htfFilter: boolean; requireCandle: boolean; candleVolMin: number; requireFib: boolean; }
+/** off = ignored, soft = score bonus/penalty only, strict = also a hard gate (NO_TRADE when it fails). */
+export type SignalMode = "off" | "soft" | "strict";
+export interface SetupGates { adxMin: number; htfFilter: boolean; requireCandle: boolean; candleVolMin: number; requireFib: boolean; smc?: SignalMode; liq?: SignalMode; }
 export interface ScoreInput {
   candles: Candle[];
   confirmation?: Candle[] | null;
