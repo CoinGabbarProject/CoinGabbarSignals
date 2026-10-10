@@ -2031,7 +2031,7 @@ function calcPnL() {
     const vk = (last(k).t - k[k.length - 2].t) >= 86400000 ? k.slice(-20) : k.filter(x => x.t >= day0);
     const pv = vk.reduce((s, x) => s + (x.h + x.l + x.c) / 3 * x.v, 0), vv = vk.reduce((s, x) => s + x.v, 0);
     return { price, e20: last(e20), e50: last(e50), s200: last(s200), rsi: last(r), macd, signal, hist,
-             bbU: m20 + 2 * sd, bbM: m20, bbL: m20 - 2 * sd, atr: a, atrPct: a / price * 100, vwap: vv ? pv / vv : NaN };
+             bbU: m20 + 2 * sd, bbM: m20, bbL: m20 - 2 * sd,atr: a, atrPct: a / price * 100, vwap: vv ? pv / vv : NaN, ...extra(k, c, a) };
   }
 
     // ---- Extra indicators used by the signal engine (ported from shared/indicators.ts) ----
