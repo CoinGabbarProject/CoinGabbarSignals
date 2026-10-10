@@ -28,6 +28,8 @@ export interface MarketData {
     getMarketSnapshot(symbol: string, tf: Timeframe): Promise<MarketSnapshot>;
   /** Which OKX market the data came from. */
   marketTypeOf?(symbol: string): "swap" | "spot";
+  /** Recent liquidation events (optional). Quantity units are exchange contracts: use ratios only. */
+  getLiquidations?(symbol: string): Promise<Liquidation[]>;
 }
 
 export interface MarketDataConfig { spotUrl: string; futuresUrl: string; timeoutMs: number }
