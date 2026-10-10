@@ -2676,6 +2676,120 @@ var bd = $("posCalcBackdrop");
   }
 
   // ---------- scoring: 8 categories = 100 ----------
+  // ---------- SMC + liquidation (client-side port of shared/smc.ts and shared/liquidation.ts) ----------
+  // c = CLOSED candles, oldest first: { o, h, l, c, v }
+  function smcCalc(c, atr) {
+    var n = c.length, L = 3, R = 3, i, j, k;
+    if (n < 40 || !(atr > 0)) return null;
+    function isH(x) { for (var q = x - L; q <= x + R; q++) if (q !== x && c[q].h > c[x].h) return false; return true; }
+    function isL(x) { for (var q = x - L; q <= x + R; q++) if (q !== x && c[q].l < c[x].l) return false; return true; }
+    var trend = "range", sh = null, sl = null, lb = null, obs = [], pLows = [], pHighs = [];
+    for (j = 0; j < n; j++) {
+      var ci = j - R;
+      if (ci >= L) {
+        if (isH(ci)) { sh = { p: c[ci].h, b: false }; pHighs.push({ i: ci, p: c[ci].h }); }
+        if (isL(ci)) { sl = { p: c[ci].l, b: false }; pLows.push({ i: ci, p: c[ci].l }); }
+      }
+      var cl = c[j].c;
+      if (sh && !sh.b && cl > sh.p) {
+        lb = { type: trend === "bearish" ? "CHOCH" : "BOS", side: "bullish", level: sh.p, idx: j }; trend = "bullish"; sh.b = true;
+        for (k = j - 1; k >= Math.max(0, j - 15); k--) if (c[k].c < c[k].o) { obs.push({ side: "bullish", high: c[k].h, low: c[k].l, index: k, mit: false }); break; }
+      } else if (sl && !sl.b && cl < sl.p) {
+        lb = { type: trend === "bullish" ? "CHOCH" : "BOS", side: "bearish", level: sl.p, idx: j }; trend = "bearish"; sl.b = true;
+        for (k = j - 1; k >= Math.max(0, j - 15); k--) if (c[k].c > c[k].o) { obs.push({ side: "bearish", high: c[k].h, low: c[k].l, index: k, mit: false }); break; }
+      }
+    }
+    obs.forEach(function (o) {
+      for (var q = o.index + 1; q < n; q++) if (o.side === "bullish" ? c[q].c < o.low : c[q].c > o.high) { o.mit = true; break; }
+    });
+    var orderBlocks = obs.filter(function (o) { return !o.mit && n - 1 - o.index <= 120; }).reverse();
+    var gaps = [];
+    for (i = Math.max(2, n - 80); i < n; i++) {
+      var a = c[i - 2], b = c[i];
+      if (a.h < b.l && b.l - a.h >= 0.2 * atr) gaps.push({ side: "bullish", high: b.l, low: a.h, index: i, filled: false });
+      else if (a.l > b.h && a.l - b.h >= 0.2 * atr) gaps.push({ side: "bearish", high: a.l, low: b.h, index: i, filled: false });
+    }
+    gaps.forEach(function (g) {
+      for (var q = g.index + 1; q < n; q++) if (g.side === "bullish" ? c[q].l <= g.low : c[q].h >= g.high) { g.filled = true; break; }
+    });
+    var fvgs = gaps.filter(function (g) { return !g.filled; }).reverse();
+    var sweep = null, p;
+    for (j = n - 1; j >= n - 6 && !sweep; j--) {
+      for (p = 0; p < pLows.length; p++) if (pLows[p].i < j - 1 && c[j].l < pLows[p].p && c[j].c > pLows[p].p) { sweep = { side: "bullish", level: pLows[p].p, barsAgo: n - 1 - j }; break; }
+      if (sweep) break;
+      for (p = 0; p < pHighs.length; p++) if (pHighs[p].i < j - 1 && c[j].h > pHighs[p].p && c[j].c < pHighs[p].p) { sweep = { side: "bearish", level: pHighs[p].p, barsAgo: n - 1 - j }; break; }
+    }
+    var win = c.slice(-50), hi = Math.max.apply(null, win.map(function (x) { return x.h; })), lo = Math.min.apply(null, win.map(function (x) { return x.l; }));
+    var mid = (hi + lo) / 2, band = (hi - lo) * 0.05, px = c[n - 1].c;
+    return {
+      trend: trend, lastBreak: lb ? { type: lb.type, side: lb.side, level: lb.level, barsAgo: n - 1 - lb.idx } : null,
+      orderBlocks: orderBlocks, fvgs: fvgs, sweep: sweep, rangeHigh: hi, rangeLow: lo,
+      zone: px < mid - band ? "discount" : px > mid + band ? "premium" : "equilibrium"
+    };
+  }
+  // d = +1 LONG / -1 SHORT. pts is clamped to [-4, +5].
+  function smcScore(r, d, close, atr) {
+    var want = d > 0 ? "bullish" : "bearish", pts = 0, notes = [], lb = r.lastBreak;
+    var nm = function (t) { return t === "CHOCH" ? "CHoCH" : "BOS"; };
+    if (lb && lb.barsAgo <= 30) {
+      if (lb.side === want) { pts += lb.type === "CHOCH" ? 2 : 1; notes.push(lb.side + " " + nm(lb.type) + " " + lb.barsAgo + " candles ago"); }
+      else if (lb.barsAgo <= 15) { pts -= 2; notes.push("recent " + lb.side + " " + nm(lb.type) + " is against the setup"); }
+    }
+    if (r.orderBlocks.some(function (o) { return o.side === want && close >= o.low - 0.25 * atr && close <= o.high + 0.25 * atr; })) { pts += 2; notes.push("price at an unmitigated " + want + " order block"); }
+    if (r.fvgs.some(function (g) { return g.side === want && close >= g.low - 0.5 * atr && close <= g.high + atr; })) { pts += 1; notes.push(want + " fair value gap nearby"); }
+    if (r.sweep && r.sweep.side === want && r.sweep.barsAgo <= 5) { pts += 2; notes.push("liquidity sweep and reclaim"); }
+    if (r.zone === (d > 0 ? "discount" : "premium")) pts += 1;
+    else if (r.zone === (d > 0 ? "premium" : "discount")) { pts -= 1; notes.push(r.zone + " zone is expensive for this side"); }
+    return { pts: Math.max(-4, Math.min(5, pts)), notes: notes };
+  }
+  // events: [{ ts, side: "long"|"short", price, qty }]
+  function liqSummary(events, atr, now) {
+    if (!events || !(atr > 0)) return null;
+    var rec = events.filter(function (e) { return now - e.ts <= 3 * 3600e3 && e.price > 0 && e.qty > 0; });
+    if (rec.length < 5) return null;
+    var lv = 0, sv = 0, step = atr * 0.5, bl = new Map(), bs = new Map();
+    rec.forEach(function (e) {
+      var key = Math.round(e.price / step);
+      if (e.side === "long") { lv += e.qty; bl.set(key, (bl.get(key) || 0) + e.qty); } else { sv += e.qty; bs.set(key, (bs.get(key) || 0) + e.qty); }
+    });
+    function top(m) { var bk = null, bv = 0; m.forEach(function (v, k) { if (v > bv) { bv = v; bk = k; } }); return bk === null ? null : bk * step; }
+    var tot = lv + sv, share = tot > 0 ? Math.max(lv, sv) / tot : 0.5;
+    return { events: rec.length, dominant: share < 0.65 ? "balanced" : lv > sv ? "long" : "short", dominance: share, clusterLong: top(bl), clusterShort: top(bs) };
+  }
+  // pts is clamped to [-3, +3]
+  function liqScore(r, d, close, atr) {
+    if (!r || r.dominant === "balanced") return { pts: 0, note: r ? "liquidations balanced" : "" };
+    var pct = Math.round(r.dominance * 100), pts = 0, note = "";
+    if (r.dominant === "long" && r.clusterLong !== null) {
+      if (close > r.clusterLong + 0.25 * atr) { if (d > 0) { pts = 3; note = pct + "% longs flushed, cluster reclaimed"; } else { pts = -2; note = "long flush already reclaimed, SHORT is late"; } }
+      else if (d > 0) { pts = -2; note = pct + "% longs still being liquidated"; } else { pts = 1; note = "long liquidation cascade active"; }
+    } else if (r.dominant === "short" && r.clusterShort !== null) {
+      if (close < r.clusterShort - 0.25 * atr) { if (d < 0) { pts = 3; note = pct + "% shorts squeezed, cluster rejected"; } else { pts = -2; note = "short squeeze already rejected, LONG is late"; } }
+      else if (d < 0) { pts = -2; note = pct + "% shorts still being liquidated"; } else { pts = 1; note = "short squeeze still active"; }
+    }
+    return { pts: Math.max(-3, Math.min(3, pts)), note: note };
+  }
+  // Recent liquidation orders from OKX (public, CORS-enabled). Cached 60 s per symbol; failures never break the page.
+  CG.liqData = CG.liqData || {};
+  function ensureLiq(sym) {
+    var cur = CG.liqData[sym], now = Date.now();
+    if (cur && (cur.busy || now - cur.at < 60000)) return;
+    CG.liqData[sym] = { at: now, busy: true, ok: cur ? cur.ok : false, events: cur ? cur.events : [] };
+    fetch("https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&uly=" + sym.replace(/USDT$/, "") + "-USDT&state=filled&limit=100")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var ev = [];
+        ((j && j.code === "0" && j.data) || []).forEach(function (row) {
+          (row.details || []).forEach(function (x) {
+            var p = +x.bkPx, q = +x.sz, ts = +x.ts;
+            if (p > 0 && q > 0 && ts > 0) ev.push({ ts: ts, side: x.posSide === "long" || x.posSide === "short" ? x.posSide : x.side === "sell" ? "long" : "short", price: p, qty: q });
+          });
+        });
+        CG.liqData[sym] = { at: Date.now(), busy: false, ok: true, events: ev };
+      })
+      .catch(function () { CG.liqData[sym] = { at: Date.now(), busy: false, ok: false, events: [] }; });
+  }
+
   function evaluate(s, a) {
     var k = a.candles, d = s.side === "LONG" ? 1 : -1, price = a.price, atr = a.atr, sym = s.sym, cfg = CG.cfg || {};
     var closed = k.slice(0, -1), info = { d: d };
