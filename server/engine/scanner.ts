@@ -183,7 +183,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
     symbol, exchange: deps.exchange ?? "okx", marketType: deps.market.marketTypeOf?.(symbol) ?? "swap",
     timeframe: { primary: tf, confirmation: confTf ?? "none", execution: EXECUTION_TF[tf] },
     candles: pr instanceof Error ? [] : pr,
-    confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf,
+    confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf, liquidations,
     derivatives, news,
 }, { now, config: { minScore: s.minScore } });
   const signal = await guardEntry(built, tf, deps, now, btc, s.minScore);
