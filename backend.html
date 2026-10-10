@@ -962,6 +962,26 @@ async function scoreView() {
       const scoreRows = Object.keys(MAXS).map(k => { const v = sc[k] ?? 0, pc = Math.round(v / MAXS[k] * 100);
         return `<tr><td>${LBL[k]}</td><td>${v} / ${MAXS[k]}</td><td style="width:45%"><div style="background:#1d3550;height:6px;border-radius:3px"><div style="width:${pc}%;background:${pc >= 70 ? "#40eaa8" : pc >= 40 ? "#e5b94b" : "#ef5b6b"};height:6px;border-radius:3px"></div></div></td></tr>`; }).join("");
 
+            // SMC + Liquidation details (saved by the scanner on every signal)
+      const sm = s?.smc || {}, lq = s?.liquidation || {};
+      const sRows = [];
+      const sAdd = (name, reading, bull) => sRows.push({ name, reading, bull });
+      const bonus = sc.smcLiquidity ?? ((sm.pts || 0) + (lq.pts || 0));
+      if (sm.available || lq.available) sAdd("Bonus points (SMC + Liquidation)", (bonus > 0 ? "+" : "") + bonus + " (max +8)", dir === 0 ? 0 : sg(bonus) * dir);
+      if (sm.available) {
+        const lb = sm.lastBreak, ob = sm.orderBlock, fv = sm.fvg, sw = sm.sweep;
+        sAdd("Market structure", lb ? `${lb.side} ${lb.type === "CHOCH" ? "CHoCH" : "BOS"} · ${lb.barsAgo} candles ago · trend ${sm.trend}` : `no break yet · trend ${sm.trend}`, lb && lb.barsAgo <= 30 ? (lb.side === "bullish" ? 1 : -1) : 0);
+        sAdd("Order block", ob ? `${ob.side} ${n2(ob.low, 4)} – ${n2(ob.high, 4)}${ob.atPrice ? " · price inside" : ""}` : "none nearby", ob && ob.atPrice ? (ob.side === "bullish" ? 1 : -1) : 0);
+        sAdd("Fair value gap", fv ? `${fv.side} ${n2(fv.low, 4)} – ${n2(fv.high, 4)}${fv.atPrice ? " · price near" : ""}` : "none open", fv && fv.atPrice ? (fv.side === "bullish" ? 1 : -1) : 0);
+        sAdd("Liquidity sweep", sw ? `${sw.side} sweep of ${n2(sw.level, 4)} · ${sw.barsAgo} candles ago` : "none in last 6 candles", sw && sw.barsAgo <= 5 ? (sw.side === "bullish" ? 1 : -1) : 0);
+        sAdd("Premium / discount", `${sm.zone} (range ${n2(sm.rangeLow, 4)} – ${n2(sm.rangeHigh, 4)})`, sm.zone === "discount" ? 1 : sm.zone === "premium" ? -1 : 0);
+      } else sAdd("SMC", `not available (mode ${sm.mode || "off"}, or signal saved before SMC was added)`, null);
+      if (lq.available) {
+        sAdd("Liquidation flow", `${lq.dominant} liquidations ${lq.dominancePct}% · ${lq.events} events`, dir === 0 ? 0 : sg(lq.pts) * dir);
+        sAdd("Liquidation clusters", `longs ${lq.clusterLong == null ? "-" : n2(lq.clusterLong, 4)} · shorts ${lq.clusterShort == null ? "-" : n2(lq.clusterShort, 4)}`, 0);
+      } else sAdd("Liquidations", `not available (mode ${lq.mode || "off"}, or fewer than 5 recent events)`, null);
+      const smcRows = sRows.map(r => { const [txt, c] = stat(r.bull); return `<tr><td>${esc(r.name)}</td><td>${esc(r.reading)}</td><td class="${c}">${txt}</td></tr>`; }).join("");
+
       const rs = lv ? { primaryReason: lv.rationale, confirmations: lv.confirmations, conflicts: lv.conflicts, warnings: lv.warnings } : (s?.reasoning || {});
       const ul = (a, c) => (a && a.length) ? `<ul style="margin:4px 0 10px 18px">${a.map(x => `<li class="${c}">${esc(x)}</li>`).join("")}</ul>` : '<div style="opacity:.6;margin:4px 0 10px">none</div>';
       const miss = (s?.marketContext && s.marketContext.unavailable) || [];
