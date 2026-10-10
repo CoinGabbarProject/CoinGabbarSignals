@@ -1,4 +1,4 @@
-import type { Candle, Timeframe } from "../../shared/market.js";
+import type { Candle, Liquidation, Timeframe } from "../../shared/market.js";
 import type { DerivativesInput } from "../../shared/scoring.js";
 
 /** What the scanner needs from a market-data source. Swap this for another exchange or a mock. */
