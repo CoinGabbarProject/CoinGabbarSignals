@@ -64,3 +64,11 @@ export function scoreLiquidation(r: LiquidationResult, s: 1 | -1, close: number,
   }
   return { pts: Math.max(-3, Math.min(3, pts)), confirmations: conf, conflicts, againstCascade };
       }
+/** Plain-JSON summary of a LiquidationResult for storage and the dashboards. */
+export function describeLiquidation(r: LiquidationResult, mode: string, pts: number): Record<string, unknown> {
+  return {
+    available: true, mode, pts, dominant: r.dominant, dominancePct: Math.round(r.dominance * 100), events: r.events,
+    longVolume: r.longVolume, shortVolume: r.shortVolume, clusterLong: r.clusterLong, clusterShort: r.clusterShort,
+  };
+}
+
