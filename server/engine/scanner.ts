@@ -169,7 +169,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
   const primary = deps.market.getCandles(symbol, tf, s.candleLimit, now);
   const htfOn = tf !== "4H" && tf !== "1D" && (process.env.HTF_FILTER ?? "true") !== "false";
   const liqOn = (process.env.LIQ_MODE ?? "soft") !== "off" && typeof deps.market.getLiquidations === "function";
-  const [pr, confirmation, ticker, derivatives, news, htf] = await Promise.all([
+  const [pr, confirmation, ticker, derivatives, news, htf, liquidations] = await Promise.all([
     primary.then((c): Candle[] | Error => c, (e: unknown): Candle[] | Error => (e instanceof Error ? e : new Error(String(e)))),
     optional(confTf ? deps.market.getCandles(symbol, confTf, s.candleLimit, now) : null),
     optional(deps.market.getTicker24h(symbol)),
