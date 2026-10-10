@@ -11,7 +11,7 @@ export interface LiquidationResult {
 }
 
 /** Summarise recent liquidation events. Volume units are exchange contracts: only ratios matter. */
-export function calcLiquidation(events: Liquidation[] | null | undefined, atr: number, now: number, windowMs = 3 * 3_600_000): LiquidationResult | null {
+export function calcLiquidation(events: Liquidation[] | null | undefined, atr: number, now: number, windowMs = 6 * 3_600_000): LiquidationResult | null {
   if (!events || !(atr > 0)) return null;
   const recent = events.filter((e) => now - e.timestamp <= windowMs && e.price > 0 && e.quantity > 0);
   if (recent.length < 5) return null;
