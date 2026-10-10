@@ -69,7 +69,8 @@ export const DEFAULT_CONFIG: BuilderConfig = {
     htfFilter: (process.env.HTF_FILTER ?? "true") !== "false",
     requireCandle: (process.env.CANDLE_CONFIRM ?? "true") !== "false",
     candleVolMin: Number(process.env.CANDLE_VOL_MIN ?? "1"),                // raise to 1.2 for stricter volume
-    requireFib: (process.env.FIB_ENTRY ?? "true") !== "false",
+        requireFib: (process.env.CORE4 ?? "true") === "false" && (process.env.FIB_ENTRY ?? "true") !== "false",
+    core4: (process.env.CORE4 ?? "true") !== "false",   // true = only EMA + RSI + SMC + Liquidation; "false" = old full engine
     smc: signalMode(process.env.SMC_MODE, "soft"),   // off | soft | strict
     liq: signalMode(process.env.LIQ_MODE, "soft"),   // off | soft | strict
   },
