@@ -997,6 +997,8 @@ async function scoreView() {
         <p>${head}</p>
         <b>Score breakdown${lv ? " (signal ke time ka)" : ""}</b>
         <table class="table" style="margin:6px 0 12px">${th(["Category", "Points", ""])}<tbody>${scoreRows}</tbody></table>
+                <b>SMC + Liquidation (Smart Money)</b>
+        <table class="table" style="margin:6px 0 12px">${th(["Item", "Reading", "Status"])}<tbody>${smcRows}</tbody></table>
         <b>Indicators used in scoring${lv ? " (abhi ki scan reading)" : ""}</b>
         <table class="table" style="margin:6px 0 12px">${th(["Indicator", "Group", "Reading", "Status"])}<tbody>${indRows || '<tr><td colspan="4">Is coin ka latest scan data abhi nahi hai</td></tr>'}</tbody></table>
         <b>Confirmations</b>${ul(rs.confirmations, "green")}
