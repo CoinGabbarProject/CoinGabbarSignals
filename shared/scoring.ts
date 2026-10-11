@@ -138,7 +138,7 @@ export function scoreSetup(input: ScoreInput): ScoreResult {
   const atr = ind.atr.value;
   if (!Number.isFinite(atr) || atr <= 0) return early("NEUTRAL", "ATR unavailable");
     const close = k.close;
-  if (input.gates?.core4) return scoreCore4(input, ind, atr, close);
+if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
 
   // ---- direction: 5 votes ----
   const v = (b: boolean): number => (b ? 1 : -1);
