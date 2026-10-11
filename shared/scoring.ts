@@ -120,6 +120,88 @@ function scoreCore4(input: ScoreInput, ind: NonNullable<ReturnType<typeof calcIn
   return { side, score, confirmations: conf, conflicts, warnings, unavailable: [], criticalFailure: critical, fib: null, smc: smcOut, liquidation: liqOut };
 }
 
+/** CORE mode with a selectable indicator set, e.g. CORE_INDICATORS=smc,liq (any of ema, rsi, smc, liq). */
+function scoreCoreSel(input: ScoreInput, ind: NonNullable<ReturnType<typeof calcIndicators>>, atr: number, close: number): ScoreResult {
+  const g = input.gates ?? {};
+  const sel = new Set((g.core ?? "ema,rsi,smc,liq").toLowerCase().split(",").map((x) => x.trim()));
+  const useEma = sel.has("ema"), useRsi = sel.has("rsi");
+  const smcMode: SignalMode = sel.has("smc") ? (g.smc && g.smc !== "off" ? g.smc : "soft") : "off";
+  const liqMode: SignalMode = sel.has("liq") ? (g.liq && g.liq !== "off" ? g.liq : "soft") : "off";
+  const smc = smcMode !== "off" ? calcSmc(input.candles, atr) : null;
+  const lr = liqMode !== "off" ? calcLiquidation(input.liquidations, atr, Date.now()) : null;
+
+  // Direction: EMA20/50 if EMA is selected, otherwise whichever side SMC + Liquidation favour more
+  let dir = 0;
+  if (useEma) dir = ind.ema20 > ind.ema50 ? 1 : ind.ema20 < ind.ema50 ? -1 : 0;
+  else {
+    const net = (d: 1 | -1) => (smc ? scoreSmc(smc, d, close, atr).pts : 0) + (lr ? scoreLiquidation(lr, d, close, atr).pts : 0);
+    const l = net(1), sh = net(-1);
+    dir = l > sh ? 1 : sh > l ? -1 : 0;
+  }
+  if (dir === 0) return early("NEUTRAL", null, ["No clear directional bias"]);
+  const side: ScoreSide = dir > 0 ? "LONG" : "SHORT";
+  const s: 1 | -1 = dir > 0 ? 1 : -1;
+  const conf: string[] = [], conflicts: string[] = [], warnings: string[] = [];
+  let critical: string | null = null;
+  let ema = 0, rsi = 0, smcPart = 0, liqPart = 0, extra = 0, maxTotal = 0;
+
+  if (useEma) {
+    maxTotal += 30; ema = 15;
+    conf.push("EMA20/EMA50 aligned with the setup");
+    if ((close - ind.ema50) * s > 0) ema += 10; else conflicts.push("Price is on the wrong side of EMA50");
+    if (Math.abs(ind.ema20 - ind.ema50) / atr >= 0.5) ema += 5;
+    const stretch = Math.abs(close - ind.ema20) / atr;
+    if (stretch > 2) critical = "Price is overextended from EMA20 (chasing risk)";
+    else if (stretch > 1.5) warnings.push(`Price is ${stretch.toFixed(1)} ATR away from EMA20`);
+  }
+  if (useRsi) {
+    maxTotal += 20;
+    const r = s > 0 ? ind.rsi.value : 100 - ind.rsi.value;
+    if (r >= 50 && r <= 70) { rsi = 20; conf.push(`RSI ${ind.rsi.value.toFixed(0)} supports the ${side}`); }
+    else if ((r >= 40 && r < 50) || (r > 70 && r <= 75)) rsi = 10;
+    else if (r > 75) critical = critical ?? `RSI ${ind.rsi.value.toFixed(0)} is overextended for a ${side}`;
+  }
+  let smcOut: Record<string, unknown> | null = null;
+  let liqOut: Record<string, unknown> | null = null;
+  if (smcMode !== "off") {
+    maxTotal += 30;
+    smcOut = { available: false, mode: smcMode };
+    let pts = 0;
+    if (smc) {
+      const ss = scoreSmc(smc, s, close, atr);
+      pts = ss.pts; conf.push(...ss.confirmations); conflicts.push(...ss.conflicts);
+      smcOut = describeSmc(smc, smcMode, ss.pts, s, close, atr);
+      if (smcMode === "strict") {
+        if (ss.againstRecentBreak) critical = critical ?? "SMC: a recent structure break is against the setup";
+        else if (!ss.hasConfluence) critical = critical ?? "SMC: no order block, sweep, FVG or structure break confirms the setup";
+      }
+    }
+    smcPart = ((pts + 4) / 9) * 30;
+    extra += pts;
+  }
+  if (liqMode !== "off") {
+    maxTotal += 20;
+    liqOut = { available: false, mode: liqMode };
+    let pts = 0;
+    if (lr) {
+      const lsc = scoreLiquidation(lr, s, close, atr);
+      pts = lsc.pts; conf.push(...lsc.confirmations); conflicts.push(...lsc.conflicts);
+      liqOut = describeLiquidation(lr, liqMode, lsc.pts);
+      if (liqMode === "strict" && lsc.againstCascade) critical = critical ?? "Liquidation cascade is still active against the setup";
+    }
+    liqPart = ((pts + 3) / 6) * 20;
+    extra += pts;
+  }
+  if (maxTotal === 0) return early("NEUTRAL", null, ["CORE_INDICATORS has no valid indicator (use ema, rsi, smc, liq)"]);
+
+  const total = Math.min(100, Math.max(0, Math.round(((ema + rsi + smcPart + liqPart) * 100) / maxTotal)));
+  const score: SetupScore = {
+    total, marketContext: 0, trendMTF: ema, structure: Math.round(smcPart), liquiditySR: Math.round(liqPart),
+    volumeMomentum: rsi, derivativesOrderbook: 0, newsFundamentals: 0, riskExecution: 0, smcLiquidity: extra,
+  };
+  return { side, score, confirmations: conf, conflicts, warnings, unavailable: [], criticalFailure: critical, fib: null, smc: smcOut, liquidation: liqOut };
+}
+
 function early(side: ScoreSide, criticalFailure: string | null, warnings: string[] = []): ScoreResult {
   return { side, score: zeroScore(), confirmations: [], conflicts: [], warnings, unavailable: [], criticalFailure };
 }
