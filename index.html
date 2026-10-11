@@ -8268,7 +8268,71 @@ X.badge = badge; X.notes = notes;
       }).catch(function () { b.textContent = "not found"; b.style.color = "#ff5c7a"; });
     });
   }
-  function add(panel) {
+  var coinsP = null;
+  function coins() {
+    if (coinsP) return coinsP;
+    function get(type) {
+      return fetch("https://www.okx.com/api/v5/market/tickers?instType=" + type).then(function (r) { return r.json(); })
+        .then(function (b) { return (b && b.code === "0" && b.data) || []; }).catch(function () { return []; });
+    }
+    coinsP = Promise.all([get("SPOT"), get("SWAP")]).then(function (res) {
+      var m = {};
+      res[0].forEach(function (r) { var x = /^([A-Z0-9]+)-USDT$/.exec(r.instId); if (x) m[x[1]] = { base: x[1], last: +r.last, vol: +r.volCcy24h || 0 }; });
+      res[1].forEach(function (r) { var x = /^([A-Z0-9]+)-USDT-SWAP$/.exec(r.instId); if (x && !m[x[1]]) m[x[1]] = { base: x[1], last: +r.last, vol: (+r.volCcy24h || 0) * (+r.last || 0) }; });
+      var a = Object.keys(m).map(function (k) { return m[k]; });
+      a.sort(function (p, q) { return q.vol - p.vol; });
+      if (!a.length) coinsP = null;
+      return a;
+    });
+    return coinsP;
+  }
+  function hideDrop(panel) { var d = panel.querySelector("#wlDrop"); if (d) d.style.display = "none"; }
+  function add(panel, symIn) {
+    var inp = panel.querySelector("#wlInput"), msg = panel.querySelector("#wlMsg"), s = norm(symIn || inp.value);
+    if (!s || s === "USDT") { msg.textContent = "Enter a coin name (e.g. PEPE, DOGE)"; return; }
+    var w = load();
+    if (w.indexOf(s) >= 0) { msg.textContent = label(s) + " is already in your list"; hideDrop(panel); return; }
+    msg.textContent = "Checking " + label(s) + "...";
+    tick(s).then(function () { w.push(s); save(w); inp.value = ""; msg.textContent = label(s) + " added"; hideDrop(panel); paint(panel); })
+      .catch(function () { msg.textContent = label(s) + " not found on OKX (check the spelling)"; });
+  }
+  function setupSearch(panel) {
+    var inp = panel.querySelector("#wlInput"), row = inp.parentElement, drop = document.createElement("div"), seq = 0;
+    panel.style.overflow = "visible";
+    row.style.position = "relative";
+    drop.id = "wlDrop";
+    drop.style.cssText = "display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:50;max-height:240px;overflow-y:auto;background:#07182b;border:1px solid #18314e;border-radius:4px";
+    row.appendChild(drop);
+    function note(t) { return '<div style="padding:10px;font-size:12px;color:#7088a0">' + t + "</div>"; }
+    function show() {
+      var q = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/USDT$/, ""), n = ++seq;
+      drop.style.display = "block";
+      drop.innerHTML = note("Loading coins...");
+      coins().then(function (a) {
+        if (n !== seq) return;
+        if (!a.length) { drop.innerHTML = note("Could not load the coin list. Please try again."); return; }
+        var list = q ? a.filter(function (c) { return c.base.indexOf(q) === 0; }).concat(a.filter(function (c) { return c.base.indexOf(q) > 0; })) : a;
+        list = list.slice(0, q ? 40 : 15);
+        if (!list.length) { drop.innerHTML = note("No coins found"); return; }
+        var have = load();
+        drop.innerHTML = list.map(function (c) {
+          var inList = have.indexOf(c.base + "USDT") >= 0;
+          return '<div data-add="' + esc(c.base) + '" style="display:flex;justify-content:space-between;gap:8px;padding:10px;font-size:12px;border-top:1px solid #122a43;cursor:pointer"><span>' + esc(c.base) +
+            '/USDT</span><span style="color:#7088a0">' + (inList ? "Added \u2713" : money(c.last)) + "</span></div>";
+        }).join("");
+      });
+    }
+    inp.addEventListener("input", show);
+    inp.addEventListener("focus", show);
+    drop.addEventListener("click", function (e) {
+      var o = e.target.closest && e.target.closest("[data-add]");
+      if (o) add(panel, o.getAttribute("data-add"));
+    });
+    document.addEventListener("click", function (e) {
+      if (document.body.contains(panel) && !row.contains(e.target)) hideDrop(panel);
+    });
+  }
+  function addLegacy(panel) {
     var inp = panel.querySelector("#wlInput"), msg = panel.querySelector("#wlMsg"), s = norm(inp.value);
     if (!s || s === "USDT") { msg.textContent = "Coin ka naam likho (jaise PEPE, DOGE)"; return; }
     var w = load();
