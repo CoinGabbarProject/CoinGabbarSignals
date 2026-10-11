@@ -8234,5 +8234,72 @@ X.badge = badge; X.notes = notes;
   });
 })();
 </script>
+<script>
+/* ===== DYNAMIC WATCHLIST: add/remove any OKX USDT coin, live prices, saved in browser ===== */
+(function () {
+  var KEY = "cgs_watch";
+  var DEFAULTS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"], timer = null;
+  function load() { try { var w = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(w) && w.length) return w; } catch (e) {} return DEFAULTS.slice(); }
+  function save(w) { try { localStorage.setItem(KEY, JSON.stringify(w)); } catch (e) {} }
+  function norm(t) { t = String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!t) return ""; return /USDT$/.test(t) ? t : t + "USDT"; }
+  function label(s) { return s.replace(/USDT$/, "") + "/USDT"; }
+  function dec(p) { return p >= 100 ? 2 : p >= 1 ? 4 : p > 0 ? Math.min(12, Math.ceil(-Math.log10(p)) + 3) : 2; }
+  function money(p) { var d = dec(p); return "$" + p.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+  function tick(sym) { return OKXPX.fetch("/ticker/24hr?symbol=" + encodeURIComponent(sym)).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
+
+  function paint(panel) {
+    var list = panel.querySelector("#wlList"), w = load();
+    if (!list) return;
+    list.innerHTML = w.map(function (s) {
+      return '<div class="wl-row" data-sym="' + esc(s) + '" style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 0;border-top:1px solid #122a43;font-size:12px"><span>' + esc(label(s)) +
+        '</span><b class="wl-px" style="margin-left:auto;font-size:12px">...</b><button type="button" class="wl-del" data-del="' + esc(s) +
+        '" style="margin-left:8px;background:none;border:1px solid #2a4a6c;color:#7088a0;border-radius:3px;cursor:pointer;padding:0 6px">&times;</button></div>';
+    }).join("");
+    refresh(panel);
+  }
+  function refresh(panel) {
+    panel.querySelectorAll(".wl-row").forEach(function (row) {
+      var s = row.getAttribute("data-sym"), b = row.querySelector(".wl-px");
+      tick(s).then(function (t) {
+        var p = parseFloat(t.lastPrice), ch = parseFloat(t.priceChangePercent);
+        b.textContent = money(p) + " " + (ch >= 0 ? "+" : "") + ch.toFixed(2) + "%";
+        b.style.color = ch >= 0 ? "#19df91" : "#ff5c7a";
+      }).catch(function () { b.textContent = "not found"; b.style.color = "#ff5c7a"; });
+    });
+  }
+  function add(panel) {
+    var inp = panel.querySelector("#wlInput"), msg = panel.querySelector("#wlMsg"), s = norm(inp.value);
+    if (!s || s === "USDT") { msg.textContent = "Coin ka naam likho (jaise PEPE, DOGE)"; return; }
+    var w = load();
+    if (w.indexOf(s) >= 0) { msg.textContent = label(s) + " pehle se list mein hai"; return; }
+    msg.textContent = "Checking " + label(s) + "...";
+    tick(s).then(function () { w.push(s); save(w); inp.value = ""; msg.textContent = label(s) + " added"; paint(panel); })
+      .catch(function () { msg.textContent = label(s) + " OKX pe nahi mila (spelling check karo)"; });
+  }
+  function build() {
+    var h = Array.prototype.find.call(document.querySelectorAll(".page-body .panel h3"), function (x) { return x.textContent.trim() === "My Watchlist"; });
+    if (!h) { if (timer) { clearInterval(timer); timer = null; } return; }
+    var panel = h.parentElement;
+    if (panel.getAttribute("data-wl")) return;
+    panel.setAttribute("data-wl", "1");
+    panel.innerHTML = '<h3>My Watchlist</h3>' +
+      '<div style="display:flex;gap:6px;margin-bottom:10px"><input id="wlInput" type="text" placeholder="Coin add karo (e.g. PEPE)" autocapitalize="characters" autocomplete="off" style="flex:1;min-width:0;background:#07182b;border:1px solid #18314e;color:#e6f0fa;border-radius:4px;padding:8px;font-size:12px">' +
+      '<button type="button" id="wlAdd" style="background:#19df91;color:#04121f;border:0;border-radius:4px;padding:8px 14px;font-weight:700;cursor:pointer">+ Add</button></div>' +
+      '<div id="wlMsg" style="font-size:10px;color:#7088a0;min-height:14px;margin-bottom:6px"></div><div id="wlList"></div>';
+    panel.querySelector("#wlAdd").addEventListener("click", function () { add(panel); });
+    panel.querySelector("#wlInput").addEventListener("keydown", function (e) { if (e.key === "Enter") add(panel); });
+    panel.addEventListener("click", function (e) {
+      var d = e.target.closest && e.target.closest("[data-del]"); if (!d) return;
+      var s = d.getAttribute("data-del"); save(load().filter(function (x) { return x !== s; })); paint(panel);
+    });
+    paint(panel);
+    if (timer) clearInterval(timer);
+    timer = setInterval(function () { if (!document.hidden && document.body.contains(panel)) refresh(panel); }, 5000);
+  }
+  new MutationObserver(build).observe(document.body, { childList: true, subtree: true });
+  build();
+})();
+</script>
 </body>
 </html>
