@@ -8352,6 +8352,7 @@ X.badge = badge; X.notes = notes;
       '<button type="button" id="wlAdd" style="background:#19df91;color:#04121f;border:0;border-radius:4px;padding:8px 14px;font-weight:700;cursor:pointer">+ Add</button></div>' +
       '<div id="wlMsg" style="font-size:10px;color:#7088a0;min-height:14px;margin-bottom:6px"></div><div id="wlList"></div>';
     panel.querySelector("#wlAdd").addEventListener("click", function () { add(panel); });
+    setupSearch(panel);
     panel.querySelector("#wlInput").addEventListener("keydown", function (e) { if (e.key === "Enter") add(panel); });
     panel.addEventListener("click", function (e) {
       var d = e.target.closest && e.target.closest("[data-del]"); if (!d) return;
