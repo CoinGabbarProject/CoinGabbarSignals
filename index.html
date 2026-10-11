@@ -8348,7 +8348,7 @@ X.badge = badge; X.notes = notes;
     if (panel.getAttribute("data-wl")) return;
     panel.setAttribute("data-wl", "1");
     panel.innerHTML = '<h3>My Watchlist</h3>' +
-      '<div style="display:flex;gap:6px;margin-bottom:10px"><input id="wlInput" type="text" placeholder="Coin add karo (e.g. PEPE)" autocapitalize="characters" autocomplete="off" style="flex:1;min-width:0;background:#07182b;border:1px solid #18314e;color:#e6f0fa;border-radius:4px;padding:8px;font-size:12px">' +
+      '<div style="display:flex;gap:6px;margin-bottom:10px"><input id="wlInput" type="text" placeholder="Search coin (e.g. PEPE)" autocapitalize="characters" autocomplete="off" style="flex:1;min-width:0;background:#07182b;border:1px solid #18314e;color:#e6f0fa;border-radius:4px;padding:8px;font-size:12px">' +
       '<button type="button" id="wlAdd" style="background:#19df91;color:#04121f;border:0;border-radius:4px;padding:8px 14px;font-weight:700;cursor:pointer">+ Add</button></div>' +
       '<div id="wlMsg" style="font-size:10px;color:#7088a0;min-height:14px;margin-bottom:6px"></div><div id="wlList"></div>';
     panel.querySelector("#wlAdd").addEventListener("click", function () { add(panel); });
