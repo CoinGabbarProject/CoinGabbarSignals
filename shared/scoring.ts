@@ -129,7 +129,7 @@ function scoreCoreSel(input: ScoreInput, ind: NonNullable<ReturnType<typeof calc
   const smcMode: SignalMode = sel.has("smc") ? (g.smc && g.smc !== "off" ? g.smc : "soft") : "off";
   const liqMode: SignalMode = sel.has("liq") ? (g.liq && g.liq !== "off" ? g.liq : "soft") : "off";
   const smc = smcMode !== "off" ? calcSmc(input.candles, atr) : null;
-  const lr = liqMode !== "off" ? calcLiquidation(input.liquidations, atr, Date.now()) : null;
+  const lr = liqMode !== "off" ? calcLiquidation(input.liquidations, atr, input.now ?? Date.now()) : null;
 
   // Direction: EMA20/50 if EMA is selected, otherwise whichever side SMC + Liquidation favour more
   let dir = 0;
