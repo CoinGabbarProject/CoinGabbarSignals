@@ -702,7 +702,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
       <div ref={wrapRef} onPointerDownCapture={(e) => { if (e.pointerType !== "mouse") setTouchUi(true); }} onPointerMove={onWrapMove} onPointerLeave={() => { if (!dragRef.current) setHover("none"); }} style={{ position: "relative", minWidth: 0 }}>
         {children}
         {tool !== "cursor" && (
-          <div aria-label="Drawing surface" onPointerDown={onDrawDown} onPointerMove={onDrawMove} onPointerUp={onDrawUp} onPointerCancel={() => { pressRef.current = false; cancelDraft(); }}
+          <div aria-label="Drawing surface" onPointerDown={onDrawDown} onPointerMove={onDrawMove} onPointerUp={onDrawUp} onContextMenu={(e) => e.preventDefault()} onPointerCancel={() => { pressRef.current = false; cancelDraft(); }}
             style={{ position: "absolute", inset: 0, cursor: "crosshair", touchAction: "none", zIndex: 5 }} />
         )}
         {showOverlay && (
