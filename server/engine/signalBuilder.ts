@@ -288,7 +288,15 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
     marketContext: { change24hPct: input.change24hPct ?? null, unavailable: scored.unavailable },
     reasoning: { primaryReason, confirmations: scored.confirmations, conflicts: scored.conflicts, warnings, invalidation },
     dataQuality: { status: dqStatus, timestamp: last ? new Date(last.timestamp).toISOString() : iso, sources },
-    events: [],
+        events: [],
+    strategy: {
+      version: STRATEGY_VERSION,
+      scoring: cfg.gates.core4 ? "CORE4" : "FULL",
+      core: cfg.gates.core ?? "",
+      smc: cfg.gates.smc ?? "off",
+      liq: cfg.gates.liq ?? "off",
+      minScore: cfg.minScore,
+    },
     timestamps: { createdAt: iso, updatedAt: iso, closedAt: null },
   };
 }
