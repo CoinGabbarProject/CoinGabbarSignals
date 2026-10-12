@@ -338,7 +338,7 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
     dataQuality: { status: dqStatus, timestamp: last ? new Date(last.timestamp).toISOString() : iso, sources },
         events: [],
     strategy: {
-      version: STRATEGY_VERSION,
+            version: cfg.strategyVersion ?? STRATEGY_VERSION,
       scoring: cfg.gates.core4 ? "CORE4" : "FULL",
       core: cfg.gates.core ?? "",
       smc: cfg.gates.smc ?? "off",
