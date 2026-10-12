@@ -707,7 +707,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
         )}
         {showOverlay && (
           <div aria-label="Drawing grab layer" onContextMenu={(e) => e.preventDefault()} onPointerDown={onGrab} onPointerUp={endDrag} onPointerCancel={endDrag}
-            style={{ position: "absolute", inset: 0, cursor: dragging ? "grabbing" : hover === "locked" ? "not-allowed" : "move", touchAction: "none", zIndex: 5 }} />
+            style={{ position: "absolute", inset: 0, cursor: dragging ? "grabbing" : hover === "locked" ? "not-allowed" : "move", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", zIndex: 5 }} />
         )}
       </div>
     </div>
