@@ -102,7 +102,7 @@ function scoreCore4(input: ScoreInput, ind: NonNullable<ReturnType<typeof calcIn
   if (liqMode !== "off") {
     maxTotal += 20;
     let pts = 0;
-    const lr = calcLiquidation(input.liquidations, atr, Date.now());
+    const lr = calcLiquidation(input.liquidations, atr, input.now ?? Date.now());
     if (lr) {
       const lsc = scoreLiquidation(lr, s, close, atr);
       pts = lsc.pts; conf.push(...lsc.confirmations); conflicts.push(...lsc.conflicts);
@@ -468,7 +468,7 @@ else unavailable.push("orderBook");
     }
   }
   if (liqMode !== "off") {
-    const lr = calcLiquidation(input.liquidations, atr, Date.now());
+    const lr = calcLiquidation(input.liquidations, atr, input.now ?? Date.now());
     if (lr) {
       const lsc = scoreLiquidation(lr, s, close, atr);
       extraPts += lsc.pts; conf.push(...lsc.confirmations); conflicts.push(...lsc.conflicts);
