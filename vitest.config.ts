@@ -5,6 +5,6 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     environment: "node",
     // old tests expect the old (gate-free) engine behaviour
-    env: { ADX_MIN: "0", HTF_FILTER: "false", CANDLE_CONFIRM: "false", FIB_ENTRY: "false" },
+     env: { ADX_MIN: "0", HTF_FILTER: "false", CANDLE_CONFIRM: "false", FIB_ENTRY: "false", CORE4: "false" },
   },
 });
