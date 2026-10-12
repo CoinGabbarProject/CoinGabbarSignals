@@ -1259,7 +1259,7 @@ const chartTf = (tf?: string): string => {
   const m = t.match(/^(\d+)\s*([mhdMHD])$/);
   if (!m) return "15m";
   const n = m[1];
-  const u = m[2].toLowerCase();
+  const u = (m[2] ?? "m").toLowerCase();
   return u === "m" ? `${n}m` : u === "h" ? `${n}H` : `${n}D`;
 };
 
