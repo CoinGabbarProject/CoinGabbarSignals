@@ -83,7 +83,7 @@ export interface Report {
 export function buildReport(trades: BacktestTrade[]): Report {
   const exits: Record<string, number> = {};
   for (const t of trades) {
-    const key = t.reason === "SL" ? (t.hits > 0 ? `SL after TP${t.hits}` : "SL") : t.reason;
+    const key = t.reason === "SL" ? (t.hits > 0 ? `SL after TP${t.hits}` : "SL") : t.reason === "TRAIL" ? `Trail after TP${t.hits}` : t.reason;
     exits[key] = (exits[key] ?? 0) + 1;
   }
   const symbols = [...new Set(trades.map((t) => t.symbol))];
