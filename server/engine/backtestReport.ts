@@ -337,7 +337,7 @@ export function createBacktestRouter(scan: ScanConfig): Router {
             const rep = buildReport(result.trades);
       const baseline = await runBacktest(histories, btc, { ...p.opts, minScore: 0 });
       const validation = buildValidation(result.trades, baseline.trades, p.opts.minScore);
-      if (p.json) { res.json({ success: true, failed, report: rep, skips: result.skips, trades: result.trades }); return; }
+            if (p.json) { res.json({ success: true, failed, report: rep, validation, skips: result.skips, trades: result.trades }); return; }
       res.type("text/plain; charset=utf-8").send(formatReport(result, rep, failed));
     } catch (err) {
       console.error("backtest error:", err);
