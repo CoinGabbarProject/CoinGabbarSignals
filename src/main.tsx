@@ -1429,7 +1429,7 @@ function drawHitLines(
 
   const snap = (ms: number): number => {
     const sec = Math.floor(ms / 1000);
-    let bar = view[0].time as number;
+ let bar = view[0]!.time as number;
     for (const c of view) if ((c.time as number) <= sec) bar = c.time as number;
     return bar;
   };
