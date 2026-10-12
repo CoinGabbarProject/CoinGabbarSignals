@@ -221,6 +221,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const placedRef = useRef<Anchor[]>([]);
   const brushRef = useRef<Anchor[] | null>(null);
+  const pressRef = useRef(false);
   const dragRef = useRef<DragState | null>(null);
   const pastRef = useRef<Drawing[][]>([]);
   const futureRef = useRef<Drawing[][]>([]);
