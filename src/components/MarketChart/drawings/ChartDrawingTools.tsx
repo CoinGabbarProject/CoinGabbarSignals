@@ -467,7 +467,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
       prim.setDraft({ id: "draft", kind: tool, anchors: [...brush] });
       return;
     }
-    if (placedRef.current.length === 0) return;
+    if (placedRef.current.length === 0 && !pressRef.current) return;
     const a = anchorFromEvent(e, magnet);
     if (a) prim?.setDraft(draftFrom(a));
   };
