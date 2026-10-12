@@ -27,7 +27,7 @@ import type { Bias, SymbolHistory } from "./backtestData.js";
  * ordering below the chosen timeframe, partial fills, funding.
  */
 
-export type ExitReason = "SL" | "TP3" | "TIMEOUT" | "END";
+export type ExitReason = "SL" | "TRAIL" | "TP3" | "TIMEOUT" | "END";
 
 export interface BacktestOptions {
   timeframe: Timeframe;
