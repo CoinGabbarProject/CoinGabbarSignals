@@ -1031,6 +1031,67 @@ const VIEW_MAP = {
   "Signal History": signalHistoryView, "Audit Logs": auditView, "API & Keys": apiKeysView, "Settings": settingsView
 };
 
+async function signalHistoryView() {
+  host.innerHTML = panel("Signal History", "Loading…", "");
+  const OPEN = ["ACTIVE", "TP1_HIT", "TP2_HIT"];
+  const p = v => (v == null ? "-" : fmtP(v));
+  try {
+    const d = await api("/signals?limit=2000");
+    const rows = d.signals.map(s => `<tr>
+      <td>${esc(s.symbol)}</td>
+      <td class="${s.side === "LONG" ? "green" : s.side === "SHORT" ? "red" : ""}">${esc(s.side)}</td>
+      <td>${esc(s.timeframe)}</td>
+      <td>${esc(s.score)}/100</td>
+      <td>${esc(p(s.entry))}</td>
+      <td>${esc(p(s.stop))}</td>
+      <td>${esc((s.targets || []).map(fmtP).join(", "))}</td>
+      <td><span class="status ${OPEN.includes(s.status) ? "active" : "neutral"}">${esc(s.status)}</span></td>
+      <td>${new Date(s.createdAt).toLocaleString()}</td>
+      <td>${s.kept ? '<span class="status pending">★ KEPT</span>' : ""}</td>
+      <td style="white-space:nowrap">
+        <button class="btn" data-keep="${esc(s.id)}" data-kept="${s.kept ? 1 : 0}">${s.kept ? "Unkeep" : "Keep"}</button>
+        <button class="btn" data-del="${esc(s.id)}" ${s.kept ? "disabled" : ""}>Delete</button>
+      </td></tr>`).join("");
+
+    host.innerHTML = `<div class="panel"><div class="ph"><b>Signal History</b>
+      <span>${d.count} signals · ${d.signals.filter(s => s.kept).length} kept
+      <button class="btn" id="purgeBtn" style="margin-left:8px">Delete all not kept (closed only)</button></span></div>
+      <div class="pb" style="overflow:auto"><table class="table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>TF</th><th>Score</th><th>Entry</th><th>Stop</th><th>Targets</th><th>Status</th><th>Created</th><th>Kept</th><th>Action</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="11">No signals yet</td></tr>'}</tbody></table></div></div>`;
+
+    host.querySelectorAll("[data-keep]").forEach(b => b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        await api("/signals/" + encodeURIComponent(b.dataset.keep) + "/keep", {
+          method: "PATCH", body: JSON.stringify({ kept: b.dataset.kept !== "1" })
+        });
+        signalHistoryView();
+      } catch (e) { alert(e.message); b.disabled = false; }
+    }));
+
+    host.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm("Delete this signal permanently?")) return;
+      b.disabled = true;
+      try {
+        await api("/signals/" + encodeURIComponent(b.dataset.del), { method: "DELETE" });
+        signalHistoryView();
+      } catch (e) { alert(e.message); b.disabled = false; }
+    }));
+
+    $("purgeBtn").addEventListener("click", async () => {
+      if (!confirm("Delete ALL closed signals that are not kept? Open signals are skipped.")) return;
+      try {
+        const r = await api("/signals/purge", { method: "POST" });
+        alert(r.deleted + " signals deleted");
+        signalHistoryView();
+      } catch (e) { alert(e.message); }
+    });
+  } catch (e) {
+    host.innerHTML = `<div class="panel"><div class="pb red">${esc(e.message)}</div></div>`;
+  }
+}
+
 function placeholderView(name) {
   host.dataset.view = name;
   clearInterval(viewTimer);
