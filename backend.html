@@ -1201,7 +1201,8 @@ function show(name) {
   dashParts.forEach(el => el.style.display = dash ? "" : "none");
   host.style.display = dash ? "none" : "";
   if (dash) loadDashboard();
-  else if (["Signal Engine", "Signal Events", "Signals"].includes(name)) signalsView();
+    else if (["Signal Engine", "Signal Events", "Signals"].includes(name)) signalsView();
+  else if (name === "Signal History") signalHistoryView();
   else placeholderView(name);
 }
 
