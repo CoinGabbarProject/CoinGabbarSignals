@@ -474,7 +474,27 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
 
   const onDrawUp = (e: ReactPointerEvent<HTMLDivElement>): void => {
     const brush = brushRef.current;
-    if (!brush) return;
+    if (!brush) {
+      // press, slide to fine-tune, release to place the point (touch and mouse)
+      if (!pressRef.current || !def || tool === "cursor") return;
+      pressRef.current = false;
+      const a = anchorFromEvent(e, magnet);
+      if (!a) return;
+      const placed = [...placedRef.current, a];
+      if (placed.length < def.points) {
+        placedRef.current = placed; setPlacedCount(placed.length);
+        primRef.current?.setDraft(draftFrom(a));
+        return;
+      }
+      let text: string | undefined;
+      if (tool === "text") {
+        const t = window.prompt("Text label", "");
+        if (t === null || t.trim() === "") { cancelDraft(); return; }
+        text = t.trim();
+      }
+      finish(tool, completeAnchors(tool, placed), text);
+      return;
+    }
     if (tool !== "cursor" && brush.length >= 2) finish(tool, brush); else cancelDraft();
   };
 
