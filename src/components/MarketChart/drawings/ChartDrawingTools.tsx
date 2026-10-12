@@ -544,7 +544,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
     const p = xyOf(e);
     const h = p ? hitAt(p.x, p.y) : null;
     const d = h ? drawings.find((x) => x.id === h.id) : undefined;
-    if (!p || !h || !d) return;
+    if (!p || !h || !d) { if (e.pointerType === "touch") setSelectedId(null); return; }
     setSelectedId(d.id);
     if (d.locked) return;
     e.currentTarget.setPointerCapture(e.pointerId);
