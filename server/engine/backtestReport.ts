@@ -5,6 +5,7 @@ import type { Candle, Timeframe } from "../../shared/market.js";
 import type { ScanConfig } from "../config/env.js";
 import { SYMBOL_RE } from "../config/env.js";
 import { DEFAULT_BACKTEST_OPTIONS, runBacktest } from "./backtest.js";
+import { resolveProfile } from "./signalBuilder.js";
 import type { BacktestOptions, BacktestResult, BacktestTrade } from "./backtest.js";
 import { DEFAULT_HISTORY_CONFIG, barsForDays, fetchHistory, loadSymbolHistory, WARMUP } from "./backtestData.js";
 import type { SymbolHistory } from "./backtestData.js";
