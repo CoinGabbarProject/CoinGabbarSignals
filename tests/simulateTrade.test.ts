@@ -66,3 +66,54 @@ describe("applyClusterLimit (overlapping trades)", () => {
   });
   it("max 0 means no limit", () => { expect(applyClusterLimit([t("A", 1, 9), t("B", 2, 9)], 0).dropped).toBe(0); });
 });
+describe("simulateTrade staged stop (live-tracker parity, opt-in)", () => {
+  const staged = { staged: true };
+  it("default (no mgmt) behaves exactly as before: the stop never moves", () => {
+    const s = simulateTrade(1, 100, 98, [102, 104, 106], W, [k(0, 99, 102.5), k(1, 99.5, 101), k(2, 99.9, 100.1)], 0, 10, 0);
+    expect(s?.reason).not.toBe("TRAIL");
+  });
+  it("after TP1 the stop moves to entry: pullback exits at break-even on the rest", () => {
+    const s = simulateTrade(1, 100, 98, [102, 104, 106], W, [k(0, 99, 102.5), k(1, 99.5, 101)], 0, 10, 0, staged);
+    expect(s?.hits).toBe(1);
+    expect(s?.reason).toBe("TRAIL");
+    expect(s?.exitPrice).toBe(100);
+    expect(s?.grossR).toBeCloseTo(0.5, 10); // 0.5 * 1R at TP1 + 0.5 * 0R at entry
+  });
+  it("after TP2 the stop moves to TP1", () => {
+    const s = simulateTrade(1, 100, 98, [102, 104, 106], W, [k(0, 99, 104.5), k(1, 101, 103)], 0, 10, 0, staged);
+    expect(s?.hits).toBe(2);
+    expect(s?.exitPrice).toBe(102);
+    expect(s?.grossR).toBeCloseTo(0.5 * 1 + 0.3 * 2 + 0.2 * 1, 10);
+  });
+  it("the moved stop applies from the NEXT candle (same-candle order is unknown)", () => {
+    const s = simulateTrade(1, 100, 98, [102, 104, 106], W, [k(0, 99, 102.5)], 0, 1, 0, staged);
+    expect(s?.reason).toBe("TIMEOUT");
+  });
+  it("percent trail follows the best price but never below the staged base", () => {
+    const s = simulateTrade(1, 100, 98, [102, 104, 106], W, [k(0, 99, 105), k(1, 103.5, 105.5), k(2, 103, 104)], 0, 10, 0, { staged: true, trailPct: 2 });
+    expect(s?.hits).toBe(2);
+    expect(s?.reason).toBe("TRAIL");
+    expect(s?.exitPrice).toBeCloseTo(105.5 * 0.98, 6);
+  });
+  it("SHORT staged mirrors LONG", () => {
+    const s = simulateTrade(-1, 100, 102, [98, 96, 94], W, [k(0, 97.5, 101), k(1, 99, 100.5)], 0, 10, 0, staged);
+    expect(s?.reason).toBe("TRAIL");
+    expect(s?.exitPrice).toBe(100);
+    expect(s?.grossR).toBeCloseTo(0.5, 10);
+  });
+});
+
+describe("simulateTrade funding (assumption, charged only)", () => {
+  const cand = [k(0, 99, 101, 100), k(1, 99, 101, 100), k(2, 99, 101, 100), k(3, 99, 101, 100)];
+  it("a LONG pays funding per holding bar", () => {
+    const a = simulateTrade(1, 100, 98, [102, 104, 106], W, cand, 0, 4, 0, { fundingPctPerBar: 0 });
+    const b = simulateTrade(1, 100, 98, [102, 104, 106], W, cand, 0, 4, 0, { fundingPctPerBar: 0.01 });
+    // 4 bars * 0.01% of 100 = 0.04 price units / risk 2 = 0.02R
+    expect((a?.netR ?? 0) - (b?.netR ?? 0)).toBeCloseTo(0.02, 10);
+  });
+  it("a SHORT is never credited", () => {
+    const a = simulateTrade(-1, 100, 102, [98, 96, 94], W, cand, 0, 4, 0, { fundingPctPerBar: 0 });
+    const b = simulateTrade(-1, 100, 102, [98, 96, 94], W, cand, 0, 4, 0, { fundingPctPerBar: 0.01 });
+    expect(b?.netR).toBeCloseTo(a?.netR ?? 0, 10);
+  });
+});
