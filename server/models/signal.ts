@@ -12,5 +12,5 @@ export interface FinalSignal {
  technical:Record<string,unknown>;structure:Record<string,unknown>;liquidity:Record<string,unknown>;derivatives:Record<string,unknown>;marketContext:Record<string,unknown>;smc?:Record<string,unknown>;liquidation?:Record<string,unknown>;
  reasoning:{primaryReason:string;confirmations:string[];conflicts:string[];warnings:string[];invalidation:string};
  dataQuality:{status:"FRESH"|"DELAYED"|"UNAVAILABLE"|"PARTIAL";timestamp:string;sources:string[]};
-strategy?:{version:string;scoring:string;core:string;smc:string;liq:string;minScore:number};events:unknown[];timestamps:{createdAt:string;updatedAt:string;closedAt:string|null};
+strategy?:{version:string;scoring:string;core:string;smc:string;liq:string;minScore:number};shadow?:{version:string;total:number;liveTotal:number;missing:string[]}|null;events:unknown[];timestamps:{createdAt:string;updatedAt:string;closedAt:string|null};
 }
