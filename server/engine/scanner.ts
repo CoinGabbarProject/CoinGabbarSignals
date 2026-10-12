@@ -193,7 +193,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
     candles: pr instanceof Error ? [] : pr,
     confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf, liquidations,
     derivatives, news,
-}, { now, config: { minScore: s.minScore } });
+}, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore } });
   const signal = await guardEntry(built, tf, deps, now, btc, s.minScore);
   return failed === undefined ? { signal } : { signal, error: failed };
 }
