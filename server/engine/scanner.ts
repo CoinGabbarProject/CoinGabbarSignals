@@ -1,7 +1,7 @@
 import type { Candle, Liquidation, Timeframe } from "../../shared/market.js";
 import type { NewsInput } from "../../shared/scoring.js";
 import type { FinalSignal } from "../models/signal.js";
-import { buildSignal } from "./signalBuilder.js";
+import { buildSignal, resolveProfile } from "./signalBuilder.js";
 import { calcIndicators } from "../../shared/indicators.js";
 import { trackOutcomes } from "./tracker.js";
 import { CONFIRMATION_TF, EXECUTION_TF, checkHardFilters, loadHardFilterConfig } from "./marketData.js";
