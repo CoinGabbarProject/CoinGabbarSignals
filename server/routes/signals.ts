@@ -221,4 +221,65 @@ router.post("/signals", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+const OPEN_STATUSES = ["ACTIVE", "TP1_HIT", "TP2_HIT"];
+
+// finds a signal in engine_signals (string id) or legacy signals (ObjectId)
+async function findSignalTarget(id: string) {
+  const db = getMongoDB();
+  const eng = await db.collection("engine_signals").findOne({ _id: id as any });
+  if (eng) return { col: db.collection("engine_signals"), filter: { _id: id as any }, doc: eng };
+  if (ObjectId.isValid(id)) {
+    const oid = new ObjectId(id);
+    const leg = await db.collection("signals").findOne({ _id: oid });
+    if (leg) return { col: db.collection("signals"), filter: { _id: oid }, doc: leg };
+  }
+  return null;
+}
+
+// PATCH /api/v1/signals/:id/keep  body: { kept: true|false }  (admin)
+router.patch("/signals/:id/keep", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const kept = req.body?.kept !== false;
+    const t = await findSignalTarget(id);
+    if (!t) return res.status(404).json({ error: "Signal not found" });
+    await t.col.updateOne(t.filter, { $set: { kept, keptAt: kept ? Date.now() : null } });
+    return res.json({ success: true, id, kept });
+  } catch (error) {
+    console.error("Signal keep error:", error);
+    return res.status(500).json({ error: "Could not update signal" });
+  }
+});
+
+// DELETE /api/v1/signals/:id  (admin) - kept signals are protected
+router.delete("/signals/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const t = await findSignalTarget(id);
+    if (!t) return res.status(404).json({ error: "Signal not found" });
+    if ((t.doc as any).kept) {
+      return res.status(409).json({ error: "Signal is kept. Unkeep it before deleting." });
+    }
+    await t.col.deleteOne(t.filter);
+    return res.json({ success: true, id });
+  } catch (error) {
+    console.error("Signal delete error:", error);
+    return res.status(500).json({ error: "Could not delete signal" });
+  }
+});
+
+// POST /api/v1/signals/purge  (admin) - deletes every NOT-kept, closed signal
+router.post("/signals/purge", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const db = getMongoDB();
+    const q = { kept: { $ne: true }, status: { $nin: OPEN_STATUSES } };
+    const a = await db.collection("engine_signals").deleteMany(q);
+    const b = await db.collection("signals").deleteMany(q);
+    return res.json({ success: true, deleted: a.deletedCount + b.deletedCount });
+  } catch (error) {
+    console.error("Signal purge error:", error);
+    return res.status(500).json({ error: "Could not purge signals" });
+  }
+});
+
 export default router;
