@@ -1324,7 +1324,7 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
     // keep Entry / SL / TP1-3 inside the visible price range
     autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
       const r = original();
-      if (!r || !levels.length) return r;
+      if (!r || !r.priceRange || !levels.length) return r;
       return {
         ...r,
         priceRange: {
