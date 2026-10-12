@@ -567,7 +567,8 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
   const toggleFavBar = (): void => { setShowFavBar(!showFavBar); saveFavBar(!showFavBar); };
   const activeLabels = indicators ? indicators.items.filter((i) => i.active).map((i) => i.label).join(" · ") : "";
   const catTools = (SHEET_GROUPS.find((g) => g.id === tab)?.kinds ?? []).flatMap((k) => { const d = toolOf(k); return d ? [d] : []; });
-  const showOverlay = tool === "cursor" && (hover !== "none" || dragging);
+  const coarse = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  const showOverlay = tool === "cursor" && (hover !== "none" || dragging || (coarse && selectedId !== null));
 
   return (
     <div style={{ minWidth: 0 }}>
