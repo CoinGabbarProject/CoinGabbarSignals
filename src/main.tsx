@@ -1388,7 +1388,7 @@ function miniIstCrosshair(time: unknown): string {
 function miniIstTick(time: unknown, type: number): string {
   const p = miniIstParts(time);
   if (type === 0) return `20${p.year}`;
-  if (type === 1) return p.month;
+  if (type === 1) return p.month ?? "";
   if (type === 2) return p.day;
   return `${p.hour}:${p.minute}`;
 }
