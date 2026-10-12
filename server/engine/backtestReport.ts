@@ -190,6 +190,10 @@ function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
   if (cost === null) return { ok: false, error: "cost must be 0-2 (percent)" };
   if (hold === null) return { ok: false, error: "hold must be 1-500" };
   if (cluster === null) return { ok: false, error: "cluster must be 0-50" };
+    const trail = num(one(q["trail"]), 0, 0, 10);
+  const funding = num(one(q["funding"]), 0, 0, 1);
+  if (trail === null) return { ok: false, error: "trail must be 0-10 (percent)" };
+  if (funding === null) return { ok: false, error: "funding must be 0-1 (percent per 8h)" };
   const top = num(one(q["top"]), 20, 1, 50);
   if (top === null) return { ok: false, error: "top must be 1-50" };
   const rawSyms = one(q["symbols"]);
