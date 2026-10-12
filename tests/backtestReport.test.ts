@@ -45,3 +45,41 @@ describe("backtest report states its assumptions", () => {
     expect(buildReport([t]).exits).toEqual({ "Trail after TP1": 1 });
   });
 });
+const mk = (i: number, r: number, score = 80): BacktestTrade => ({
+  symbol: "A", direction: "LONG", score, decisionTime: i * HOUR, entryTime: i * HOUR, exitTime: i * HOUR + 1,
+  entry: 1, stop: 0.9, tp1: 1.1, tp2: 1.2, tp3: 1.3, plannedRR: 2, hits: 0, reason: "SL", bars: 1, grossR: r, r,
+});
+
+describe("validation harness", () => {
+  const good = Array.from({ length: 200 }, (_, i) => mk(i, i % 3 === 0 ? -1 : 1.2));
+  it("bootstrap interval is repeatable and brackets the mean", () => {
+    const v = good.map((t) => t.r);
+    const a = bootstrapMeanCI(v), b = bootstrapMeanCI(v);
+    expect(a).toEqual(b);
+    const mean = v.reduce((x, y) => x + y, 0) / v.length;
+    expect(a!.lo).toBeLessThan(mean);
+    expect(a!.hi).toBeGreaterThan(mean);
+    expect(bootstrapMeanCI([1])).toBeNull();
+  });
+  it("splits chronologically 60/20/20 with no overlap", () => {
+    const v = buildValidation([...good].reverse(), good, 75);
+    expect(v.split.map((s) => s.s.n)).toEqual([120, 40, 40]);
+  });
+  it("few trades -> INCONCLUSIVE", () => {
+    expect(buildValidation(good.slice(0, 20), [], 75).verdict).toBe("INCONCLUSIVE");
+  });
+  it("clearly positive -> PASS, clearly negative -> FAIL", () => {
+    expect(buildValidation(good, good, 75).verdict).toBe("PASS");
+    expect(buildValidation(good.map((t) => mk(t.entryTime / HOUR, -1)), [], 75).verdict).toBe("FAIL");
+  });
+  it("noise around zero -> INCONCLUSIVE", () => {
+    const noise = Array.from({ length: 200 }, (_, i) => mk(i, i % 2 === 0 ? 1 : -1));
+    expect(buildValidation(noise, noise, 75).verdict).toBe("INCONCLUSIVE");
+  });
+  it("text output has verdict and baselines", () => {
+    const t = formatValidation(buildValidation(good, good, 75));
+    expect(t).toMatch(/VERDICT: PASS/);
+    expect(t).toMatch(/BASELINES/);
+    expect(t).toMatch(/test 20%/);
+  });
+});
