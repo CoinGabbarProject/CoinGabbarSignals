@@ -113,7 +113,7 @@ export function formatReport(res: BacktestResult, rep: Report, failed: string[])
   L.push("BACKTEST REPORT");
   L.push(`Period    ${day(res.fromTime)} -> ${day(res.toTime)}  (${o.timeframe})`);
   L.push(`Coins     ${res.symbols.length}${failed.length ? `  (failed: ${failed.join(",")})` : ""}`);
-  L.push(`Settings  minScore ${o.minScore} | cost ${o.costPct}% | hold ${o.maxHoldBars} bars | btcFilter ${o.btcFilter ? "on" : "off"} | cluster ${o.maxOpenPerDirection || "off"}`);
+  L.push(`Settings  minScore ${o.minScore} | cost ${o.costPct}% | hold ${o.maxHoldBars} bars | btcFilter ${o.btcFilter ? "on" : "off"} | cluster ${o.maxOpenPerDirection || "off"} | stop ${o.stopMode ?? "fixed"}${(o.trailPct ?? 0) > 0 ? ` trail ${o.trailPct}%` : ""} | funding ${(o.fundingPctPer8h ?? 0) > 0 ? `${o.fundingPctPer8h}%/8h (assumed)` : "off"}`);
   L.push("");
   const s = rep.overall;
   if (s.n === 0) {
