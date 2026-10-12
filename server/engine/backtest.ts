@@ -119,14 +119,26 @@ export interface TradeSim {
   bars: number;
 }
 
+
+export interface TradeMgmt {
+  /** Move the stop like the live tracker: entry after TP1, TP1 after TP2 (+ optional percent trail). */
+  staged?: boolean;
+  trailPct?: number;
+  /** Funding charged per holding bar, percent of notional paid by a LONG (a SHORT is never credited). */
+  fundingPctPerBar?: number;
+}
+
 /**
  * Plays one trade forward from candle index `from` (the entry candle). `side` 1 = LONG, -1 = SHORT.
  * Returns null if the stop is not on the loss side of the entry price.
+ * The stop that applies to a candle is the one known BEFORE that candle (as in the live tracker), and a candle
+ * that touches both the stop and a target counts as a stop.
  */
 export function simulateTrade(
   side: 1 | -1, fill: number, stop: number,
   targets: readonly [number, number, number], weights: readonly [number, number, number],
   candles: Candle[], from: number, maxHold: number, costPct: number,
+  mgmt: TradeMgmt = {},
 ): TradeSim | null {
   const risk = (fill - stop) * side;
   if (!Number.isFinite(risk) || risk <= 0) return null;
@@ -134,19 +146,31 @@ export function simulateTrade(
   const lastIdx = Math.min(candles.length - 1, from + Math.max(1, maxHold) - 1);
 
   let hits = 0;
+  let ext = 0; // best price since TP1 (staged trailing)
   let exitIdx = -1;
   let exitPrice = Number.NaN;
   let reason: ExitReason | null = null;
 
+  const stopNow = (): number => {
+    if (!mgmt.staged || hits === 0) return stop;
+    const base = hits <= 1 ? fill : (targets[0] as number);
+    const tp = mgmt.trailPct ?? 0;
+    if (!(tp > 0) || ext === 0) return base;
+    const t = side > 0 ? ext * (1 - tp / 100) : ext * (1 + tp / 100);
+    return side > 0 ? Math.max(base, t) : Math.min(base, t);
+  };
+
   for (let j = from; j <= lastIdx; j++) {
     const c = candles[j];
     if (!c) break;
-    if (side > 0 ? c.low <= stop : c.high >= stop) { exitIdx = j; exitPrice = stop; reason = "SL"; break; }
+    const cs = stopNow();
+    if (side > 0 ? c.low <= cs : c.high >= cs) { exitIdx = j; exitPrice = cs; reason = cs === stop ? "SL" : "TRAIL"; break; }
     while (hits < 3) {
       const tp = targets[hits];
       if (tp === undefined || !(side > 0 ? c.high >= tp : c.low <= tp)) break;
       hits++;
     }
+    if (mgmt.staged && hits > 0) ext = side > 0 ? Math.max(ext || c.high, c.high) : Math.min(ext || c.low, c.low);
     if (hits === 3) { exitIdx = j; exitPrice = targets[2]; reason = "TP3"; break; }
   }
   if (reason === null) {
@@ -159,8 +183,10 @@ export function simulateTrade(
 
   let grossR = 0;
   for (let k = 0; k < 3; k++) grossR += (weights[k] ?? 0) * rOf(k < hits ? (targets[k] ?? exitPrice) : exitPrice);
-  const netR = grossR - ((costPct / 100) * fill) / risk;
-  return { exitIdx, exitPrice, hits: hits as 0 | 1 | 2 | 3, reason, grossR, netR, bars: exitIdx - from + 1 };
+  const bars = exitIdx - from + 1;
+  const fundingPct = Math.max(0, (mgmt.fundingPctPerBar ?? 0) * bars * side);
+  const netR = grossR - (((costPct + fundingPct) / 100) * fill) / risk;
+  return { exitIdx, exitPrice, hits: hits as 0 | 1 | 2 | 3, reason, grossR, netR, bars };
 }
 
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r));
