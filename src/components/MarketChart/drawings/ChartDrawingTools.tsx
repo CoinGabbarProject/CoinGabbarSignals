@@ -240,6 +240,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
   const [placedCount, setPlacedCount] = useState(0);
   const [hover, setHover] = useState<Hover>("none");
   const [dragging, setDragging] = useState(false);
+  const [touchUi, setTouchUi] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const drawingsRef = useRef<Drawing[]>(drawings);
