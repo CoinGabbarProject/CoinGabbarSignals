@@ -250,7 +250,7 @@ const distToSeg = (px: number, py: number, x1: number, y1: number, x2: number, y
 };
 
 /** True when (x, y) is on a line/path, inside a stroked box or ellipse, or on a text label. */
-export function hitShapes(shapes: readonly Shape[], x: number, y: number, tol = 9): boolean {
+export function hitShapes(shapes: readonly Shape[],x: number, y: number, tol = (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) ? 16 : 9): boolean {
   return shapes.some((s) => {
     if (s.t === "line") return distToSeg(x, y, s.x1, s.y1, s.x2, s.y2) <= tol;
     if (s.t === "path") return s.pts.some((p, i) => { const q = s.pts[i + 1]; return !!q && distToSeg(x, y, p[0], p[1], q[0], q[1]) <= tol; });
