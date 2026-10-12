@@ -472,7 +472,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
     if (a) prim?.setDraft(draftFrom(a));
   };
 
-  const onDrawUp = (): void => {
+  const onDrawUp = (e: ReactPointerEvent<HTMLDivElement>): void => {
     const brush = brushRef.current;
     if (!brush) return;
     if (tool !== "cursor" && brush.length >= 2) finish(tool, brush); else cancelDraft();
