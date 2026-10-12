@@ -345,6 +345,7 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
       liq: cfg.gates.liq ?? "off",
       minScore: cfg.minScore,
     },
+        ...(process.env.SHADOW_SCORE === "true" ? { shadow: shadowScore(scored, cfg.gates) } : {}),
     timestamps: { createdAt: iso, updatedAt: iso, closedAt: null },
   };
 }
