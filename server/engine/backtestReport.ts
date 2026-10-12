@@ -299,7 +299,7 @@ function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
     opts: {
       timeframe: tf, testBars: barsForDays(days, tf), minScore, costPct: cost, maxHoldBars: Math.trunc(hold),
       btcFilter: one(q["btc"]) !== "0", maxOpenPerDirection: Math.trunc(cluster),
-      stopMode: one(q["stop"]) === "staged" ? "staged" : "fixed", trailPct: trail, fundingPctPer8h: funding,
+      stopMode: one(q["stop"]) === "staged" ? "staged" : "fixed", trailPct: trail, fundingPctPer8h: funding, config: profile.config,
     },
   };
 }
