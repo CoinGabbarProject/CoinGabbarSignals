@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Candle } from "../shared/market.js";
 import { runBacktest } from "../server/engine/backtest.js";
-import { buildReport, formatReport } from "../server/engine/backtestReport.js";
+import { bootstrapMeanCI, buildReport, buildValidation, formatReport, formatValidation } from "../server/engine/backtestReport.js";
+import type { BacktestTrade } from "../server/engine/backtest.js";
 import type { SymbolHistory } from "../server/engine/backtestData.js";
 
 const HOUR = 3_600_000;
