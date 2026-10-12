@@ -145,7 +145,7 @@ describe("buildSignal", () => {
   it("score keys match FinalSignal.score and stay within max", () => {
     const c = series(250, 0.25);
     const s = buildSignal(base(c), { now: NOW(c) });
-    expect(Object.keys(s.score).sort()).toEqual(["derivativesOrderbook", "liquiditySR", "marketContext", "newsFundamentals", "riskExecution", "structure", "total", "trendMTF", "volumeMomentum"]);
+    expect(Object.keys(s.score).sort()).toEqual(["derivativesOrderbook", "liquiditySR", "marketContext", "newsFundamentals", "riskExecution", "smcLiquidity", "structure", "total", "trendMTF", "volumeMomentum"]);
     expect(s.score.total).toBeLessThanOrEqual(100);
   });
 
