@@ -40,7 +40,9 @@ export interface BuilderConfig {
   gates: SetupGates;         // hard accuracy filters (ADX, HTF, candle, Fib)
   fibStop: boolean;          // stop beyond the Fib 0.786 level when a Fib plan exists
   fibMinScore: number;       // min score used instead of minScore while the Fib gate is on
-  fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
+    fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
+  strategyVersion?: string;  // stored on the signal; set by a profile
+  requireDerivatives?: boolean; // profile C: no trade unless all live derivatives fields are real numbers
 }
 
 const signalMode = (v: string | undefined, d: "off" | "soft" | "strict"): "off" | "soft" | "strict" =>
