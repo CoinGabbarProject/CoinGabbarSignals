@@ -138,7 +138,12 @@ export function formatReport(res: BacktestResult, rep: Report, failed: string[])
   L.push(`FILTERED: signals ${k.signals} | btc ${k.btcFilter} | no-entry ${k.noEntry} | bad-stop ${k.badStop} | cluster ${k.cluster} | open-at-end ${k.openAtEnd}`);
   L.push(`Decisions evaluated: ${res.decisions}`);
   L.push("");
-  L.push("Not modelled: derivatives, order book, news, funding. Past results do not guarantee future results.");
+    L.push("PARITY WITH THE LIVE ENGINE");
+  L.push(`  stop: ${o.stopMode === "staged" ? "staged (entry after TP1, TP1 after TP2" + ((o.trailPct ?? 0) > 0 ? `, ${o.trailPct}% trail)` : ", no % trail)") : "fixed; the live tracker moves it after TP1/TP2 when TRAILING_STOP is on (use stop=staged)"}`);
+  L.push(`  max open per direction: ${o.maxOpenPerDirection || "no limit"} here; live uses MAX_OPEN_PER_DIRECTION (default 5)`);
+  L.push("  not replayed: derivatives, liquidations, order book, news, daily HTF filter, exit-if-weak rule, live-price entry check");
+  L.push("  fills: next-candle open inside the entry zone; the live tracker counts any touch of the zone");
+  L.push("Past results do not guarantee future results.");
   return L.join("\n");
 }
 
