@@ -422,6 +422,16 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
 
   const onDrawDown = (e: ReactPointerEvent<HTMLDivElement>): void => {
     if (!def || tool === "cursor") return;
+    const first = anchorFromEvent(e, def.points === 0 ? false : magnet);
+    if (!first) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (def.points === 0) { brushRef.current = [first]; primRef.current?.setDraft({ id: "draft", kind: tool, anchors: [first, first] }); return; }
+    pressRef.current = true;
+    primRef.current?.setDraft(draftFrom(first));
+  };
+
+  const onDrawDownOld = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!def || tool === "cursor") return;
     if (def.points === 0) { // freehand: press, drag, release
       const a = anchorFromEvent(e, false);
       if (!a) return;
