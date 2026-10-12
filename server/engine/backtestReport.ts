@@ -64,6 +64,96 @@ export function maxLossStreak(trades: BacktestTrade[]): number {
   return best;
 }
 
+/** Seeded PRNG so confidence intervals are repeatable. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export interface Interval { lo: number; hi: number }
+
+/** 95% bootstrap interval of the mean. null if fewer than 2 values. */
+export function bootstrapMeanCI(values: readonly number[], iters = 2000, seed = 12345): Interval | null {
+  const n = values.length;
+  if (n < 2) return null;
+  const rnd = mulberry32(seed);
+  const means: number[] = [];
+  for (let b = 0; b < iters; b++) {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += values[Math.floor(rnd() * n)] as number;
+    means.push(sum / n);
+  }
+  means.sort((a, b) => a - b);
+  return { lo: means[Math.floor(0.025 * iters)] as number, hi: means[Math.min(iters - 1, Math.floor(0.975 * iters))] as number };
+}
+
+export const MIN_TRADES_PER_SEGMENT = 30;
+export type Verdict = "PASS" | "FAIL" | "INCONCLUSIVE";
+export interface Segment { label: string; s: Summary; ci: Interval | null }
+export interface Validation {
+  split: Segment[]; // train, validation, test (chronological, by entry time)
+  months: Segment[]; // calendar-month slices (a time proxy for regimes)
+  baselineAll: Segment; // same run with minScore 0
+  baselineRest: Segment; // trades of that run scoring below minScore
+  verdict: Verdict;
+  reason: string;
+}
+
+const segment = (label: string, trades: BacktestTrade[]): Segment =>
+  ({ label, s: summarize(trades), ci: bootstrapMeanCI(trades.map((t) => t.r)) });
+
+export function buildValidation(trades: BacktestTrade[], baselineTrades: BacktestTrade[], minScore: number): Validation {
+  const sorted = [...trades].sort((a, b) => a.entryTime - b.entryTime);
+  const n = sorted.length, c1 = Math.floor(n * 0.6), c2 = Math.floor(n * 0.8);
+  const train = segment("train 60%", sorted.slice(0, c1));
+  const valid = segment("valid 20%", sorted.slice(c1, c2));
+  const test = segment("test 20%", sorted.slice(c2));
+  const byMonth = new Map<string, BacktestTrade[]>();
+  for (const t of sorted) {
+    const k = new Date(t.entryTime).toISOString().slice(0, 7);
+    const a = byMonth.get(k);
+    if (a) a.push(t); else byMonth.set(k, [t]);
+  }
+  const months = [...byMonth.entries()].map(([k, v]) => segment(k, v));
+  const baselineAll = segment("all signals", baselineTrades);
+  const baselineRest = segment(`score<${minScore}`, baselineTrades.filter((t) => t.score < minScore));
+  const M = MIN_TRADES_PER_SEGMENT;
+  let verdict: Verdict, reason: string;
+  if (valid.s.n < M || test.s.n < M) {
+    verdict = "INCONCLUSIVE"; reason = `need >= ${M} trades in validation and in test (have ${valid.s.n} / ${test.s.n}); use more days or coins`;
+  } else if (!test.ci) {
+    verdict = "INCONCLUSIVE"; reason = "test interval not computable";
+  } else if (test.ci.hi < 0) {
+    verdict = "FAIL"; reason = "test avg R is negative with 95% confidence";
+  } else if (test.ci.lo > 0 && valid.s.avgR > 0 && (baselineRest.s.n < M || test.s.avgR > baselineRest.s.avgR)) {
+    verdict = "PASS"; reason = "test 95% interval is above 0, validation is positive, and the score beats the low-score baseline";
+  } else {
+    verdict = "INCONCLUSIVE"; reason = "test 95% interval includes 0, or validation / baseline disagree";
+  }
+  return { split: [train, valid, test], months, baselineAll, baselineRest, verdict, reason };
+}
+
+const segRow = (x: Segment): string =>
+  `${x.label.padEnd(12)}${String(x.s.n).padEnd(5)}${((x.s.avgR >= 0 ? "+" : "") + x.s.avgR.toFixed(3)).padEnd(9)}${x.ci ? `[${x.ci.lo >= 0 ? "+" : ""}${x.ci.lo.toFixed(2)}, ${x.ci.hi >= 0 ? "+" : ""}${x.ci.hi.toFixed(2)}]` : "n/a"}`;
+
+export function formatValidation(v: Validation): string {
+  const L: string[] = ["VALIDATION (chronological, by entry time)", "            N    AvgR     95% CI of AvgR"];
+  for (const x of v.split) L.push(segRow(x));
+  L.push("", "BASELINES (same run, minScore 0)");
+  L.push(segRow(v.baselineAll), segRow(v.baselineRest));
+  L.push("", "BY MONTH (time slices, not true market regimes)");
+  for (const x of v.months) L.push(segRow(x));
+  L.push("", `VERDICT: ${v.verdict} - ${v.reason}`);
+  L.push("Notes: use train/valid to choose settings and look at test once. Trades overlap in time, so the intervals are optimistic. No regime tags exist in the stored trades.");
+  return L.join("\n");
+}
+
 export const SCORE_BUCKETS: readonly { label: string; min: number; max: number }[] = [
   { label: "<75", min: 0, max: 74.999 }, { label: "75-79", min: 75, max: 79.999 },
   { label: "80-84", min: 80, max: 84.999 }, { label: "85-89", min: 85, max: 89.999 },
