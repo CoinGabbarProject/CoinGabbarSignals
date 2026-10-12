@@ -259,6 +259,7 @@ export class EngineService {
       };
       try { await this.deps.store.recordRun(summary); } catch (e) { this.log.error(`[scan] could not record run: ${errMsg(e)}`); }
       this.log.info(`[scan] ${tf}: ${summary.scanned} scanned, ${summary.emitted} new signals, ${summary.errors} errors`);
+      if (summary.errors > 0) this.log.warn(`[scan] failed: ${results.filter((r) => r.outcome === "error").map((r) => `${r.symbol} (${r.error})`).join("; ")}`);
       return summary;
     } finally {
       this.scanning = false;
