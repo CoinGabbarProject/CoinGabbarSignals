@@ -48,6 +48,9 @@ const signalMode = (v: string | undefined, d: "off" | "soft" | "strict"): "off" 
 
 export const DEFAULT_MIN_SCORE = 75;
 
+/** Bump this whenever scoring, gates or trade-planning behaviour changes. Stored on every signal. */
+export const STRATEGY_VERSION = "core4-v1";
+
 export const DEFAULT_CONFIG: BuilderConfig = {
   minScore: DEFAULT_MIN_SCORE,
     minTp1R: 2,
