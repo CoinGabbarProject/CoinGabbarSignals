@@ -4,7 +4,7 @@ import type { FinalSignal } from "../models/signal.js";
 import { buildSignal } from "./signalBuilder.js";
 import { calcIndicators } from "../../shared/indicators.js";
 import { trackOutcomes } from "./tracker.js";
-import { CONFIRMATION_TF, EXECUTION_TF } from "./marketData.js";
+import { CONFIRMATION_TF, EXECUTION_TF, checkHardFilters, loadHardFilterConfig } from "./marketData.js";
 import type { MarketData } from "./marketData.js";
 import type { ScanOutcome, ScanSummary, SignalStore, SymbolResult } from "./store.js";
 
