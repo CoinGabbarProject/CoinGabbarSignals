@@ -129,6 +129,14 @@ async function guardEntry(input: FinalSignal, tf: Timeframe, deps: EngineDeps, n
       /* live price unavailable: keep the signal */
     }
   }
+  if (reason === null) {
+    const hf = loadHardFilterConfig();
+    if (hf.enabled) {
+      let snap: Awaited<ReturnType<MarketData["getMarketSnapshot"]>> | null = null;
+      try { snap = await deps.market.getMarketSnapshot(signal.symbol, tf); } catch { snap = null; }
+      reason = checkHardFilters(snap, Date.now(), hf);
+    }
+  }
   if (reason === null) return signal;
   return {
     ...signal,
