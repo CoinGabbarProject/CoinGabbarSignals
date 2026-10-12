@@ -130,7 +130,8 @@ router.get("/signals", async (req, res) => {
 
         return {
           id: String(d._id),
-          source: "engine",
+                    source: "engine",
+          kept: Boolean(d.kept),
           symbol: d.symbol,
           side: d.direction,
           status: d.status,
