@@ -699,7 +699,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
           <button type="button" style={btn(false, !!selected.locked)} disabled={!!selected.locked} title="Delete selected (Del)" onClick={removeSelected}>Delete</button>
         </div>
       )}
-      <div ref={wrapRef} onPointerMove={onWrapMove} onPointerLeave={() => { if (!dragRef.current) setHover("none"); }} style={{ position: "relative", minWidth: 0 }}>
+      <div ref={wrapRef} onPointerDownCapture={(e) => { if (e.pointerType !== "mouse") setTouchUi(true); }} onPointerMove={onWrapMove} onPointerLeave={() => { if (!dragRef.current) setHover("none"); }} style={{ position: "relative", minWidth: 0 }}>
         {children}
         {tool !== "cursor" && (
           <div aria-label="Drawing surface" onPointerDown={onDrawDown} onPointerMove={onDrawMove} onPointerUp={onDrawUp} onPointerCancel={() => { pressRef.current = false; cancelDraft(); }}
