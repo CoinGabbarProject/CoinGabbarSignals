@@ -703,7 +703,7 @@ export function ChartDrawingTools({ api, symbol, timeframe, indicators, children
         {children}
         {tool !== "cursor" && (
           <div aria-label="Drawing surface" onPointerDown={onDrawDown} onPointerMove={onDrawMove} onPointerUp={onDrawUp} onContextMenu={(e) => e.preventDefault()} onPointerCancel={() => { pressRef.current = false; cancelDraft(); }}
-            style={{ position: "absolute", inset: 0, cursor: "crosshair", touchAction: "none", zIndex: 5 }} />
+            style={{ position: "absolute", inset: 0, cursor: "crosshair", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", zIndex: 5 }} />
         )}
         {showOverlay && (
           <div aria-label="Drawing grab layer" onContextMenu={(e) => e.preventDefault()} onPointerDown={onGrab} onPointerUp={endDrag} onPointerCancel={endDrag}
