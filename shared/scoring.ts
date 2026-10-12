@@ -32,7 +32,8 @@ export interface ScoreInput {
   news?: NewsInput | null;
   htf?: Candle[] | null;          // daily candles for the higher-timeframe filter
   gates?: Partial<SetupGates> | null;
-  liquidations?: Liquidation[] | null;   // recent liquidation events (optional)
+    liquidations?: Liquidation[] | null;   // recent liquidation events (optional)
+  now?: number;                          // evaluation time (ms). Pass it for deterministic/historical runs; defaults to Date.now()
 }
 export interface ScoreResult {
   side: ScoreSide; score: SetupScore;
