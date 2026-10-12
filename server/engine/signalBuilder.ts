@@ -275,6 +275,9 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
   let decision = decide(scored, close, atr, adv ? { ns: adv.levels.nearestSupport, nr: adv.levels.nearestResistance } : null, cfg);
   // Never emit a tradeable signal on a stalled feed.
   if (decision.kind === "TRADE" && stale) decision = { kind: "NO_TRADE", reason: "Market data is stale (last candle too old)" };
+  if (decision.kind === "TRADE" && cfg.requireDerivatives && !hasRealDerivatives(input.derivatives)) {
+    decision = { kind: "NO_TRADE", reason: "Profile C needs live derivatives data (funding, open interest, long/short, order book); it is unavailable" };
+  }
   const isTrade = decision.kind === "TRADE";
   const plan = decision.kind === "TRADE" ? decision.plan : null;
   const side = scored.side === "SHORT" ? -1 : 1;
