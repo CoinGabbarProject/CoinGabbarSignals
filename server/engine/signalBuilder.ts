@@ -85,6 +85,49 @@ export const DEFAULT_CONFIG: BuilderConfig = {
   fibMinTp1R: Number(process.env.FIB_MIN_TP1R ?? "1.5"),
 };
 
+export type ProfileId = "A" | "B" | "C";
+export interface StrategyProfile { id: ProfileId; version: string; label: string; config: Partial<BuilderConfig>; backtestable: boolean }
+
+const FULL_GATES: SetupGates = { ...DEFAULT_CONFIG.gates, core4: false, requireFib: false };
+
+/** Separate, versioned strategies. Select live with STRATEGY_PROFILE=A|B|C (default A = current behaviour). */
+export const PROFILES: Record<ProfileId, StrategyProfile> = {
+  A: { id: "A", version: STRATEGY_VERSION, label: "CORE4 (EMA + RSI + SMC + liquidation), as configured by env", config: {}, backtestable: true },
+  B: { id: "B", version: "full-v1", label: "Full engine with hard gates (ADX, higher TF, candle), no Fib", backtestable: true,
+    config: { strategyVersion: "full-v1", fibStop: false, gates: FULL_GATES } },
+  C: { id: "C", version: "full-deriv-v1", label: "Profile B + live derivatives required", backtestable: false,
+    config: { strategyVersion: "full-deriv-v1", fibStop: false, requireDerivatives: true, gates: FULL_GATES } },
+};
+
+/** Unknown or empty id falls back to A. */
+export function resolveProfile(id: string | undefined): StrategyProfile {
+  const k = (id ?? "A").trim().toUpperCase();
+  return k === "B" ? PROFILES.B : k === "C" ? PROFILES.C : PROFILES.A;
+}
+
+export function hasRealDerivatives(d: ScoreInput["derivatives"]): boolean {
+  return !!d && [d.fundingRate, d.oiChangePct, d.longShortRatio, d.bookImbalance].every((v) => typeof v === "number" && Number.isFinite(v));
+}
+
+export const SHADOW_VERSION = "shadow-v0";
+export interface ShadowScore { version: string; total: number; liveTotal: number; missing: string[] }
+
+/**
+ * EXPERIMENTAL, shadow only: never used for a decision. Same CORE4 parts, but missing SMC or liquidation
+ * data counts 0 instead of the neutral midpoint. Only defined for the default core (ema,rsi,smc,liq).
+ */
+export function shadowScore(scored: ScoreResult, gates: SetupGates): ShadowScore | null {
+  const sel = new Set((gates.core ?? "").toLowerCase().split(",").map((x) => x.trim()));
+  if (!gates.core4 || scored.side === "NEUTRAL" || !["ema", "rsi", "smc", "liq"].every((k) => sel.has(k))) return null;
+  const avail = (o: Record<string, unknown> | null | undefined): boolean => o?.["available"] === true;
+  const missing: string[] = [];
+  if (!avail(scored.smc)) missing.push("smc");
+  if (!avail(scored.liquidation)) missing.push("liquidation");
+  const s = scored.score;
+  const raw = s.trendMTF + s.volumeMomentum + (missing.includes("smc") ? 0 : s.structure) + (missing.includes("liquidation") ? 0 : s.liquiditySR);
+  return { version: SHADOW_VERSION, total: Math.min(100, Math.max(0, Math.round(raw))), liveTotal: s.total, missing };
+}
+
 export interface BuildSignalInput extends ScoreInput {
   symbol: string;
   exchange: string;
