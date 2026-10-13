@@ -440,7 +440,7 @@ async function signalsView() {
   try {
     const d = await api("/signals?limit=50");
     const rows = d.signals.map(s => `<tr>
-      <td>${esc(s.symbol)}</td>
+      <td>${esc(s.symbol)}${s.strategyVersion ? `<br><span style="opacity:.6;font-size:10px">${esc(s.strategyVersion)} · ${s.settingsVersion ? "cfg v" + esc(s.settingsVersion) : "default cfg"}</span>` : ""}</td>
       <td class="${s.side === "LONG" ? "green" : s.side === "SHORT" ? "red" : ""}">${esc(s.side)}</td>
       <td>${esc(s.timeframe)}</td><td>${esc(s.score)}/100</td>
       <td>${esc(s.entry)}</td><td>${esc(s.stop)}</td>
@@ -645,6 +645,11 @@ function backtestView() {
       </div>
       <small style="opacity:.7">Days / Timeframe / Min score</small>
       <input id="bc" placeholder="Coins (optional): BTCUSDT,ETHUSDT" style="${INP}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="bp" class="btn">${opts(["B", "A"])}</select>
+        <input id="bs2" value="default" placeholder="default | active | 3" style="${INP};flex:1;min-width:120px">
+      </div>
+      <small style="opacity:.7">Profile (live is B) / Engine settings: default, active (what is live now) or a version number like 3</small>
       <button id="bgo" class="btn p">Run backtest</button>
     </div>
     <pre id="bout" style="margin-top:12px;white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5"></pre>`);
@@ -655,6 +660,8 @@ function backtestView() {
     const q = new URLSearchParams({ key, days: $("bd").value, tf: $("bt").value, minScore: $("bm").value });
     const coins = $("bc").value.trim();
     if (coins) q.set("symbols", coins);
+    q.set("profile", $("bp").value);
+    q.set("settings", $("bs2").value.trim() || "default");
     $("bgo").disabled = true;
     $("bout").textContent = "Running... this can take 15-60 seconds.";
     try {
@@ -1021,6 +1028,7 @@ async function scoreView() {
     host.innerHTML = panel("Score Breakdown", "", `<span class="red">${esc(e.message)}</span>`);
   }
 }
+
 // ===== Engine Config: indicator periods + on/off switches, versioned (talks to /api/v1/engine/settings) =====
 const ENG_PERIODS = [
   ["emaFast", "EMA fast", 2, 100], ["emaSlow", "EMA slow", 3, 200], ["smaTrend", "SMA trend", 20, 400],
@@ -1152,7 +1160,6 @@ async function engineConfigView(flash) {
   });
 }
 
-
 const VIEW_MAP = {
 "Engine Config": engineConfigView,
 "Scan Health": scanView, "Score Breakdown": scoreView,
@@ -1171,7 +1178,7 @@ async function signalHistoryView() {
   try {
     const d = await api("/signals?limit=2000");
     const rows = d.signals.map(s => `<tr>
-      <td>${esc(s.symbol)}</td>
+      <td>${esc(s.symbol)}${s.strategyVersion ? `<br><span style="opacity:.6;font-size:10px">${esc(s.strategyVersion)} · ${s.settingsVersion ? "cfg v" + esc(s.settingsVersion) : "default cfg"}</span>` : ""}</td>
       <td class="${s.side === "LONG" ? "green" : s.side === "SHORT" ? "red" : ""}">${esc(s.side)}</td>
       <td>${esc(s.timeframe)}</td>
       <td>${esc(s.score)}/100</td>
