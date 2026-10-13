@@ -146,6 +146,8 @@ router.get("/signals", async (req, res) => {
             (t) => typeof t === "number",
           ),
           rationale: d?.reasoning?.primaryReason ?? "",
+          strategyVersion: d?.strategy?.version ?? null,
+          settingsVersion: d?.strategy?.settingsVersion ?? null,
           derivatives: d?.derivatives ?? {},
           scoreBreakdown: d?.score ?? {},
           confirmations: d?.reasoning?.confirmations ?? [],
