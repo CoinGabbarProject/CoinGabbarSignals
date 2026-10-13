@@ -15,8 +15,10 @@ import { createEngineRouter } from "./routes/engine.js";
 import { createBacktestRouter } from "./engine/backtestReport.js";
 import type { EngineService } from "./engine/scanner.js";
 import type { SignalStore } from "./engine/store.js";
+import { createSettingsRouter } from "./routes/settings.js";
+import type { SettingsService } from "./engine/settingsStore.js";
 
-export interface AppDeps { engine?: EngineService; store?: SignalStore }
+export interface AppDeps { engine?: EngineService; store?: SignalStore; settings?: SettingsService }
 
 export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   const app = express();
@@ -67,6 +69,7 @@ export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
     app.use("/api/v1", candlesRouter);
   app.use("/api/v1", pricesRouter);
 if (deps.engine && deps.store) app.use("/api/v1", createEngineRouter(deps.engine, deps.store));
+  if (deps.settings) app.use("/api/v1", createSettingsRouter(deps.settings));
   app.use("/engine", createBacktestRouter(config.scan));
 
   // 404
