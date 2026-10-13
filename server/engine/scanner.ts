@@ -1,5 +1,6 @@
 import type { Candle, Liquidation, Timeframe } from "../../shared/market.js";
 import type { NewsInput } from "../../shared/scoring.js";
+import type { EngineSettingsInput } from "../../shared/engineConfig.js";
 import type { FinalSignal } from "../models/signal.js";
 import { buildSignal, resolveProfile } from "./signalBuilder.js";
 import { calcIndicators } from "../../shared/indicators.js";
@@ -23,6 +24,9 @@ export interface EngineDeps {
   news?: (symbol: string) => Promise<NewsInput | null>;
   now?: () => number;
   log?: Pick<Console, "info" | "warn" | "error">;
+  /** Optional. The active engine settings (indicator periods and switches), read once per scan. null = built-in defaults.
+   *  If it throws, the scan fails instead of silently trading with different settings. */
+  activeSettings?: () => Promise<{ version: number; settings: EngineSettingsInput } | null>;
 }
 
 export class EngineBusyError extends Error {
@@ -171,7 +175,7 @@ async function liquidationEvents(deps: EngineDeps, symbol: string, now: number):
 }
 
 /** Fetch everything for one symbol and build the signal. */
-export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0): Promise<{ signal: FinalSignal; error?: string }> {
+export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0, settings?: EngineSettingsInput): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
   const primary = deps.market.getCandles(symbol, tf, s.candleLimit, now);
@@ -193,7 +197,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
     candles: pr instanceof Error ? [] : pr,
     confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf, liquidations,
     derivatives, news,
-}, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore } });
+}, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore, ...(settings ? { settings } : {}) } });
   const signal = await guardEntry(built, tf, deps, now, btc, s.minScore);
   return failed === undefined ? { signal } : { signal, error: failed };
 }
@@ -245,11 +249,12 @@ export class EngineService {
       try {
         await trackOutcomes({ market: this.deps.market, store: this.deps.store, now: this.deps.now, log: this.log });
       } catch (e) { this.log.error(`[scan] outcome tracking failed: ${errMsg(e)}`); }
+      const active = this.deps.activeSettings ? await this.deps.activeSettings() : null;
       const btc = await btcBias(this.deps, tf, this.settings, this.now);
       const results = await pool(symbols, this.settings.concurrency, async (symbol): Promise<SymbolResult> => {
         const now = this.now;
         try {
-          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc);
+          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings);
           const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
           await exitIfWeak(signal, this.deps.store, now, this.log).catch((e: unknown) => this.log.error(`[scan] weak-exit check failed: ${errMsg(e)}`));
           return error === undefined
@@ -264,9 +269,10 @@ export class EngineService {
         startedAt, finishedAt: new Date(this.now).toISOString(), timeframe: tf,
         scanned: symbols.length, emitted: results.filter((r) => r.outcome === "emitted").length,
         errors: results.filter((r) => r.outcome === "error").length, results,
+        ...(active ? { settingsVersion: active.version } : {}),
       };
       try { await this.deps.store.recordRun(summary); } catch (e) { this.log.error(`[scan] could not record run: ${errMsg(e)}`); }
-      this.log.info(`[scan] ${tf}: ${summary.scanned} scanned, ${summary.emitted} new signals, ${summary.errors} errors`);
+      this.log.info(`[scan] ${tf}: ${summary.scanned} scanned, ${summary.emitted} new signals, ${summary.errors} errors${active ? ` (settings v${active.version})` : ""}`);
       if (summary.errors > 0) this.log.warn(`[scan] failed: ${results.filter((r) => r.outcome === "error").map((r) => `${r.symbol} (${r.error})`).join("; ")}`);
       return summary;
     } finally {
