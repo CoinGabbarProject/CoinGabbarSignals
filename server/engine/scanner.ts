@@ -175,7 +175,7 @@ async function liquidationEvents(deps: EngineDeps, symbol: string, now: number):
 }
 
 /** Fetch everything for one symbol and build the signal. */
-export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0, settings?: EngineSettingsInput): Promise<{ signal: FinalSignal; error?: string }> {
+export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0, settings?: EngineSettingsInput, settingsVersion?: number): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
   const primary = deps.market.getCandles(symbol, tf, s.candleLimit, now);
@@ -191,13 +191,15 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
     optional(liqOn ? liquidationEvents(deps, symbol, now) : null),
   ]);
   const failed = pr instanceof Error ? pr.message : undefined;
-  const built = buildSignal({
+  const built0 = buildSignal({
     symbol, exchange: deps.exchange ?? "okx", marketType: deps.market.marketTypeOf?.(symbol) ?? "swap",
     timeframe: { primary: tf, confirmation: confTf ?? "none", execution: EXECUTION_TF[tf] },
     candles: pr instanceof Error ? [] : pr,
     confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf, liquidations,
     derivatives, news,
 }, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore, ...(settings ? { settings } : {}) } });
+  // Record which saved settings version produced this signal (absent = built-in defaults).
+  const built = settingsVersion !== undefined && built0.strategy ? { ...built0, strategy: { ...built0.strategy, settingsVersion } } : built0;
   const signal = await guardEntry(built, tf, deps, now, btc, s.minScore);
   return failed === undefined ? { signal } : { signal, error: failed };
 }
@@ -254,7 +256,7 @@ export class EngineService {
       const results = await pool(symbols, this.settings.concurrency, async (symbol): Promise<SymbolResult> => {
         const now = this.now;
         try {
-          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings);
+          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings, active?.version);
           const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
           await exitIfWeak(signal, this.deps.store, now, this.log).catch((e: unknown) => this.log.error(`[scan] weak-exit check failed: ${errMsg(e)}`));
           return error === undefined
