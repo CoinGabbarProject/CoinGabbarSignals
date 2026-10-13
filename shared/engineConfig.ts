@@ -132,3 +132,20 @@ export function disabledIndicators(t: IndicatorToggles): string[] {
 export function minCandlesFor(p: IndicatorPeriods): number {
   return Math.max(60, p.emaSlow + 10, p.macdSlow + p.macdSignal + 10, p.bbPeriod + 1, p.rsi + 2, p.atr + 2, p.adx * 2 + 2);
 }
+
+const PERIOD_LABELS: Record<keyof IndicatorPeriods, string> = {
+  emaFast: "EMA fast", emaSlow: "EMA slow", smaTrend: "SMA trend", rsi: "RSI period", atr: "ATR period", adx: "ADX period",
+  macdFast: "MACD fast", macdSlow: "MACD slow", macdSignal: "MACD signal", bbPeriod: "Bollinger period", bbMult: "Bollinger width",
+};
+const TOGGLE_LABELS: Record<keyof IndicatorToggles, string> = {
+  rsi: "RSI", macd: "MACD", stochRsi: "Stochastic RSI", obv: "OBV", vwap: "VWAP", bollinger: "Bollinger Bands", derivatives: "Derivatives data", orderBook: "Order book",
+};
+
+/** Short human-readable list of what differs from the built-in defaults, e.g. "RSI period 10, MACD off". */
+export function describeEngineSettings(input?: EngineSettingsInput | null): string {
+  const s = resolveEngineSettings(input);
+  const out: string[] = [];
+  for (const k of Object.keys(PERIOD_LABELS) as (keyof IndicatorPeriods)[]) if (s.periods[k] !== DEFAULT_PERIODS[k]) out.push(`${PERIOD_LABELS[k]} ${s.periods[k]}`);
+  for (const k of Object.keys(TOGGLE_LABELS) as (keyof IndicatorToggles)[]) if (s.toggles[k] !== DEFAULT_TOGGLES[k]) out.push(`${TOGGLE_LABELS[k]} ${s.toggles[k] ? "on" : "off"}`);
+  return out.length ? out.join(", ") : "same as defaults";
+}
