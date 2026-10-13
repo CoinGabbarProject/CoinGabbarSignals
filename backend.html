@@ -1021,8 +1021,140 @@ async function scoreView() {
     host.innerHTML = panel("Score Breakdown", "", `<span class="red">${esc(e.message)}</span>`);
   }
 }
+// ===== Engine Config: indicator periods + on/off switches, versioned (talks to /api/v1/engine/settings) =====
+const ENG_PERIODS = [
+  ["emaFast", "EMA fast", 2, 100], ["emaSlow", "EMA slow", 3, 200], ["smaTrend", "SMA trend", 20, 400],
+  ["rsi", "RSI period", 2, 50], ["atr", "ATR period", 2, 50], ["adx", "ADX period", 2, 50],
+  ["macdFast", "MACD fast", 2, 50], ["macdSlow", "MACD slow", 3, 100], ["macdSignal", "MACD signal", 2, 50],
+  ["bbPeriod", "Bollinger period", 5, 100], ["bbMult", "Bollinger width", 0.5, 5]
+];
+const ENG_TOGGLES = [
+  ["rsi", "RSI"], ["macd", "MACD"], ["stochRsi", "Stochastic RSI"], ["obv", "OBV"],
+  ["vwap", "VWAP"], ["bollinger", "Bollinger Bands"], ["derivatives", "Derivatives data"], ["orderBook", "Order book"]
+];
+
+async function engApi(path, method, body) {
+  const token = sessionStorage.getItem("cg_admin_token");
+  const res = await fetch(API + path, {
+    method: method || "GET",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { logout(); throw new Error("Session expired"); }
+  if (!res.ok) {
+    const list = Array.isArray(data.details) ? data.details : Array.isArray(data.errors) ? data.errors : [];
+    const head = data.error || (list.length ? "Settings are not valid" : "Request failed");
+    throw new Error(head + (list.length ? ": " + list.join("; ") : ""));
+  }
+  return data;
+}
+
+function engDiff(s, d) {
+  const out = [];
+  ENG_PERIODS.forEach(([k, label]) => { if (s.periods[k] !== d.periods[k]) out.push(label + " " + s.periods[k]); });
+  ENG_TOGGLES.forEach(([k, label]) => { if (s.toggles[k] !== d.toggles[k]) out.push(label + (s.toggles[k] ? " on" : " off")); });
+  return out.length ? out.join(", ") : "same as defaults";
+}
+
+async function engineConfigView(flash) {
+  host.innerHTML = panel("Engine Config", "Loading…", "");
+  let d;
+  try { d = await engApi("/engine/settings"); }
+  catch (e) { host.innerHTML = panel("Engine Config", "", `<span class="red">${esc(e.message)}</span>`); return; }
+
+  const base = d.active ? d.active.settings : d.defaults;
+  const box = INP + ";width:100%;box-sizing:border-box";
+  const when = (t) => (t ? new Date(t).toLocaleString() : "-");
+
+  const live = d.active
+    ? `<b class="green">Version ${esc(d.active.version)} is live</b><br>${esc(engDiff(d.active.settings, d.defaults))}<br><span style="opacity:.7;font-size:11px">Activated ${esc(when(d.active.activatedAt))} by ${esc(d.active.activatedBy || "-")}</span>`
+    : `<b>Built-in defaults are live</b><br><span style="opacity:.7;font-size:11px">No saved version is active.</span>`;
+
+  const periodInputs = ENG_PERIODS.map(([k, label, min, max]) =>
+    `<label style="display:block;font-size:11px">${esc(label)} <span style="opacity:.6">(${min}–${max})</span>` +
+    `<input data-p="${k}" type="number" inputmode="decimal" step="${k === "bbMult" ? "0.1" : "1"}" min="${min}" max="${max}" value="${esc(base.periods[k])}" style="${box}"></label>`).join("");
+  const toggleInputs = ENG_TOGGLES.map(([k, label]) =>
+    `<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:6px 0"><input data-t="${k}" type="checkbox" ${base.toggles[k] ? "checked" : ""}> ${esc(label)}</label>`).join("");
+
+  const rows = (d.versions || []).map(v => `<tr>
+      <td>v${esc(v.version)}</td>
+      <td><span class="status ${v.status === "active" ? "active" : "neutral"}">${esc(v.status)}</span></td>
+      <td style="min-width:160px">${esc(engDiff(v.settings, d.defaults))}${v.note ? `<br><span style="opacity:.7;font-size:11px">${esc(v.note)}</span>` : ""}</td>
+      <td style="font-size:11px">${esc(v.createdBy)}<br>${esc(when(v.createdAt))}</td>
+      <td>${v.status === "active" ? "" : `<button class="btn" data-act="${esc(v.version)}">Activate</button>`}</td></tr>`).join("");
+
+  host.innerHTML =
+    panel("Live now", "", `${live}<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="ecRollback">Roll back</button><button class="btn" id="ecReset">Use built-in defaults</button></div>`) +
+    `<div style="height:10px"></div>` +
+    panel("New draft", "A draft does nothing until you activate it", `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px">${periodInputs}</div>
+      <div style="margin-top:12px"><b style="font-size:12px">Indicators on / off</b>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">${toggleInputs}</div></div>
+      <label style="display:block;margin-top:10px;font-size:11px">Note (optional)<input id="ecNote" maxlength="200" placeholder="Why this change?" style="${box}"></label>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="ecCheck">Check</button><button class="btn primary" id="ecSave">Save draft</button><button class="btn" id="ecDefaults">Load defaults</button></div>
+      <div id="ecMsg" style="margin-top:10px;font-size:12px;min-height:16px"></div>
+      <ul style="font-size:11px;opacity:.75;padding-left:18px;margin:10px 0 0">
+        <li>An activated version applies from the next scan (every 15 minutes).</li>
+        <li>On/off switches work in the full engine (profile B and C). Profile A (CORE4) ignores them. Periods apply to all.</li>
+        <li>Switching an indicator off lowers the maximum score, and the score is rescaled to 100. Derivatives off stops profile C from trading.</li>
+        <li>ATR and the safety checks (stale data, spread, invalid stop) can never be switched off.</li>
+        <li>Backtesting does not use these settings yet, so backtest results still reflect the built-in defaults.</li>
+      </ul>`) +
+    `<div style="height:10px"></div>` +
+    panel("Saved versions", `${(d.versions || []).length} shown`,
+      `<table class="table">${th(["Ver", "Status", "Changes", "Saved by", ""])}<tbody>${rows || '<tr><td colspan="5">Nothing saved yet</td></tr>'}</tbody></table>`);
+
+  const msg = (t, bad) => { const el = $("ecMsg"); if (!el) return; el.className = bad ? "red" : "green"; el.textContent = t; };
+  if (flash) msg(flash, false);
+  const collect = () => {
+    const periods = {}, toggles = {};
+    host.querySelectorAll("[data-p]").forEach(i => { periods[i.dataset.p] = i.value === "" ? NaN : Number(i.value); });
+    host.querySelectorAll("[data-t]").forEach(i => { toggles[i.dataset.t] = i.checked; });
+    return { periods, toggles };
+  };
+  const busy = (btn, label, fn) => async () => {
+    const old = btn.textContent; btn.disabled = true; btn.textContent = label;
+    try { await fn(); } catch (e) { msg(e.message, true); } finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = old; } }
+  };
+
+  $("ecCheck").onclick = busy($("ecCheck"), "Checking…", async () => {
+    await engApi("/engine/settings/validate", "POST", { settings: collect() });
+    msg("These settings are valid. Nothing was saved.", false);
+  });
+  $("ecSave").onclick = busy($("ecSave"), "Saving…", async () => {
+    const r = await engApi("/engine/settings/drafts", "POST", { settings: collect(), note: $("ecNote").value });
+    await engineConfigView("Saved as draft v" + r.version.version + ". It is not live until you activate it.");
+  });
+  $("ecDefaults").onclick = () => {
+    host.querySelectorAll("[data-p]").forEach(i => { i.value = d.defaults.periods[i.dataset.p]; });
+    host.querySelectorAll("[data-t]").forEach(i => { i.checked = !!d.defaults.toggles[i.dataset.t]; });
+    msg("Defaults loaded into the form. Nothing was saved.", false);
+  };
+  host.querySelectorAll("[data-act]").forEach(b => {
+    b.onclick = busy(b, "…", async () => {
+      if (!confirm("Make version " + b.dataset.act + " live? It applies from the next scan.")) return;
+      await engApi("/engine/settings/" + encodeURIComponent(b.dataset.act) + "/activate", "POST");
+      await engineConfigView("Version " + b.dataset.act + " is now live.");
+    });
+  });
+  $("ecRollback").onclick = busy($("ecRollback"), "…", async () => {
+    if (!confirm("Go back to the version that was live before this one?")) return;
+    const r = await engApi("/engine/settings/rollback", "POST");
+    await engineConfigView("Rolled back. Version " + r.version.version + " is live.");
+  });
+  $("ecReset").onclick = busy($("ecReset"), "…", async () => {
+    if (!confirm("Switch back to the built-in defaults? Saved versions are kept.")) return;
+    await engApi("/engine/settings/reset", "POST");
+    await engineConfigView("Built-in defaults are live.");
+  });
+}
+
 
 const VIEW_MAP = {
+"Engine Config": engineConfigView,
 "Scan Health": scanView, "Score Breakdown": scoreView,
   "Market Data": marketView, "Indicators": indicatorsView,
   "Risk Engine": riskView, "Calculations": riskView,
