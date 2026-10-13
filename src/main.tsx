@@ -1411,7 +1411,7 @@ function positionTags(m: MiniChart): void {
   let last = -Infinity;
   pts.forEach((p) => {
         // Keep chips at least 16px apart and never let the first one clip off the top
-    const y = Math.max(p.y, last + 16, 9);
+    const y = Math.max(p.y, last + 20, 9);
     last = y;
     p.el.style.top = `${Math.round(y - 8)}px`;
   });
