@@ -4,6 +4,7 @@ import { connectMongoDB } from "./db/mongodb.js";
 import { createMarketData } from "./engine/okxMarketData.js";
 import { MongoSignalStore } from "./engine/mongoStore.js";
 import { EngineService } from "./engine/scanner.js";
+import { MongoSettingsRepo, SettingsService } from "./engine/settingsStore.js";
 
 const config = loadConfig();
 
@@ -12,11 +13,19 @@ const db = await connectMongoDB();
 const store = new MongoSignalStore(db);
 await store.ensureIndexes();
 
+const settingsRepo = new MongoSettingsRepo(db);
+await settingsRepo.ensureIndexes();
+const settings = new SettingsService(settingsRepo);
+
 const engine = new EngineService(
   {
      market: createMarketData(),
     store,
     exchange: "okx",
+    activeSettings: async () => {
+      const a = await settings.getActive();
+      return a ? { version: a.version, settings: a.settings } : null;
+    },
   },
   {
     symbols: config.scan.symbols,
@@ -43,7 +52,7 @@ if (config.scan.enabled) {
   console.log("[engine] auto-scan disabled (set AUTO_SCAN_ENABLED=true to enable)");
 }
 
-const server = createApp(config, { engine, store }).listen(config.port, config.host, () => {
+const server = createApp(config, { engine, store, settings }).listen(config.port, config.host, () => {
   console.log(
     `[coingabbarsignals] ${config.appEnv} • http://${config.host}:${config.port}`
   );
