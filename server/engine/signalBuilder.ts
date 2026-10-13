@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Timeframe } from "../../shared/market.js";
 import { calcAdvanced, calcIndicators } from "../../shared/indicators.js";
 import type { FibPlan, SRLevel } from "../../shared/indicators.js";
+import { resolveEngineSettings } from "../../shared/engineConfig.js";
+import type { EngineSettingsInput } from "../../shared/engineConfig.js";
 import { scoreSetup } from "../../shared/scoring.js";
 import type { ScoreInput, ScoreResult, SetupGates } from "../../shared/scoring.js";
 import type { FinalSignal } from "../models/signal.js";
@@ -42,6 +44,7 @@ export interface BuilderConfig {
   fibMinScore: number;       // min score used instead of minScore while the Fib gate is on
     fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
   strategyVersion?: string;  // stored on the signal; set by a profile
+  settings?: EngineSettingsInput; // indicator periods + on/off switches; omitted = classic defaults
   requireDerivatives?: boolean; // profile C: no trade unless all live derivatives fields are real numbers
 }
 
@@ -261,9 +264,10 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
   const iso = new Date(now).toISOString();
   const { candles } = input;
 
-  const scored = scoreSetup({ ...input, gates: cfg.gates, now });
-  const ind = calcIndicators(candles);
-  const adv = calcAdvanced(candles);
+  const engine = resolveEngineSettings(cfg.settings);
+  const scored = scoreSetup({ ...input, gates: cfg.gates, now, settings: cfg.settings });
+  const ind = calcIndicators(candles, engine.periods);
+  const adv = calcAdvanced(candles, engine.periods);
   const last = candles[candles.length - 1];
   const close = last?.close ?? 0;
   const atr = ind?.atr.value ?? NaN;
@@ -275,6 +279,9 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
   let decision = decide(scored, close, atr, adv ? { ns: adv.levels.nearestSupport, nr: adv.levels.nearestResistance } : null, cfg);
   // Never emit a tradeable signal on a stalled feed.
   if (decision.kind === "TRADE" && stale) decision = { kind: "NO_TRADE", reason: "Market data is stale (last candle too old)" };
+  if (decision.kind === "TRADE" && cfg.requireDerivatives && !engine.toggles.derivatives) {
+    decision = { kind: "NO_TRADE", reason: "Profile C needs derivatives data, but derivatives are switched off in settings" };
+  }
   if (decision.kind === "TRADE" && cfg.requireDerivatives && !hasRealDerivatives(input.derivatives)) {
     decision = { kind: "NO_TRADE", reason: "Profile C needs live derivatives data (funding, open interest, long/short, order book); it is unavailable" };
   }
