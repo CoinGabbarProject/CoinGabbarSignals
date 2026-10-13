@@ -3,6 +3,8 @@ import { calcSmc, describeSmc, scoreSmc } from "./smc.js";
 import { calcLiquidation, describeLiquidation, scoreLiquidation } from "./liquidation.js";
 import { calcAdvanced, calcCandleConfirm, calcFib, calcIndicators } from "./indicators.js";
 import type { FibPlan } from "./indicators.js";
+import { disabledIndicators, resolveEngineSettings } from "./engineConfig.js";
+import type { EngineSettingsInput } from "./engineConfig.js";
 
 export type ScoreSide = "LONG" | "SHORT" | "NEUTRAL";
 
@@ -33,6 +35,7 @@ export interface ScoreInput {
   htf?: Candle[] | null;          // daily candles for the higher-timeframe filter
   gates?: Partial<SetupGates> | null;
     liquidations?: Liquidation[] | null;   // recent liquidation events (optional)
+  settings?: EngineSettingsInput | null; // indicator periods and on/off switches (defaults = classic behaviour)
   now?: number;                          // evaluation time (ms). Pass it for deterministic/historical runs; defaults to Date.now()
 }
 export interface ScoreResult {
@@ -42,6 +45,8 @@ export interface ScoreResult {
   fib?: FibPlan | null;
   smc?: Record<string, unknown> | null;          // SMC details for dashboards
   liquidation?: Record<string, unknown> | null;  // liquidation details for dashboards
+  disabled?: string[];     // indicators switched off in settings (full engine only)
+  activeMax?: number;      // points the score is normalised against (100 when nothing is missing or off)
 }
 
 const zeroScore = (): SetupScore => ({
@@ -214,8 +219,10 @@ function early(side: ScoreSide, criticalFailure: string | null, warnings: string
  */
 export function scoreSetup(input: ScoreInput): ScoreResult {
   const { candles } = input;
-  const ind = calcIndicators(candles);
-  const adv = calcAdvanced(candles);
+  const cfg = resolveEngineSettings(input.settings);
+  const tg = cfg.toggles;
+  const ind = calcIndicators(candles, cfg.periods);
+  const adv = calcAdvanced(candles, cfg.periods);
   const k = candles[candles.length - 1];
   if (!ind || !adv || !k) return early("NEUTRAL", "Insufficient or invalid candle data");
   const atr = ind.atr.value;
@@ -226,9 +233,9 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
   // ---- direction: 5 votes ----
   const v = (b: boolean): number => (b ? 1 : -1);
   const votes =
-    v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + v(ind.macd.histogram > 0) +
+    v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + (tg.macd ? v(ind.macd.histogram > 0) : 0) +
     (adv.adx.bias === "bullish" ? 1 : adv.adx.bias === "bearish" ? -1 : 0) +
-    (ind.vwap.relationship === "above" ? 1 : ind.vwap.relationship === "below" ? -1 : 0);
+    (!tg.vwap ? 0 : ind.vwap.relationship === "above" ? 1 : ind.vwap.relationship === "below" ? -1 : 0);
   // Fib pullback mode: direction = trend structure, because MACD / DI / VWAP flip during a pullback.
   const trendVotes = v(ind.ema20 > ind.ema50) + v(close > ind.ema50) + (ind.sma200 === null ? 0 : v(close > ind.sma200));
   const side: ScoreSide = input.gates?.requireFib
@@ -255,7 +262,7 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
   // Gate 2: higher timeframes (confirmation TF + daily) must agree: EMA20>EMA50 and price on the right side of EMA50.
   if (g.htfFilter) {
     const htfCheck = (arr: Candle[] | null | undefined, label: string): void => {
-      const hi = arr ? calcIndicators(arr) : null;
+      const hi = arr ? calcIndicators(arr, cfg.periods) : null;
       const hl = arr?.[arr.length - 1];
       if (!hi || !hl) return;
       if ((hi.ema20 - hi.ema50) * s <= 0 || (hl.close - hi.ema50) * s <= 0) critical = critical ?? `${label} trend is against the ${side}`;
@@ -302,14 +309,15 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
 
   // ---- 2. Trend + multi-timeframe (20) ----
   let tr = 0;
+  let confMacdLost = 0;   // points the confirmation-TF MACD would have added
   if ((ind.ema20 - ind.ema50) * s > 0) { tr += 4; conf.push("EMA20/EMA50 aligned with the setup"); }
   else conflicts.push("EMA20/EMA50 against the setup");
   if ((close - ind.ema50) * s > 0) tr += 3;
   if (ind.sma200 === null) tr += 1;
   else if ((close - ind.sma200) * s > 0) { tr += 3; conf.push("Price on the right side of SMA200"); }
   else conflicts.push("Price on the wrong side of SMA200");
-  if (ind.bollinger.direction === want.dir) tr += 2;
-  const cInd = input.confirmation ? calcIndicators(input.confirmation) : null;
+  if (tg.bollinger && ind.bollinger.direction === want.dir) tr += 2;
+  const cInd = input.confirmation ? calcIndicators(input.confirmation, cfg.periods) : null;
   const cLast = input.confirmation?.[input.confirmation.length - 1];
   if (!cInd || !cLast) unavailable.push("confirmationTF");
   else {
@@ -320,7 +328,8 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
       critical = critical ?? "Higher timeframe trend disagrees with the setup";
     }
     if ((cLast.close - cInd.ema50) * s > 0) ct += 2;
-    if (cInd.macd.histogram * s > 0) ct += 2;
+    if (tg.macd && cInd.macd.histogram * s > 0) ct += 2;
+    if (!tg.macd) confMacdLost = 2;
     if (ct >= 6) conf.push("Confirmation timeframe agrees");
     tr += ct;
   }
@@ -337,7 +346,8 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
   if (s > 0 ? close > hiOf(base) : close < loOf(base)) { st += 4; conf.push("Break of 20-bar structure"); }
   const bb = ind.bollinger;
   const ext = bb.context === "upper-band" ? 1 : bb.context === "lower-band" ? -1 : 0;
-  if (bb.context === "inside") st += bb.direction === want.dir ? 3 : 2;
+  if (!tg.bollinger) { /* Bollinger switched off: no structure points from the bands */ }
+  else if (bb.context === "inside") st += bb.direction === want.dir ? 3 : 2;
   else if (bb.context === "breakout") { if ((close > bb.upper ? 1 : -1) * s > 0) st += 3; else warnings.push("Bollinger breakout against the setup"); }
   else if (ext * s < 0) st += 2;
   else { st += 1; warnings.push("Price is at the band in the setup direction (chasing risk)"); }
@@ -366,21 +376,26 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
   // ---- 5. Volume + momentum (15) ----
   let vm = 0;
   const r = s > 0 ? ind.rsi.value : 100 - ind.rsi.value;
-  if (r >= 50 && r <= 70) vm += 4;
+  if (!tg.rsi) { /* RSI switched off: no points and no RSI overextension gate */ }
+  else if (r >= 50 && r <= 70) vm += 4;
   else if ((r >= 40 && r < 50) || (r > 70 && r <= 75)) vm += 2;
   else if (r > 72) {
     warnings.push(`RSI ${ind.rsi.value.toFixed(0)} is stretched for a ${side}`);
     critical = critical ?? `RSI ${ind.rsi.value.toFixed(0)} is overextended for a ${side}`;
   }
-  if (ind.macd.histogram * s > 0) vm += ind.macd.histogramState === "expanding" ? 4 : 2;
-  else conflicts.push("MACD histogram against the setup");
-  if (ind.macd.crossover === want.bias) conf.push("Fresh MACD crossover in the setup direction");
+  if (tg.macd) {
+    if (ind.macd.histogram * s > 0) vm += ind.macd.histogramState === "expanding" ? 4 : 2;
+    else conflicts.push("MACD histogram against the setup");
+    if (ind.macd.crossover === want.bias) conf.push("Fresh MACD crossover in the setup direction");
+  }
   const kAbove = adv.stochRsi.k > adv.stochRsi.d;
   const stochExt = s > 0 ? adv.stochRsi.zone === "overbought" : adv.stochRsi.zone === "oversold";
-  if (s > 0 ? kAbove : !kAbove) vm += stochExt ? 1 : 2;
-  if (adv.obv.slope === want.dir) vm += 2;
-  if (adv.obv.divergence === want.opp) conflicts.push(`OBV ${adv.obv.divergence} divergence against the setup`);
-  else vm += 1;
+  if (tg.stochRsi && (s > 0 ? kAbove : !kAbove)) vm += stochExt ? 1 : 2;
+  if (tg.obv) {
+    if (adv.obv.slope === want.dir) vm += 2;
+    if (adv.obv.divergence === want.opp) conflicts.push(`OBV ${adv.obv.divergence} divergence against the setup`);
+    else vm += 1;
+  }
   const vols = candles.slice(-21, -1).map((x) => x.volume);
   const avgV = vols.reduce((a, b) => a + b, 0) / vols.length;
   const vr = avgV > 0 ? k.volume / avgV : 0;
@@ -389,6 +404,7 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
 
   // ---- 6. Derivatives + order book (10) ----
   let dd = 0;
+  if (tg.derivatives) {
   const dv = input.derivatives ?? null;
   const f = dv?.fundingRate;
   if (num(f)) {
@@ -410,7 +426,7 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
     if (crowd > 3) penalty += 3;
   } else unavailable.push("longShortRatio");
   const bi = dv?.bookImbalance;
-  if (num(bi)) { const a = bi * s; dd += a >= 0.2 ? 3 : a >= 0.05 ? 2 : a >= -0.05 ? 1 : 0; }
+  if (!tg.orderBook) { /* order book switched off */ } else if (num(bi)) { const a = bi * s; dd += a >= 0.2 ? 3 : a >= 0.05 ? 2 : a >= -0.05 ? 1 : 0; }
 else unavailable.push("orderBook");
   const tt = dv?.topTraderRatio;
   if (num(tt) && tt > 0) {
@@ -424,6 +440,8 @@ else unavailable.push("orderBook");
     if (a >= 1.1) { dd += 1; conf.push("Aggressive taker flow supports the setup"); }
     else if (a <= 0.9) { dd -= 1; warnings.push("Taker flow is against the setup"); }
   }
+
+  }   // end derivatives (switched off = no points, nothing listed as unavailable)
 
   // ---- 7. News + fundamentals (5) ----
   let nf = 0;
@@ -491,7 +509,12 @@ else unavailable.push("orderBook");
     (unavailable.includes("fundingRate") ? 3 : 0) + (unavailable.includes("openInterest") ? 2 : 0) +
     (unavailable.includes("longShortRatio") ? 2 : 0) + (unavailable.includes("orderBook") ? 3 : 0) +
     (unavailable.includes("news") ? 5 : 0);
-    score.total = Math.min(100, Math.max(0, Math.round(((rawTotal - penalty) * 100) / (100 - lostMax)) + extraPts));
+  // Points that switched-off indicators could have added. Removed from the base so the score stays on a 0-100 scale.
+  const toggleLost =
+    (tg.rsi ? 0 : 4) + (tg.macd ? 0 : 4) + (tg.stochRsi ? 0 : 2) + (tg.obv ? 0 : 3) + (tg.bollinger ? 0 : 5) +
+    (tg.derivatives ? (tg.orderBook ? 0 : 3) : 10) + confMacdLost;
+  const activeMax = 100 - lostMax - toggleLost;
+    score.total = Math.min(100, Math.max(0, Math.round(((rawTotal - penalty) * 100) / activeMax) + extraPts));
   score.smcLiquidity = extraPts;
-  return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical, fib, smc: smcOut, liquidation: liqOut };
+  return { side, score, confirmations: conf, conflicts, warnings, unavailable, criticalFailure: critical, fib, smc: smcOut, liquidation: liqOut, disabled: disabledIndicators(tg), activeMax };
                             }
