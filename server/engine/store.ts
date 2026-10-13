@@ -12,6 +12,7 @@ export interface SymbolResult {
 export interface ScanSummary {
   startedAt: string; finishedAt: string; timeframe: Timeframe;
   scanned: number; emitted: number; errors: number; results: SymbolResult[];
+  settingsVersion?: number;   // active engine-settings version used for this scan; absent = built-in defaults
 }
 export type SignalFilterStatus = "ACTIVE" | "CANCELLED" | "EXPIRED";
 export interface SignalHits { tp1?: number; tp2?: number; tp3?: number; sl?: number }
