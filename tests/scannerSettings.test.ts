@@ -58,6 +58,19 @@ describe("scanner and engine settings", () => {
     const withoutHook = new EngineService(deps(), scan);
     expect("settingsVersion" in (await withoutHook.runScan())).toBe(false);
   });
+  it("every stored signal records the settings version it was built with", async () => {
+    const store = new MemorySignalStore();
+    await new EngineService(deps({ store, activeSettings: async () => ({ version: 3, settings: {} }) }), scan).runScan();
+    const withVersion = await store.listLatest({ limit: 10 });
+    expect(withVersion.length).toBeGreaterThan(0);
+    expect(withVersion.every((x) => x.strategy?.settingsVersion === 3)).toBe(true);
+
+    const plainStore = new MemorySignalStore();
+    await new EngineService(deps({ store: plainStore }), scan).runScan();
+    const plain = await plainStore.listLatest({ limit: 10 });
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain.every((x) => x.strategy !== undefined && !("settingsVersion" in x.strategy))).toBe(true);   // defaults leave no version
+  });
   it("if the settings cannot be read the scan fails instead of trading on other settings", async () => {
     const store = new MemorySignalStore();
     const engine = new EngineService(deps({ store, activeSettings: async () => { throw new Error("db down"); } }), scan);
