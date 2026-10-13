@@ -9,6 +9,9 @@ import { resolveProfile } from "./signalBuilder.js";
 import type { BacktestOptions, BacktestResult, BacktestTrade } from "./backtest.js";
 import { DEFAULT_HISTORY_CONFIG, barsForDays, fetchHistory, loadSymbolHistory, WARMUP } from "./backtestData.js";
 import type { SymbolHistory } from "./backtestData.js";
+import { ENGINE_SETTINGS_SCHEMA, describeEngineSettings, validateEngineSettings } from "../../shared/engineConfig.js";
+import type { EngineSettings } from "../../shared/engineConfig.js";
+import type { SettingsService } from "./settingsStore.js";
 
 /**
  * Backtest - part 3 of 3: statistics, text report and the /engine/backtest route.
@@ -198,13 +201,22 @@ const row = (label: string, s: Summary): string =>
   `${pad(label, 9)}${pad(String(s.n), 5)}${pad(f(s.winPct, 0) + "%", 6)}${pad(sg(s.avgR), 7)}${pad(sg(s.totalR, 1), 8)}${pf(s.profitFactor)}`;
 const head = "          N    Win%  AvgR   TotalR  PF";
 
-export function formatReport(res: BacktestResult, rep: Report, failed: string[]): string {
+/** Which engine settings a backtest ran with, and what the live engine is running. */
+export interface RunSettingsInfo {
+  label: string;               // e.g. "built-in defaults" or "v3 (RSI period 10, MACD off)"
+  version?: number;            // absent = built-in defaults
+  liveKnown: boolean;          // false when the server cannot tell what is live
+  liveVersion?: number;        // absent with liveKnown = live runs on built-in defaults
+}
+
+export function formatReport(res: BacktestResult, rep: Report, failed: string[], ctx?: RunSettingsInfo): string {
   const o = res.options;
   const L: string[] = [];
   L.push("BACKTEST REPORT");
   L.push(`Period    ${day(res.fromTime)} -> ${day(res.toTime)}  (${o.timeframe})`);
   L.push(`Coins     ${res.symbols.length}${failed.length ? `  (failed: ${failed.join(",")})` : ""}`);
   L.push(`Settings  version ${o.config?.strategyVersion ?? "core4-v1"} | minScore ${o.minScore} | cost ${o.costPct}% | hold ${o.maxHoldBars} bars | btcFilter ${o.btcFilter ? "on" : "off"} | cluster ${o.maxOpenPerDirection || "off"} | stop ${o.stopMode ?? "fixed"}${(o.trailPct ?? 0) > 0 ? ` trail ${o.trailPct}%` : ""} | funding ${(o.fundingPctPer8h ?? 0) > 0 ? `${o.fundingPctPer8h}%/8h (assumed)` : "off"}`);
+  if (ctx) L.push(`Engine    settings: ${ctx.label}`);
   L.push("");
   const s = rep.overall;
   if (s.n === 0) {
@@ -232,6 +244,12 @@ export function formatReport(res: BacktestResult, rep: Report, failed: string[])
     L.push("PARITY WITH THE LIVE ENGINE");
   L.push(`  stop: ${o.stopMode === "staged" ? "staged (entry after TP1, TP1 after TP2" + ((o.trailPct ?? 0) > 0 ? `, ${o.trailPct}% trail)` : ", no % trail)") : "fixed; the live tracker moves it after TP1/TP2 when TRAILING_STOP is on (use stop=staged)"}`);
   L.push(`  max open per direction: ${o.maxOpenPerDirection || "no limit"} here; live uses MAX_OPEN_PER_DIRECTION (default 5)`);
+  if (ctx) {
+    if (!ctx.liveKnown) L.push("  engine settings: the server could not tell which settings are live");
+    else if (ctx.version === ctx.liveVersion) L.push(`  engine settings: same as live (${ctx.liveVersion === undefined ? "built-in defaults" : "v" + ctx.liveVersion})`);
+    else L.push(`  engine settings: this run used ${ctx.label}; live is running ${ctx.liveVersion === undefined ? "built-in defaults" : "v" + ctx.liveVersion} (add settings=active to match live)`);
+    L.push("  BTC trend filter uses the default EMA 20/50 in both the backtest and the live scanner");
+  }
   L.push("  not replayed: derivatives, liquidations, order book, news, daily HTF filter, exit-if-weak rule, live-price entry check");
   L.push("  fills: next-candle open inside the entry zone; the live tracker counts any touch of the zone");
   L.push("Past results do not guarantee future results.");
@@ -265,7 +283,8 @@ async function mapPool<T, R>(items: T[], size: number, fn: (t: T) => Promise<R>)
   return out;
 }
 
-type Parsed = { ok: true; symbols: string[]; days: number; opts: BacktestOptions; json: boolean } | { ok: false; error: string };
+type SettingsRef = "default" | "active" | number;
+type Parsed = { ok: true; symbols: string[]; days: number; opts: BacktestOptions; json: boolean; settingsRef: SettingsRef } | { ok: false; error: string };
 
 function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
   const tfRaw = one(q["tf"]) ?? scan.timeframe;
@@ -289,13 +308,16 @@ function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
   if (!["A", "B", "C"].includes(profRaw)) return { ok: false, error: "profile must be A, B or C" };
   const profile = resolveProfile(profRaw);
   if (!profile.backtestable) return { ok: false, error: `Profile ${profile.id} needs historical derivatives data that this repo does not have, so it cannot be backtested` };
+  const setRaw = (one(q["settings"]) ?? "default").toLowerCase();
+  const settingsRef: SettingsRef | null = setRaw === "default" || setRaw === "active" ? setRaw : /^\d{1,9}$/.test(setRaw) && Number(setRaw) > 0 ? Number(setRaw) : null;
+  if (settingsRef === null) return { ok: false, error: "settings must be default, active or a version number" };
   const top = num(one(q["top"]), 20, 1, 50);
   if (top === null) return { ok: false, error: "top must be 1-50" };
   const rawSyms = one(q["symbols"]);
   const symbols = rawSyms ? [...new Set(rawSyms.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))] : scan.symbols.slice(0, Math.trunc(top));
   if (symbols.length < 1 || symbols.length > 50 || symbols.some((s) => !SYMBOL_RE.test(s))) return { ok: false, error: "symbols: 1-50 valid symbols" };
   return {
-    ok: true, symbols, days, json: one(q["format"]) === "json",
+    ok: true, symbols, days, settingsRef, json: one(q["format"]) === "json",
     opts: {
       timeframe: tf, testBars: barsForDays(days, tf), minScore, costPct: cost, maxHoldBars: Math.trunc(hold),
       btcFilter: one(q["btc"]) !== "0", maxOpenPerDirection: Math.trunc(cluster),
@@ -304,8 +326,39 @@ function parseQuery(q: Request["query"], scan: ScanConfig): Parsed {
   };
 }
 
+type RunSettings = { ok: true; settings?: EngineSettings; info: RunSettingsInfo } | { ok: false; status: number; error: string };
+
+/**
+ * Works out which engine settings a backtest should use.
+ *   default: built-in defaults (same as before settings existed)
+ *   active:  the version the live scanner is using right now
+ *   N:       a saved version, including a draft that is not live yet
+ */
+export async function resolveRunSettings(service: SettingsService | undefined, ref: SettingsRef): Promise<RunSettings> {
+  if (!service) {
+    if (ref !== "default") return { ok: false, status: 400, error: "Engine settings are not available on this server, so only settings=default can be used." };
+    return { ok: true, info: { label: "built-in defaults", liveKnown: false } };
+  }
+  let live: Awaited<ReturnType<SettingsService["getActive"]>>;
+  try { live = await service.getActive(); }
+  catch { return { ok: false, status: 503, error: "Could not read the live engine settings, so the backtest was not started." }; }
+  const liveInfo = live ? { liveKnown: true, liveVersion: live.version } : { liveKnown: true };
+
+  if (ref === "default") return { ok: true, info: { label: "built-in defaults", ...liveInfo } };
+  if (ref === "active") {
+    const a = live;
+    if (!a) return { ok: true, info: { label: "built-in defaults (no version is active)", ...liveInfo } };
+    return { ok: true, settings: a.settings, info: { label: `v${a.version} (${describeEngineSettings(a.settings)})`, version: a.version, ...liveInfo } };
+  }
+  const v = await service.get(ref);
+  if (!v) return { ok: false, status: 404, error: `Settings version ${ref} does not exist.` };
+  if (v.schema !== ENGINE_SETTINGS_SCHEMA || !validateEngineSettings(v.settings).ok) return { ok: false, status: 409, error: `Settings version ${ref} cannot be used (old format or invalid values).` };
+  const tag = v.status === "draft" ? " [draft, not live]" : v.status === "archived" ? " [archived]" : "";
+  return { ok: true, settings: v.settings, info: { label: `v${v.version}${tag} (${describeEngineSettings(v.settings)})`, version: v.version, ...liveInfo } };
+}
+
 /** Mounted at /engine, so the full path is /engine/backtest. Needs the BACKTEST_KEY env variable. */
-export function createBacktestRouter(scan: ScanConfig): Router {
+export function createBacktestRouter(scan: ScanConfig, settingsService?: SettingsService): Router {
   const router = Router();
   let running = false;
 
@@ -316,6 +369,10 @@ export function createBacktestRouter(scan: ScanConfig): Router {
     const p = parseQuery(req.query, scan);
     if (!p.ok) { res.status(400).type("text/plain").send(p.error); return; }
     if (running) { res.status(409).type("text/plain").send("A backtest is already running. Try again in a minute."); return; }
+
+    const chosen = await resolveRunSettings(settingsService, p.settingsRef);
+    if (!chosen.ok) { res.status(chosen.status).type("text/plain").send(chosen.error); return; }
+    const runOpts: BacktestOptions = chosen.settings ? { ...p.opts, config: { ...p.opts.config, settings: chosen.settings } } : p.opts;
 
     running = true;
     try {
@@ -338,12 +395,12 @@ export function createBacktestRouter(scan: ScanConfig): Router {
         }
       }
 
-      const result = await runBacktest(histories, btc, p.opts);
+      const result = await runBacktest(histories, btc, runOpts);
             const rep = buildReport(result.trades);
-      const baseline = await runBacktest(histories, btc, { ...p.opts, minScore: 0 });
+      const baseline = await runBacktest(histories, btc, { ...runOpts, minScore: 0 });
       const validation = buildValidation(result.trades, baseline.trades, p.opts.minScore);
-            if (p.json) { res.json({ success: true, failed, report: rep, validation, skips: result.skips, trades: result.trades }); return; }
-            res.type("text/plain; charset=utf-8").send(formatReport(result, rep, failed) + "\n\n" + formatValidation(validation));
+            if (p.json) { res.json({ success: true, failed, settings: { label: chosen.info.label, version: chosen.info.version ?? null, liveVersion: chosen.info.liveVersion ?? null, liveKnown: chosen.info.liveKnown }, report: rep, validation, skips: result.skips, trades: result.trades }); return; }
+            res.type("text/plain; charset=utf-8").send(formatReport(result, rep, failed, chosen.info) + "\n\n" + formatValidation(validation));
     } catch (err) {
       console.error("backtest error:", err);
       res.status(500).type("text/plain").send("Backtest failed. See server logs.");
