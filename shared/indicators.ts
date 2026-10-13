@@ -1,4 +1,6 @@
 import type { Candle } from "./market.js";
+import { DEFAULT_PERIODS, minCandlesFor } from "./engineConfig.js";
+import type { IndicatorPeriods } from "./engineConfig.js";
 export type Direction = "up"|"down"|"flat";
 export interface IndicatorResult<T=number> { value:T; slope:Direction; direction:Direction; relationship?:string; }
 export interface RSIResult extends IndicatorResult { zone:"oversold"|"neutral"|"overbought"; momentum:"weakening"|"neutral"|"strengthening"; }
@@ -278,10 +280,11 @@ export function calcLevels(candles:Candle[], left = 3, right = 3, lookback = 200
   return { supports, resistances, nearestSupport: supports[0] ?? null, nearestResistance: resistances[0] ?? null };
 }
 
-export function calcAdvanced(candles:Candle[]):AdvancedSnapshot | null {
-  if (candles.length < MIN_CANDLES) return null;
+export function calcAdvanced(candles:Candle[], periods?:Partial<IndicatorPeriods>):AdvancedSnapshot | null {
+  const p:IndicatorPeriods = { ...DEFAULT_PERIODS, ...(periods ?? {}) };
+  if (candles.length < minCandlesFor(p)) return null;
   if (candles.some((k) => ![k.open, k.high, k.low, k.close, k.volume].every(Number.isFinite))) return null;
-  return { adx: calcADX(candles), stochRsi: calcStochRSI(candles), obv: calcOBV(candles), levels: calcLevels(candles) };
+  return { adx: calcADX(candles, p.adx), stochRsi: calcStochRSI(candles, p.rsi), obv: calcOBV(candles), levels: calcLevels(candles) };
 }
 
 // ---- Fibonacci pullback (golden pocket 50-61.8%) ----
@@ -374,16 +377,18 @@ export function calcCandleConfirm(candles:Candle[], side:1|-1):CandleConfirm {
 }
 
 // ---- all-in-one (used by scoring in Step 3) ----
-export function calcIndicators(candles:Candle[]):IndicatorSnapshot | null {
-  if (candles.length < MIN_CANDLES) return null;
+/** Periods default to the classic values. The ema20/ema50/sma200 fields hold the configured fast/slow/trend averages. */
+export function calcIndicators(candles:Candle[], periods?:Partial<IndicatorPeriods>):IndicatorSnapshot | null {
+  const p:IndicatorPeriods = { ...DEFAULT_PERIODS, ...(periods ?? {}) };
+  if (candles.length < minCandlesFor(p)) return null;
   if (candles.some((k) => ![k.open, k.high, k.low, k.close, k.volume].every(Number.isFinite))) return null;
   const c = closesOf(candles);
-  const s200 = at(smaSeries(c, 200), -1);
+  const sTrend = at(smaSeries(c, p.smaTrend), -1);
   return {
-    rsi: calcRSI(candles), macd: calcMACD(candles), bollinger: calcBollinger(candles),
-    atr: calcATR(candles), vwap: calcVWAP(candles),
-    ema20: at(emaSeries(c, 20), -1), ema50: at(emaSeries(c, 50), -1),
-    sma200: Number.isFinite(s200) ? s200 : null,
+    rsi: calcRSI(candles, p.rsi), macd: calcMACD(candles, p.macdFast, p.macdSlow, p.macdSignal), bollinger: calcBollinger(candles, p.bbPeriod, p.bbMult),
+    atr: calcATR(candles, p.atr), vwap: calcVWAP(candles),
+    ema20: at(emaSeries(c, p.emaFast), -1), ema50: at(emaSeries(c, p.emaSlow), -1),
+    sma200: Number.isFinite(sTrend) ? sTrend : null,
   };
 }
 // ---- chart series (added for the live chart overlays) ----
