@@ -1555,7 +1555,7 @@ function drawSignalLines(m: MiniChart, signal: DashboardSignal): void {
       "font:700 10px/14px system-ui,sans-serif;" +
       `color:${sigLong ? "#0b3d26" : "#fff"};background:${sigLong ? "#3be39a" : "#ff5c7c"}`;
     m.gutter.appendChild(sigEl);
-    m.tags.push({ price: sigStop, el: sigEl, off: sigLong ? 17 : -17 });
+    m.tags.push({ price: sigStop, el: sigEl, off: sigLong ? 21 : -21 });
   }
 }
 
