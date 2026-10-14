@@ -24,6 +24,18 @@ const obj = (v: unknown): Record<string, unknown> => {
 const settled = <T>(r: PromiseSettledResult<T>): T | null => (r.status === "fulfilled" ? r.value : null);
 const base = (symbol: string): string => symbol.replace(/USDT$/, "");
 
+// OKX limits are per IP and per endpoint (rubik 5 per 2s, funding-rate 10 per 2s, ticker 20 per 2s, others 40 per 2s).
+// One shared gate for the whole process: every call waits for its endpoint's next free slot, so bursts never cause a 429.
+const GAP_MS: Array<[string, number]> = [["/rubik/", 450], ["/funding-rate", 230], ["/market/ticker", 120]];
+const nextSlot = new Map<string, number>();
+async function paceOkx(path: string): Promise<void> {
+  const gap = GAP_MS.find(([part]) => path.includes(part))?.[1] ?? 70;
+  const now = Date.now();
+  const at = Math.max(now, nextSlot.get(path) ?? 0);
+  nextSlot.set(path, at + gap);
+  if (at > now) await new Promise<void>((resolve) => setTimeout(resolve, at - now));
+}
+
 export class OkxMarketData implements MarketData {
   private blockedUntil = 0;
   constructor(
@@ -33,6 +45,7 @@ export class OkxMarketData implements MarketData {
   ) {}
 
   private async get(path: string, params: Record<string, string | number>): Promise<unknown[]> {
+    if (this.fetchFn === fetch) await paceOkx(path); // real OKX only; tests with a mock fetch skip the wait
     if (Date.now() < this.blockedUntil) {
       throw new Error(`OKX cooldown active (${Math.ceil((this.blockedUntil - Date.now()) / 60000)} min left)`);
     }
