@@ -1305,6 +1305,95 @@ setInterval(() => {
   if (host.style.display === "none" && sessionStorage.getItem("cg_admin_logged_in") === "true") loadLive();
 }, 10000);
 
+// ---------- Alert Queue / Audit Activity / Database Overview (real data) ----------
+const toMs = (v) => { if (typeof v === "number") return v; const t = Date.parse(v); return Number.isFinite(t) ? t : null; };
+const agoText = (ms) => {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return s + "s ago";
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + "m ago";
+  const h = Math.floor(m / 60);
+  return h < 24 ? h + "h ago" : Math.floor(h / 24) + "d ago";
+};
+const logTime = (ms) => {
+  const d = new Date(ms);
+  if (d.toDateString() === new Date().toDateString()) return d.toLocaleTimeString("en-GB");
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+};
+
+function signalEvents(signals) {
+  const ev = [];
+  for (const s of signals) {
+    const sym = s.symbol || "";
+    const created = toMs(s.createdAt);
+    if (created) ev.push({ t: created, name: "NEW SIGNAL", code: "signal.created", level: "INFO", sym, extra: "side=" + s.side + " score=" + s.score });
+    const h = s.hits || {};
+    [["tp1", "TP1 HIT"], ["tp2", "TP2 HIT"], ["tp3", "TP3 HIT"], ["sl", "SL HIT"]].forEach(([k, label]) => {
+      if (typeof h[k] === "number") ev.push({ t: h[k], name: label, code: "signal." + k + "_hit", level: k === "sl" ? "WARN" : "INFO", sym, extra: "" });
+    });
+    if ((s.status === "EXPIRED" || s.status === "CANCELLED") && typeof s.outcomeAt === "number") {
+      ev.push({ t: s.outcomeAt, name: s.status, code: "signal." + s.status.toLowerCase(), level: "INFO", sym, extra: "" });
+    }
+  }
+  return ev.sort((a, b) => b.t - a.t);
+}
+
+async function loadOpsPanels() {
+  const alertBody = $("alertBody"), auditBody = $("auditBody"), dbBody = $("dbBody");
+  if (!alertBody || !auditBody || !dbBody) return;
+  const [sigR, statR, setR, dbR] = await Promise.allSettled([
+    api("/signals?limit=300"), api("/engine/status"), api("/engine/settings"), api("/admin/overview")
+  ]);
+
+  // Alert Queue = latest signal events (new signal, TP hit, SL hit, expired)
+  if (sigR.status === "fulfilled") {
+    const ev = signalEvents(sigR.value.signals || []);
+    const day = ev.filter(e => Date.now() - e.t < 864e5).length;
+    $("alertInfo").textContent = day + " in last 24h";
+    alertBody.innerHTML = ev.length
+      ? ev.slice(0, 5).map(e => `<tr><td class="${e.name === "SL HIT" ? "red" : /^TP/.test(e.name) ? "green" : ""}">${esc(e.name)}</td><td>${esc(e.sym.replace("USDT", "/USDT"))}</td><td>${agoText(e.t)}</td></tr>`).join("")
+      : '<tr><td colspan="3" style="opacity:.7">No signal events yet</td></tr>';
+  } else {
+    $("alertInfo").textContent = "Error";
+    alertBody.innerHTML = `<tr><td colspan="3" class="red">${esc(sigR.reason.message)}</td></tr>`;
+  }
+
+  // Recent Audit Activity = signal events + last scan + settings versions
+  const logs = [];
+  if (sigR.status === "fulfilled") {
+    signalEvents(sigR.value.signals || []).slice(0, 12).forEach(e => logs.push({ t: e.t, level: e.level, text: e.code + " symbol=" + e.sym + (e.extra ? " " + e.extra : "") }));
+  }
+  if (statR.status === "fulfilled" && statR.value.lastRun) {
+    const r = statR.value.lastRun, t = toMs(r.finishedAt);
+    if (t) logs.push({ t, level: r.errors > 0 ? (r.errors >= r.scanned ? "ERROR" : "WARN") : "INFO", text: "scan.completed tf=" + r.timeframe + " scanned=" + r.scanned + " emitted=" + r.emitted + " errors=" + r.errors + (r.settingsVersion ? " settings=v" + r.settingsVersion : "") });
+  }
+  if (setR.status === "fulfilled") {
+    (setR.value.versions || []).slice(0, 10).forEach(v => {
+      const c = toMs(v.createdAt), a = toMs(v.activatedAt);
+      if (c) logs.push({ t: c, level: "INFO", text: "settings.version.saved v=" + v.version + " by=" + v.createdBy });
+      if (a) logs.push({ t: a, level: "INFO", text: "settings.version.activated v=" + v.version + " by=" + (v.activatedBy || "?") });
+    });
+  }
+  logs.sort((a, b) => b.t - a.t);
+  const cls = { INFO: "ok", WARN: "warn", ERROR: "err" };
+  auditBody.innerHTML = logs.length
+    ? logs.slice(0, 8).map(l => `<div><span class="${cls[l.level] || "ok"}">${logTime(l.t)} ${l.level}</span> ${esc(l.text)}</div>`).join("")
+    : "<div>No activity yet</div>";
+
+  // Database Overview = real document counts + MongoDB ping
+  if (dbR.status === "fulfilled") {
+    $("dbInfo").textContent = "MongoDB ping " + dbR.value.pingMs + "ms";
+    dbBody.innerHTML = dbR.value.collections.map(c => `<tr><td>${esc(c.name)}</td><td>${c.count === null ? "-" : Number(c.count).toLocaleString("en-US")}</td><td class="${c.ok ? "green" : "red"}">${c.ok ? "Healthy" : "Error"}</td></tr>`).join("");
+  } else {
+    $("dbInfo").textContent = "Error";
+    dbBody.innerHTML = `<tr><td colspan="3" class="red">${esc(dbR.reason.message)}</td></tr>`;
+  }
+}
+
+setInterval(() => {
+  if (host.style.display === "none" && sessionStorage.getItem("cg_admin_logged_in") === "true") loadOpsPanels();
+}, 30000);
+
 async function loadDashboard() {
   loadLive();
   loadApiHealth();
