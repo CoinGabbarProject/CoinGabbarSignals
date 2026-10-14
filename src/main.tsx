@@ -1246,6 +1246,7 @@ type MiniChart = {
     tags: { price: number; el: HTMLDivElement; off?: number }[];
   symbol: string;
   tf: string;
+  clock: HTMLDivElement;
   busy: boolean;
   lastFetch: number;
 };
@@ -1274,6 +1275,24 @@ function destroyMiniChart(id: string): void {
   miniCharts.delete(id);
 }
 
+const MINI_TF_MS: Record<string, number> = { "1m": 6e4, "5m": 3e5, "15m": 9e5, "30m": 18e5, "1H": 36e5, "4H": 144e5, "1D": 864e5 };
+const MINI_CLOCK = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+const miniLeft = (ms: number): string => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), mi = Math.floor((s % 3600) / 60), se = s % 60;
+  const p = (n: number): string => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${p(mi)}:${p(se)}` : `${p(mi)}:${p(se)}`;
+};
+let miniClockTimer = 0;
+function tickMiniClocks(): void {
+  const now = Date.now();
+  const t = MINI_CLOCK.format(now);
+  miniCharts.forEach((m) => {
+    const per = MINI_TF_MS[m.tf];
+    m.clock.textContent = per ? `\u{1F552} ${t}  \u23F3 ${miniLeft(per - (now % per))}` : `\u{1F552} ${t}`;
+  });
+}
+
 function createMiniChart(signal: DashboardSignal): MiniChart {
   const id = String(signal.id);
   const box = document.createElement("div");
@@ -1287,6 +1306,14 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
     gutter.style.cssText =
     "flex:0 0 53px;position:relative;overflow:hidden;" +
     `background:${light ? "#F4F8FC" : "#0a2036"}`;
+
+  const clock = document.createElement("div");
+  clock.style.cssText =
+    "position:absolute;top:4px;right:64px;z-index:5;pointer-events:none;padding:2px 6px;border-radius:4px;" +
+    "font:600 10px/14px system-ui,sans-serif;" +
+    `color:${light ? "#324861" : "#cfe3f5"};background:${light ? "rgba(255,255,255,.85)" : "rgba(7,24,43,.8)"}`;
+  box.appendChild(clock);
+  if (!miniClockTimer) miniClockTimer = window.setInterval(tickMiniClocks, 1000);
 
   const chart = createChart(host, {
     autoSize: true,
@@ -1354,7 +1381,8 @@ function createMiniChart(signal: DashboardSignal): MiniChart {
     vlines: [],
     markerSet: false,
     symbol: String(signal.symbol ?? ""),
-    tf: chartTf(signal.timeframe),
+     tf: chartTf(signal.timeframe),
+    clock,
     busy: false,
     lastFetch: 0,
   };
