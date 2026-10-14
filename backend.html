@@ -310,20 +310,11 @@ html[data-theme="light"] #modal{background:rgba(15,23,42,.45)}
 </div>
 
 <div class="grid2">
-<section class="panel"><div class="ph"><b>Recent Audit Activity</b><span>Security log</span></div><div class="pb"><div class="log">
-<div><span class="ok">20:42:16 INFO</span> signal.score.calculated id=CGB-230928 score=89</div>
-<div><span class="ok">20:41:58 INFO</span> market.snapshot.saved exchange=binance symbol=BTCUSDT</div>
-<div><span class="warn">20:41:12 WARN</span> provider.latency exchange=coinglass latency=1840ms</div>
-<div><span class="ok">20:40:44 INFO</span> alert.dispatched event=ENTRY user=42</div>
-<div><span class="ok">20:39:27 INFO</span> backtest.completed run=BT-1042 trades=384</div>
-<div><span class="err">20:38:11 ERROR</span> provider.retry source=news attempt=2</div>
+<section class="panel"><div class="ph"><b>Recent Audit Activity</b><span>Signals, scans, settings</span></div><div class="pb"><div class="log" id="auditBody">
+<div>Loading...</div>
 </div></div></section>
-<section class="panel"><div class="ph"><b>Database Overview</b><span>Core entities</span></div><div class="pb"><table class="table"><tbody>
-<tr><td>signals</td><td>12,482</td><td class="green">Healthy</td></tr>
-<tr><td>signal_events</td><td>58,901</td><td class="green">Healthy</td></tr>
-<tr><td>market_snapshots</td><td>4.8M</td><td class="green">Healthy</td></tr>
-<tr><td>performance_records</td><td>9,731</td><td class="green">Healthy</td></tr>
-<tr><td>audit_logs</td><td>31,204</td><td class="green">Healthy</td></tr>
+<section class="panel"><div class="ph"><b>Database Overview</b><span id="dbInfo">Loading...</span></div><div class="pb"><table class="table"><tbody id="dbBody">
+<tr><td colspan="3" style="opacity:.7">Loading...</td></tr>
 </tbody></table></div></section>
 </div>
 
