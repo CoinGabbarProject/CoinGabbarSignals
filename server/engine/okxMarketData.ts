@@ -74,8 +74,10 @@ export class OkxMarketData implements MarketData {
       let body: Record<string, unknown> | null = null;
       try { body = (await res.json()) as Record<string, unknown>; } catch { body = null; }
       if (res.status === 429 || body?.code === "50011") {
-        this.blockedUntil = Date.now() + 2 * 60_000;
-        throw new Error(`HTTP 429 from ${url.host}${url.pathname} (rate limit, pausing 2 min)`);
+        const pauseMs = this.patient ? Math.min(120_000, 15_000 * 2 ** this.strikes) : 120_000;
+        this.strikes++;
+        this.blockedUntil = Date.now() + pauseMs;
+        throw Object.assign(new Error(`HTTP 429 from ${url.host}${url.pathname} (rate limit, pausing ${Math.round(pauseMs / 1000)}s)`), { rateLimited: true });
       }
       if (res.status === 403 || res.status === 418) {
         this.blockedUntil = Date.now() + 10 * 60_000;
