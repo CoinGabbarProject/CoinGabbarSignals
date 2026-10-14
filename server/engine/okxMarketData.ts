@@ -87,6 +87,7 @@ export class OkxMarketData implements MarketData {
       if (body.code !== "0") {
         throw Object.assign(new Error(`OKX ${String(body.code)}: ${String(body.msg)} (${url.pathname})`), { okxCode: String(body.code) });
       }
+      this.strikes = 0;
       return Array.isArray(body.data) ? body.data : [];
     } finally {
       clearTimeout(timer);
