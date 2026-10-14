@@ -45,8 +45,23 @@ export class OkxMarketData implements MarketData {
     private readonly patient = false, // scanner/tracker: wait out a rate limit and carry on instead of failing
   ) {}
 
+  private strikes = 0;
+
   private async get(path: string, params: Record<string, string | number>): Promise<unknown[]> {
-    if (this.fetchFn === fetch) await paceOkx(path); // real OKX only; tests with a mock fetch skip the wait
+    for (let attempt = 0; ; attempt++) {
+      if (this.fetchFn === fetch) await paceOkx(path); // real OKX only; tests with a mock fetch skip the wait
+      const wait = this.blockedUntil - Date.now();
+      if (wait > 0 && this.patient && wait <= 130_000) await new Promise<void>((r) => setTimeout(r, wait + 200));
+      try {
+        return await this.getOnce(path, params);
+      } catch (e) {
+        if (this.patient && attempt < 5 && (e as { rateLimited?: boolean }).rateLimited) continue;
+        throw e;
+      }
+    }
+  }
+
+  private async getOnce(path: string, params: Record<string, string | number>): Promise<unknown[]> {
     if (Date.now() < this.blockedUntil) {
       throw new Error(`OKX cooldown active (${Math.ceil((this.blockedUntil - Date.now()) / 60000)} min left)`);
     }
