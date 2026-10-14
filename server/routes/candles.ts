@@ -16,7 +16,7 @@ const market = createMarketData();
 
 // tiny cache so refreshes don't hammer Binance
 const cache = new Map<string, { at: number; data: Candle[] }>();
-const TTL_MS = 1500;
+const TTL_MS = 15000;
 
 const router = Router();
 
