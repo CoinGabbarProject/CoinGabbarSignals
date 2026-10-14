@@ -217,6 +217,6 @@ export class OkxMarketData implements MarketData {
   }
 }
 
-export function createMarketData(_cfg?: MarketDataConfig): MarketData {
-  return new OkxMarketData();
+export function createMarketData(_cfg?: MarketDataConfig, patient = false): MarketData {
+  return new OkxMarketData(undefined, undefined, undefined, patient);
 }
