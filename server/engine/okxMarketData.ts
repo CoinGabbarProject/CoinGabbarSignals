@@ -29,7 +29,7 @@ const base = (symbol: string): string => symbol.replace(/USDT$/, "");
 const GAP_MS: Array<[string, number]> = [["/rubik/", 450], ["/funding-rate", 230], ["/market/ticker", 120]];
 const nextSlot = new Map<string, number>();
 async function paceOkx(path: string): Promise<void> {
-  const gap = GAP_MS.find(([part]) => path.includes(part))?.[1] ?? 70;
+  const gap = GAP_MS.find(([part]) => path.includes(part))?.[1] ?? 100;
   const now = Date.now();
   const at = Math.max(now, nextSlot.get(path) ?? 0);
   nextSlot.set(path, at + gap);
