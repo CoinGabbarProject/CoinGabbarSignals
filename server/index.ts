@@ -19,7 +19,7 @@ const settings = new SettingsService(settingsRepo);
 
 const engine = new EngineService(
   {
-     market: createMarketData(),
+     market: createMarketData(undefined, true),
     store,
     exchange: "okx",
     activeSettings: async () => {
