@@ -284,4 +284,28 @@ router.post("/signals/purge", requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
+// GET /api/v1/admin/overview  (admin) - real document counts for the Database Overview panel
+router.get("/admin/overview", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const db = getMongoDB();
+    const t0 = Date.now();
+    await db.command({ ping: 1 });
+    const pingMs = Date.now() - t0;
+    const names = ["signals", "engine_signals", "engine_latest", "engine_runs", "engine_settings", "users"];
+    const collections = await Promise.all(
+      names.map(async (name) => {
+        try {
+          return { name, count: await db.collection(name).estimatedDocumentCount(), ok: true };
+        } catch {
+          return { name, count: null, ok: false };
+        }
+      }),
+    );
+    return res.json({ success: true, pingMs, collections });
+  } catch (error) {
+    console.error("Admin overview error:", error);
+    return res.status(500).json({ error: "Could not load database overview" });
+  }
+});
+
 export default router;
