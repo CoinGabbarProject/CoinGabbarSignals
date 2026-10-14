@@ -41,7 +41,8 @@ export class OkxMarketData implements MarketData {
   constructor(
     private readonly host = "https://www.okx.com",
     private readonly timeoutMs = 8000,
-    private readonly fetchFn: typeof fetch = fetch,
+ private readonly fetchFn: typeof fetch = fetch,
+    private readonly patient = false, // scanner/tracker: wait out a rate limit and carry on instead of failing
   ) {}
 
   private async get(path: string, params: Record<string, string | number>): Promise<unknown[]> {
