@@ -156,6 +156,22 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
                 const hitTimes = Object.values(o.hits ?? {}).filter((t): t is number => typeof t === "number");
         const outcomeIso = hitTimes.length ? new Date(Math.max(...hitTimes)).toISOString() : atIso;
         await deps.store.setOutcome(s.id, o, outcomeIso);
+        const statusChanged = s.status !== o.status;
+        const justClosed = o.closed && !s.outcome?.closed;
+        if (statusChanged || justClosed) {
+          const eP = (n: number | null | undefined) => (n == null ? "-" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 8 }));
+          const head: Record<string, string> = { TP1_HIT: "🎯 TP1 HIT", TP2_HIT: "🎯🎯 TP2 HIT", TP3_HIT: "🏆 TP3 HIT (final target)", SL_HIT: "🛑 SL HIT", BE_HIT: "⚖️ BREAKEVEN EXIT" };
+          const trailClose = justClosed && (o.status === "TP1_HIT" || o.status === "TP2_HIT");
+          const title = trailClose ? `🔒 TRAILING SL HIT after ${o.status.slice(0, 3)}` : (head[o.status] ?? o.status);
+          const tail = trailClose ? "Trade closed in profit (SL trailed)."
+            : o.status === "TP1_HIT" ? "Trade still running. SL moved to entry (breakeven)."
+            : o.status === "TP2_HIT" ? "Trade still running. SL moved to TP1."
+            : o.status === "TP3_HIT" ? "Trade complete."
+            : o.status === "SL_HIT" ? "Trade closed at loss."
+            : "Trade closed, no profit no loss.";
+          const trail = o.trailStop !== undefined && !o.closed ? `\nTrailing SL: ${eP(o.trailStop)}` : "";
+          void tgSend(`${title}\n${tgPair(s)}\nEntry ${eP(s.entry.ideal)} | Exit ${eP(o.exit)}${trail}\n${tail}`);
+        }
         changed++;
       } else if (ev?.kind === "entered") {
         if (!s.entered) { await deps.store.markEntered(s.id, atIso); changed++; }
