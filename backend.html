@@ -1050,7 +1050,7 @@ async function engApi(path, method, body) {
 function engDiff(s, d) {
   const out = [];
   ENG_PERIODS.forEach(([k, label]) => { if (s.periods[k] !== d.periods[k]) out.push(label + " " + s.periods[k]); });
-  ENG_TOGGLES.forEach(([k, label]) => { if (s.toggles[k] !== d.toggles[k]) out.push(label + (s.toggles[k] ? " on" : " off")); });
+  ENG_TOGGLES.forEach(([k, label]) => { if ((s.toggles[k] ?? d.toggles[k]) !== d.toggles[k]) out.push(label + ((s.toggles[k] ?? d.toggles[k]) ? " on" : " off")); });
   return out.length ? out.join(", ") : "same as defaults";
 }
 
