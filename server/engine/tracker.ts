@@ -9,6 +9,25 @@ const TF_MS: Record<string, number> = {
   "1H": 3_600_000, "4H": 14_400_000, "1D": 86_400_000,
 };
 const CANDLE_LIMIT = 1000;
+
+// Telegram alerts. Render env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (missing = alerts off).
+const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
+const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
+export async function tgSend(text: string): Promise<void> {
+  if (!TG_TOKEN || !TG_CHAT) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (e) {
+    console.warn(`[telegram] send failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+export const tgPair = (s: FinalSignal): string =>
+  `${s.symbol.replace(/USDT$/, "")}/USDT ${s.direction} (${s.timeframe.primary})`;
 // Staged trailing stop: after TP1 the stop moves to entry (breakeven), after TP2 it moves to TP1. Set TRAILING_STOP=false to turn off.
 const TRAILING_ON = (process.env.TRAILING_STOP ?? "true").toLowerCase() !== "false";
 // Pre-TP1 protection: once price covers this fraction of the entry→TP1 distance, SL moves to entry.
