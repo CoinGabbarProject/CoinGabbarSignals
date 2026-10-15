@@ -180,7 +180,7 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
           const trailClose = justClosed && (o.status === "TP1_HIT" || o.status === "TP2_HIT");
           const title = trailClose ? `🔒 <b>TRAILING SL HIT</b> (after ${o.status.slice(0, 3)})` : (head[o.status] ?? o.status);
           const tail = trailClose ? "🔒 Trade closed at trailing SL after TP hit."
-            : o.status === "TP1_HIT" ? "🔥 Trade still running\n🛡 SL moved to entry (breakeven), risk free!"
+            : o.status === "TP1_HIT" ? "🔥 Trade still running\n🛡 Trailing SL active, profit protected!"
             : o.status === "TP2_HIT" ? "🔥 Trade still running\n🛡 SL moved to TP1, profit locked!"
             : o.status === "TP3_HIT" ? "🏆 All targets done. Trade complete!"
             : o.status === "SL_HIT" ? "❌ Trade closed at loss. Risk managed, next setup loading…"
