@@ -141,7 +141,8 @@ const PERIOD_LABELS: Record<keyof IndicatorPeriods, string> = {
   macdFast: "MACD fast", macdSlow: "MACD slow", macdSignal: "MACD signal", bbPeriod: "Bollinger period", bbMult: "Bollinger width",
 };
 const TOGGLE_LABELS: Record<keyof IndicatorToggles, string> = {
-  rsi: "RSI", macd: "MACD", stochRsi: "Stochastic RSI", obv: "OBV", vwap: "VWAP", bollinger: "Bollinger Bands", derivatives: "Derivatives data", orderBook: "Order book",
+    rsi: "RSI", macd: "MACD", stochRsi: "Stochastic RSI", obv: "OBV", vwap: "VWAP", bollinger: "Bollinger Bands", derivatives: "Derivatives data", orderBook: "Order book",
+  pivots: "Swing pivots (S/R)", smc: "SMC zones", liquidation: "Liquidation clusters",
 };
 
 /** Short human-readable list of what differs from the built-in defaults, e.g. "RSI period 10, MACD off". */
