@@ -1934,9 +1934,7 @@ function renderRecentSignals(signals: DashboardSignal[]): void {
 
                                         <td class="${statusClass}">
             ${dashboardEscape(
-              status === "ACTIVE" && !signal.entered
-                ? "PENDING"
-                : (STATUS_LABEL[status] ?? status),
+                            statusText(signal),
             )}
             ${hitTimeLines(signal)}
           </td>
