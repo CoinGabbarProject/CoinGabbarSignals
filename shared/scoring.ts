@@ -368,7 +368,7 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
     if (room < 1) warnings.push("Opposing level is less than 1 ATR away");
     else if (room >= 3) conf.push(`${room.toFixed(1)} ATR of room to the next level`);
   }
-  if (behind) {
+    if (tg.pivots && behind) {
     const d = Math.abs(close - behind.price) / atr;
     lq += d <= 1.5 ? 3 : d <= 3 ? 2 : 0;
     if (behind.touches >= 2) lq += 2;
