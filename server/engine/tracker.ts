@@ -66,6 +66,11 @@ export function evaluateOutcome(s: FinalSignal, candles: Candle[], now: number, 
   let best = prev.tp3 ? 3 : prev.tp2 ? 2 : prev.tp1 ? 1 : 0;
   let armed = false;
   let ext = 0;
+  // Window short: restore trailing extreme from the stored trailStop so trailing SL does not reset to entry.
+  const savedTrail = windowShort ? s.outcome?.trailStop : undefined;
+  if (TRAILING_ON && TRAIL_PCT > 0 && typeof savedTrail === "number" && savedTrail > 0) {
+    ext = long ? savedTrail / (1 - TRAIL_PCT / 100) : savedTrail / (1 + TRAIL_PCT / 100);
+  }
   const hits: SignalHits = prev;
 
   const label = (n: number): SignalOutcome["status"] => (n === 1 ? "TP1_HIT" : n === 2 ? "TP2_HIT" : "TP3_HIT");
