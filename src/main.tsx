@@ -1120,8 +1120,49 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
   }
 }
 
-let accRange: "7d" | "30d" | "all" = "all";
+function renderScoreBands(signals: DashboardSignal[], anchor: HTMLElement): void {
+  const parent = anchor.parentElement;
+  if (!parent) return;
+  const bands: Array<[string, number, number]> = [
+    ["90–100 Very Strong", 90, 100],
+    ["80–89 Strong", 80, 89],
+    ["70–79 Moderate", 70, 79],
+    ["60–69 Weak", 60, 69],
+    ["Below 60", 0, 59],
+  ];
+  const rows = bands
+    .map(([label, lo, hi]) => {
+      const inBand = signals.filter((s) => {
+        const sc = Number(s.score);
+        return Number.isFinite(sc) && sc >= lo && sc <= hi;
+      });
+      const wins = inBand.filter((s) =>
+        ["TP1_HIT", "TP2_HIT", "TP3_HIT"].includes(s.status ?? ""),
+      ).length;
+      const losses = inBand.filter((s) => s.status === "SL_HIT").length;
+      const done = wins + losses;
+      const pct = done > 0 ? Math.round((wins / done) * 100) : null;
+      const cls = pct === null ? "" : pct >= 55 ? "up" : "down";
+      const txt =
+        pct === null
+          ? "no trades yet"
+          : `${pct}% (${wins}W / ${losses}L)${done < 10 ? " · few trades" : ""}`;
+      return `<div class="mini-row"><span>${label}</span><b class="${cls}">${txt}</b></div>`;
+    })
+    .join("");
+  let el = document.getElementById("cg-score-bands") as HTMLElement | null;
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cg-score-bands";
+    el.className = "panel";
+    el.style.gridColumn = "1 / -1";
+    parent.appendChild(el);
+  }
+  const html = `<h3>Win Rate by Setup Score</h3>${rows}<div class="mini-row" style="opacity:.7"><span>Win = any TP hit, loss = SL hit. BE and unfinished trades are not counted. Under 10 trades = too few to trust.</span></div>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
 
+let accRange: "7d" | "30d" | "all" = "all";
 function recentAccuracy(signals: DashboardSignal[]) {
   const days = accRange === "7d" ? 7 : accRange === "30d" ? 30 : 0;
   const cutoff = days ? Date.now() - days * 86400000 : 0;
