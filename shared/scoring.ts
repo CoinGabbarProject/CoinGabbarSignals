@@ -463,7 +463,7 @@ else unavailable.push("orderBook");
   if (rr !== null && rr < 1) warnings.push(`Only ${rr.toFixed(1)}R of room to the next level`);
   const stopPct = (stopDist / close) * 100;
   rk += stopPct <= 3 ? 3 : stopPct <= 5 ? 2 : 0;
-  rk += behind && Math.abs(close - behind.price) <= 3 * atr ? 3 : 1;
+  if (tg.pivots) rk += behind && Math.abs(close - behind.price) <= 3 * atr ? 3 : 1;
   const range = k.high - k.low;
   if (range > 4 * atr) critical = critical ?? "Extreme volatility spike on the last candle";
   if (range <= 2.5 * atr) rk += 3; else warnings.push("Last candle is over-extended");
