@@ -29,7 +29,8 @@ export interface IndicatorToggles {
   obv: boolean;
   vwap: boolean;
   bollinger: boolean;
-  derivatives: boolean;   // funding, open interest, long/short, top traders, taker flow
+    derivatives: boolean;   // funding, open interest, long/short, top traders, taker flow
+  orderBook: boolean;     // order-book imbalance (only counts while derivatives is on)
     pivots: boolean;        // swing pivot highs/lows -> S/R levels (affects score only)
   smc: boolean;           // order blocks / FVG / sweeps: on = obey the SMC mode, off = force off
   liquidation: boolean;   // liquidation clusters: on = obey the liquidation mode, off = force off
