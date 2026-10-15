@@ -1,0 +1,15 @@
+import { describe, expect, it } from "vitest";
+import { DEFAULT_TOGGLES, describeEngineSettings, validateEngineSettings } from "../shared/engineConfig.js";
+
+describe("support/resistance switches", () => {
+  it("are on by default", () => {
+    expect([DEFAULT_TOGGLES.pivots, DEFAULT_TOGGLES.smc, DEFAULT_TOGGLES.liquidation]).toEqual([true, true, true]);
+  });
+  it("accept booleans and reject other values", () => {
+    expect(validateEngineSettings({ toggles: { pivots: false } }).ok).toBe(true);
+    expect(validateEngineSettings({ toggles: { smc: "no" } } as never).ok).toBe(false);
+  });
+  it("are reported when switched off", () => {
+    expect(describeEngineSettings({ toggles: { pivots: false } })).toBe("Swing pivots (S/R) off");
+  });
+});
