@@ -26,8 +26,14 @@ export async function tgSend(text: string): Promise<void> {
     console.warn(`[telegram] send failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
+export const usd = (n: number | null | undefined): string => {
+  if (n == null || !Number.isFinite(Number(n))) return "-";
+  const v = Number(n);
+  const d = v >= 1000 ? 2 : v >= 1 ? 4 : v >= 0.01 ? 5 : 8;
+  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: d });
+};
 export const tgPair = (s: FinalSignal): string =>
-  `${s.symbol.replace(/USDT$/, "")}/USDT ${s.direction} (${s.timeframe.primary})`;
+  `${s.direction === "LONG" ? "🟢" : "🔴"} <b>${s.symbol.replace(/USDT$/, "")}/USDT</b> · ${s.direction} · ${s.timeframe.primary}`;
 // Staged trailing stop: after TP1 the stop moves to entry (breakeven), after TP2 it moves to TP1. Set TRAILING_STOP=false to turn off.
 const TRAILING_ON = (process.env.TRAILING_STOP ?? "true").toLowerCase() !== "false";
 // Pre-TP1 protection: once price covers this fraction of the entry→TP1 distance, SL moves to entry.
