@@ -26,6 +26,8 @@ type DashboardSignal = {
   entered?: boolean;
   outcomeAt?: number;
   trailStop?: number;
+  entryMin?: number;
+  entryMax?: number;
   hits?: { tp1?: number; tp2?: number; tp3?: number; sl?: number };
   timeframe?: string;
   score?: number;
