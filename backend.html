@@ -1072,7 +1072,7 @@ async function engineConfigView(flash) {
     `<label style="display:block;font-size:11px">${esc(label)} <span style="opacity:.6">(${min}–${max})</span>` +
     `<input data-p="${k}" type="number" inputmode="decimal" step="${k === "bbMult" ? "0.1" : "1"}" min="${min}" max="${max}" value="${esc(base.periods[k])}" style="${box}"></label>`).join("");
   const toggleInputs = ENG_TOGGLES.map(([k, label]) =>
-    `<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:6px 0"><input data-t="${k}" type="checkbox" ${base.toggles[k] ? "checked" : ""}> ${esc(label)}</label>`).join("");
+    `<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:6px 0"><input data-t="${k}" type="checkbox" ${(base.toggles[k] ?? d.defaults.toggles[k]) ? "checked" : ""}> ${esc(label)}</label>`).join("");
 
   const rows = (d.versions || []).map(v => `<tr>
       <td>v${esc(v.version)}</td>
