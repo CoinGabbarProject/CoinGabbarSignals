@@ -55,7 +55,8 @@ export const DEFAULT_PERIODS: Readonly<IndicatorPeriods> = Object.freeze({
 
 export const DEFAULT_TOGGLES: Readonly<IndicatorToggles> = Object.freeze({
   rsi: true, macd: true, stochRsi: true, obv: true, vwap: true,
-  bollinger: true, derivatives: true, orderBook: true,
+    bollinger: true, derivatives: true, orderBook: true,
+  pivots: true, smc: true, liquidation: true,
 });
 
 export const DEFAULT_ENGINE_SETTINGS: Readonly<EngineSettings> = Object.freeze({
