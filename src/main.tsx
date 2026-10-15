@@ -991,6 +991,7 @@ function renderPerformancePage(signals: DashboardSignal[]): void {
 
   const winPanel = byTitle(/^Win Rate$/i);
   if (!winPanel) return;
+  renderScoreBands(signals, winPanel);
 
   const avgPanel = byTitle(/^Average (R|Risk Reward)/i);
   const ddPanel = byTitle(/^Drawdown/i);
