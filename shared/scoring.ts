@@ -513,7 +513,7 @@ else unavailable.push("orderBook");
   // Points that switched-off indicators could have added. Removed from the base so the score stays on a 0-100 scale.
   const toggleLost =
     (tg.rsi ? 0 : 4) + (tg.macd ? 0 : 4) + (tg.stochRsi ? 0 : 2) + (tg.obv ? 0 : 3) + (tg.bollinger ? 0 : 5) +
-    (tg.derivatives ? (tg.orderBook ? 0 : 3) : 10) + confMacdLost;
+        (tg.derivatives ? (tg.orderBook ? 0 : 3) : 10) + (tg.pivots ? 0 : 19) + confMacdLost;
   const activeMax = 100 - lostMax - toggleLost;
     score.total = Math.min(100, Math.max(0, Math.round(((rawTotal - penalty) * 100) / activeMax) + extraPts));
   score.smcLiquidity = extraPts;
