@@ -19,7 +19,7 @@ export async function tgSend(text: string): Promise<void> {
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }),
+      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: "HTML", disable_web_page_preview: true }),
       signal: AbortSignal.timeout(8000),
     });
   } catch (e) {
