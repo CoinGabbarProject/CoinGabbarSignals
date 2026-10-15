@@ -458,8 +458,8 @@ else unavailable.push("orderBook");
   // ---- 8. Risk + execution (15) ----
   let rk = 0;
   const stopDist = 2 * atr;
-  const rr = ahead ? Math.abs(ahead.price - close) / stopDist : null;
-  rk += rr === null ? 4 : rr >= 2 ? 6 : rr >= 1.5 ? 4 : rr >= 1 ? 2 : 0;
+    const rr = tg.pivots && ahead ? Math.abs(ahead.price - close) / stopDist : null;
+  if (tg.pivots) rk += rr === null ? 4 : rr >= 2 ? 6 : rr >= 1.5 ? 4 : rr >= 1 ? 2 : 0;
   if (rr !== null && rr < 1) warnings.push(`Only ${rr.toFixed(1)}R of room to the next level`);
   const stopPct = (stopDist / close) * 100;
   rk += stopPct <= 3 ? 3 : stopPct <= 5 ? 2 : 0;
