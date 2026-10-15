@@ -165,18 +165,23 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
         const statusChanged = s.status !== o.status;
         const justClosed = o.closed && !s.outcome?.closed;
         if (statusChanged || justClosed) {
-          const eP = (n: number | null | undefined) => (n == null ? "-" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 8 }));
-          const head: Record<string, string> = { TP1_HIT: "🎯 TP1 HIT", TP2_HIT: "🎯🎯 TP2 HIT", TP3_HIT: "🏆 TP3 HIT (final target)", SL_HIT: "🛑 SL HIT", BE_HIT: "⚖️ BREAKEVEN EXIT" };
+                    const head: Record<string, string> = {
+            TP1_HIT: "🎯 <b>TP1 HIT</b> ✅",
+            TP2_HIT: "🎯🎯 <b>TP2 HIT</b> ✅✅",
+            TP3_HIT: "🏆 <b>TP3 HIT · FULL TARGET</b> 🚀",
+            SL_HIT: "🛑 <b>STOP LOSS HIT</b>",
+            BE_HIT: "⚖️ <b>BREAKEVEN EXIT</b>",
+          };
           const trailClose = justClosed && (o.status === "TP1_HIT" || o.status === "TP2_HIT");
-          const title = trailClose ? `🔒 TRAILING SL HIT after ${o.status.slice(0, 3)}` : (head[o.status] ?? o.status);
-          const tail = trailClose ? "Trade closed in profit (SL trailed)."
-            : o.status === "TP1_HIT" ? "Trade still running. SL moved to entry (breakeven)."
-            : o.status === "TP2_HIT" ? "Trade still running. SL moved to TP1."
-            : o.status === "TP3_HIT" ? "Trade complete."
-            : o.status === "SL_HIT" ? "Trade closed at loss."
-            : "Trade closed, no profit no loss.";
-          const trail = o.trailStop !== undefined && !o.closed ? `\nTrailing SL: ${eP(o.trailStop)}` : "";
-          void tgSend(`${title}\n${tgPair(s)}\nEntry ${eP(s.entry.ideal)} | Exit ${eP(o.exit)}${trail}\n${tail}`);
+          const title = trailClose ? `🔒 <b>TRAILING SL HIT</b> (after ${o.status.slice(0, 3)})` : (head[o.status] ?? o.status);
+          const tail = trailClose ? "🔒 Trade closed at trailing SL after TP hit."
+            : o.status === "TP1_HIT" ? "🔥 Trade still running\n🛡 SL moved to entry (breakeven), risk free!"
+            : o.status === "TP2_HIT" ? "🔥 Trade still running\n🛡 SL moved to TP1, profit locked!"
+            : o.status === "TP3_HIT" ? "🏆 All targets done. Trade complete!"
+            : o.status === "SL_HIT" ? "❌ Trade closed at loss. Risk managed, next setup loading…"
+            : "⚖️ Closed at breakeven, no loss.";
+          const trail = o.trailStop !== undefined && !o.closed ? `\n🛡 Trailing SL: <b>${usd(o.trailStop)}</b>` : "";
+          void tgSend(`${title}\n\n${tgPair(s)}\n\n📍 Entry: ${usd(s.entry.ideal)}\n🏁 Exit: <b>${usd(o.exit)}</b>${trail}\n\n${tail}`);
         }
         changed++;
       } else if (ev?.kind === "entered") {
