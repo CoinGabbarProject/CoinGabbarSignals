@@ -4,7 +4,7 @@ import type { EngineSettingsInput } from "../../shared/engineConfig.js";
 import type { FinalSignal } from "../models/signal.js";
 import { buildSignal, resolveProfile } from "./signalBuilder.js";
 import { calcIndicators } from "../../shared/indicators.js";
-import { trackOutcomes, tgSend, tgPair } from "./tracker.js";
+import { trackOutcomes, tgSend, tgPair, usd } from "./tracker.js";
 import { CONFIRMATION_TF, EXECUTION_TF, checkHardFilters, loadHardFilterConfig } from "./marketData.js";
 import type { MarketData } from "./marketData.js";
 import type { ScanOutcome, ScanSummary, SignalStore, SymbolResult } from "./store.js";
