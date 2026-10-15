@@ -471,7 +471,7 @@ else unavailable.push("orderBook");
   // ---- 9. SMC + liquidation confluence (score bonus/penalty; optional hard gates) ----
   let extraPts = 0;
   let smcOut: Record<string, unknown> | null = null, liqOut: Record<string, unknown> | null = null;
-  const smcMode = g.smc ?? "off", liqMode = g.liq ?? "off";
+    const smcMode = tg.smc ? (g.smc ?? "off") : "off", liqMode = tg.liquidation ? (g.liq ?? "off") : "off";
   smcOut = { available: false, mode: smcMode };
   liqOut = { available: false, mode: liqMode };
   if (smcMode !== "off") {
