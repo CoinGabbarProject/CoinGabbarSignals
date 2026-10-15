@@ -963,6 +963,27 @@ const hitTimeLines = (signal: DashboardSignal): string => {
   return out;
 };
 
+const statusText = (signal: DashboardSignal): string => {
+  const st = String(signal.status ?? "UNKNOWN");
+  if (st === "ACTIVE") {
+    if (signal.entered) return "RUNNING";
+    const px = livePrices[okxSymbol(signal.symbol)];
+    const lo = dashboardNumber(signal.entryMin);
+    const hi = dashboardNumber(signal.entryMax);
+    return px !== undefined && lo !== null && hi !== null && px >= lo && px <= hi
+      ? "IN ENTRY ZONE"
+      : "WAITING ENTRY";
+  }
+  if ((st === "TP1_HIT" || st === "TP2_HIT") && signal.outcomeClosed !== true) {
+    const sl =
+      typeof signal.trailStop === "number"
+        ? ` · SL ${dashboardPrice(signal.trailStop)}`
+        : "";
+    return `${STATUS_LABEL[st]} · RUNNING${sl}`;
+  }
+  return STATUS_LABEL[st] ?? st;
+};
+
 const isTrailHit = (signal: DashboardSignal): boolean => {
   const st = String(signal.status ?? "");
   return (
