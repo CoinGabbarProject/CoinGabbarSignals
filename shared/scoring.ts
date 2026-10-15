@@ -360,7 +360,8 @@ if (input.gates?.core4) return scoreCoreSel(input, ind, atr, close);
 
   // ---- 4. Liquidity / support-resistance (10) ----
   let lq = 0;
-  if (!ahead) { lq += 5; conf.push("No nearby opposing level ahead"); }
+    if (!tg.pivots) { /* pivots off: no S/R points */ }
+  else if (!ahead) { lq += 5; conf.push("No nearby opposing level ahead"); }
   else {
     const room = Math.abs(ahead.price - close) / atr;
     lq += room >= 3 ? 5 : room >= 2 ? 3 : room >= 1 ? 1 : 0;
