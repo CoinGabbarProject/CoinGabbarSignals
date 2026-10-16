@@ -1149,9 +1149,63 @@ async function engineConfigView(flash) {
     const r = await engApi("/engine/settings/drafts", "POST", { settings: collect(), note: $("ecNote").value, ...(curPreset ? { presetId: curPreset.id } : {}) });
     await engineConfigView("Saved as draft v" + r.version.version + ". It is not live until you activate it.");
   });
+  const fillForm = (st) => {
+    host.querySelectorAll("[data-p]").forEach(i => { i.value = st.periods[i.dataset.p]; });
+    host.querySelectorAll("[data-t]").forEach(i => { i.checked = !!st.toggles[i.dataset.t]; });
+  };
+  const refreshSummary = async () => {
+    const box2 = $("epSummary"), warn = $("epWarn");
+    if (!box2) return;
+    try {
+      const r = await fetch(API + "/engine/presets/summary", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sessionStorage.getItem("cg_admin_token") || "") }, body: JSON.stringify({ settings: collect(), ...(curPreset ? { presetId: curPreset.id } : {}) }) });
+      const j = await r.json();
+      if (!j.summary) { box2.textContent = (j.errors || [j.error || "Could not summarise"]).join("; "); warn.textContent = ""; return; }
+      const sm = j.summary;
+      box2.innerHTML = `<b>Indicator summary</b> <span style="opacity:.7">(not a quality score)</span><br>` +
+        `<b>On:</b> ${esc(sm.enabled.join(", ") || "none")}<br><b>Off:</b> ${esc(sm.disabled.join(", ") || "none")}<br>` +
+        (sm.families.length ? `<b>Evidence families:</b> ${sm.families.map(f => esc(f.label) + " (" + esc(f.enabled.join(" + ")) + ")" + (f.note ? " - correlated, counted as one" : "")).join("; ")}<br>` : "") +
+        (sm.dataNeeded.length ? `<b>Needs fresh data:</b> ${esc(sm.dataNeeded.join(", "))}<br>` : "") +
+        `<b>Always on:</b> ${esc(sm.safety.join(", "))}` +
+        ((j.backtestCaveats || []).length ? `<br><span style="opacity:.75">Backtest: ${esc(j.backtestCaveats.join(" "))}</span>` : "") +
+        (j.errors && j.errors.length ? `<br><span class="red">${esc(j.errors.join("; "))}</span>` : "");
+      warn.innerHTML = (j.warnings || []).map(w => "⚠ " + esc(w)).join("<br>");
+    } catch (e) { box2.textContent = ""; }
+  };
+  host.querySelectorAll("[data-p],[data-t]").forEach(i => i.addEventListener("change", refreshSummary));
+  const pick = () => allPresets.find(p => p.id === ($("epSel") || {}).value) || null;
+  const applyPreset = (p) => {
+    curPreset = p;
+    if (p) { fillForm(p.settings); $("epDesc").textContent = p.description + " Required: " + (p.required.join(", ") || "none") + "."; }
+    else $("epDesc").textContent = "";
+    refreshSummary();
+  };
+  if ($("epApply")) {
+    $("epApply").onclick = () => { const p = pick(); if (!p) { msg("Choose a preset first.", true); return; } applyPreset(p); msg("Preset \"" + p.name + "\" loaded into the form. Nothing was saved.", false); };
+    $("epReset").onclick = () => { if (curPreset) { fillForm(curPreset.settings); refreshSummary(); msg("Form reset to the preset values.", false); } else { fillForm(d.defaults); refreshSummary(); msg("Form reset to the defaults.", false); } };
+    $("epDup").onclick = busy($("epDup"), "…", async () => {
+      const p = pick(); if (!p) throw new Error("Choose a preset first.");
+      const name = prompt("Name for the copy:", "Copy of " + p.name); if (!name) return;
+      await engApi("/engine/presets/" + encodeURIComponent(p.id) + "/duplicate", "POST", { name });
+      await engineConfigView("Copy \"" + name + "\" saved as a custom preset.");
+    });
+    $("epSaveCustom").onclick = busy($("epSaveCustom"), "…", async () => {
+      const name = prompt("Name for the custom preset:"); if (!name) return;
+      await engApi("/engine/presets", "POST", { name, description: $("ecNote").value, settings: collect(), required: curPreset ? curPreset.required : [] });
+      await engineConfigView("Custom preset \"" + name + "\" saved. It is not live.");
+    });
+    $("epCompare").onclick = busy($("epCompare"), "…", async () => {
+      const r = await engApi("/engine/presets/compare", "POST", { a: $("epA").value, b: $("epB").value });
+      const rowsT = r.diff.toggles.map(t => `<tr><td>${esc(t.label)}</td><td>${t.a ? "on" : "off"}</td><td>${t.b ? "on" : "off"}</td></tr>`).join("");
+      const rowsP = r.diff.periods.map(t => `<tr><td>${esc(t.key)}</td><td>${esc(t.a)}</td><td>${esc(t.b)}</td></tr>`).join("");
+      $("epCmp").innerHTML = r.diff.same ? "These presets are identical." : `<table class="table"><thead><tr><th>Difference</th><th>${esc(r.a.name)}</th><th>${esc(r.b.name)}</th></tr></thead><tbody>${rowsT}${rowsP}</tbody></table>`;
+    });
+  }
+  refreshSummary();
   $("ecDefaults").onclick = () => {
+    curPreset = null; if ($("epDesc")) $("epDesc").textContent = "";
     host.querySelectorAll("[data-p]").forEach(i => { i.value = d.defaults.periods[i.dataset.p]; });
     host.querySelectorAll("[data-t]").forEach(i => { i.checked = !!d.defaults.toggles[i.dataset.t]; });
+    refreshSummary();
     msg("Defaults loaded into the form. Nothing was saved.", false);
   };
   host.querySelectorAll("[data-act]").forEach(b => {
