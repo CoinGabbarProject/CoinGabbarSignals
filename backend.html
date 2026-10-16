@@ -1409,6 +1409,32 @@ async function signalChartView(preselect) {
     const inRange = bar >= t[0] && bar < t[t.length - 1] + step && idx >= 0;
     if (inRange) candle.setMarkers([{ time: t[idx], position: sig.side === "LONG" ? "belowBar" : "aboveBar", color: sig.side === "LONG" ? "#21e39a" : "#ff5368", shape: sig.side === "LONG" ? "arrowUp" : "arrowDown", text: sig.side + " " + sig.score }]);
 
+        // SMC zones + Liquidation clusters (stored signal data se draw hota hai)
+    const sm = sig.smc || {}, lq = sig.liquidation || {};
+    const band = (lo, hi, rgb, title) => {
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return;
+      const from = Math.max(0, cs.length - 150);
+      const bs = main.c.addBaselineSeries({
+        baseValue: { type: "price", price: lo },
+        topLineColor: "rgba(0,0,0,0)", bottomLineColor: "rgba(0,0,0,0)",
+        topFillColor1: "rgba(" + rgb + ",.28)", topFillColor2: "rgba(" + rgb + ",.28)",
+        bottomFillColor1: "rgba(0,0,0,0)", bottomFillColor2: "rgba(0,0,0,0)",
+        lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+      });
+      bs.setData(t.slice(from).map(x => ({ time: x, value: hi })));
+      [lo, hi].forEach(p => candle.createPriceLine({ price: p, color: "rgba(" + rgb + ",.9)", lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: p === hi ? title : "" }));
+    };
+    if (T.smc && sm.available) {
+      if (sm.orderBlock) band(sm.orderBlock.low, sm.orderBlock.high, sm.orderBlock.side === "bullish" ? "33,227,154" : "255,83,104", "OB " + (sm.orderBlock.side === "bullish" ? "↑" : "↓"));
+      if (sm.fvg) band(sm.fvg.low, sm.fvg.high, "44,199,255", "FVG");
+      if (sm.sweep && Number.isFinite(sm.sweep.level)) lvl(sm.sweep.level, "#f1a933", "Sweep", 2);
+      if (sm.lastBreak && Number.isFinite(sm.lastBreak.level)) lvl(sm.lastBreak.level, "#8a79ff", sm.lastBreak.type, 1);
+    }
+    if (T.liquidation && lq.available) {
+      if (Number.isFinite(lq.clusterLong)) lvl(lq.clusterLong, "#ff8a3d", "Liq Long", 2);
+      if (Number.isFinite(lq.clusterShort)) lvl(lq.clusterShort, "#c86bff", "Liq Short", 2);
+    }
+
     // indicator panels (only the ones this configuration uses)
     const panels = [];
     if (T.rsi) { const p = mk(120); p.label.textContent = "RSI " + P.rsi; line(p.c, chRsi(close, P.rsi), "#f1a933", 1).createPriceLine({ price: 70, color: grid, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" }); panels.push(p); }
