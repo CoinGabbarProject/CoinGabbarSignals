@@ -282,7 +282,8 @@ export class BinanceMarketData implements MarketData {
     ]);
     return {
       fundingRate: settled(funding), oiChangePct: settled(oi), longShortRatio: settled(ls), bookImbalance: settled(book),
-      topTraderRatio: settled(top), takerBuySellRatio: settled(taker),
+            topTraderRatio: settled(top), takerBuySellRatio: settled(taker),
+      asOf: Date.now(), source: "binance-futures",
     };
   }
 }
