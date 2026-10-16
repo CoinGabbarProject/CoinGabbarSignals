@@ -5,6 +5,7 @@ import { createMarketData } from "./engine/okxMarketData.js";
 import { MongoSignalStore } from "./engine/mongoStore.js";
 import { EngineService } from "./engine/scanner.js";
 import { MongoSettingsRepo, SettingsService } from "./engine/settingsStore.js";
+import { MongoPresetRepo, PresetService } from "./engine/presetStore.js";
 
 const config = loadConfig();
 
