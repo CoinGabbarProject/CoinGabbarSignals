@@ -1457,7 +1457,7 @@ async function signalChartView(preselect) {
       `<span style="opacity:.75">Made with ${esc(cfg.label)}${sig.strategyVersion ? " · " + esc(sig.strategyVersion) : ""} · ${esc(new Date(sig.createdAt).toLocaleString())}</span>`;
         // only the indicators that are ON in this configuration are listed; OFF ones are hidden to avoid clutter
     const chip = (name, note) => `<span style="padding:3px 8px;border-radius:999px;border:1px solid ${grid}" title="${esc(note)}">${esc(name)}</span>`;
-    const drawn = [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"]].filter(([, k]) => T[k]);
+    const drawn = [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].filter(([, k]) => T[k]);
     const dataOnly = [["Derivatives", "derivatives"], ["Order book", "orderBook"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].filter(([, k]) => T[k]);
     $("scLegend").innerHTML = drawn.map(([n]) => chip(n, "Selected and drawn")).join("") + dataOnly.map(([n]) => chip(n + " (data only)", "Selected, but it is not a price series so nothing is drawn")).join("") || "No indicators selected";
         const notes = ["Only the indicators selected in this signal's configuration are shown. Their lines are recalculated here from the candles with that configuration's periods. Entry, stop and targets are the stored values.",
