@@ -46,6 +46,8 @@ export interface BuilderConfig {
     fibMinTp1R: number;        // Fib mode: TP1 (swing retest) must be at least this many R away
   strategyVersion?: string;  // stored on the signal; set by a profile
   settings?: EngineSettingsInput; // indicator periods + on/off switches; omitted = classic defaults
+    requiredData?: ("derivatives" | "orderBook")[]; // set by a preset: no trade unless that data is complete, fresh and has a known source
+  derivativesMaxAgeMs?: number; // freshness limit for requiredData (default 5 minutes)
   requireDerivatives?: boolean; // profile C: no trade unless all live derivatives fields are real numbers
 }
 
