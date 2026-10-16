@@ -1082,7 +1082,7 @@ async function engineConfigView(flash) {
   const rows = (d.versions || []).map(v => `<tr>
       <td>v${esc(v.version)}</td>
       <td><span class="status ${v.status === "active" ? "active" : "neutral"}">${esc(v.status)}</span></td>
-      <td style="min-width:160px">${v.preset ? {v.preset.modified ? " (customised)" : ""} : ""}${esc(engDiff(v.settings, d.defaults))}${v.note? `<br><span style="opacity:.7;font-size:11px">${esc(v.note)}</span>` : ""}</td>
+            <td style="min-width:160px">${v.preset ? `<span class="status neutral">${esc(v.preset.name)}${v.preset.modified ? " (customised)" : ""}</span><br>` : ""}${esc(engDiff(v.settings, d.defaults))}${v.note ? `<br><span style="opacity:.7;font-size:11px">${esc(v.note)}</span>` : ""}</td>
       <td style="font-size:11px">${esc(v.createdBy)}<br>${esc(when(v.createdAt))}</td>
       <td>${v.status === "active" ? "" : `<button class="btn" data-act="${esc(v.version)}">Activate</button>`}</td></tr>`).join("");
 
