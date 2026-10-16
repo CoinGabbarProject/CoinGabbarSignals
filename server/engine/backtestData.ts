@@ -18,7 +18,7 @@ export const TF_MS: Record<Timeframe, number> = {
 };
 
 /** Candles the live scanner hands to the strategy (candleLimit in server/index.ts). */
-export const WINDOW = 300;
+export const WINDOW = 500;
 /** Extra candles before the first test bar so SMA200 / ADX / ATR are warm. */
 export const WARMUP = 300;
 /** Hard cap per series so a typo in ?days= cannot hammer OKX. */
