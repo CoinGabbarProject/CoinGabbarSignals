@@ -175,7 +175,7 @@ async function liquidationEvents(deps: EngineDeps, symbol: string, now: number):
 }
 
 /** Fetch everything for one symbol and build the signal. */
-export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0, settings?: EngineSettingsInput, settingsVersion?: number): Promise<{ signal: FinalSignal; error?: string }> {
+export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSettings, deps: EngineDeps, now: number, btc: 1 | -1 | 0 = 0, settings?: EngineSettingsInput, settingsVersion?: number, requiredData?: ("derivatives" | "orderBook")[]): Promise<{ signal: FinalSignal; error?: string }> {
   const confTf = CONFIRMATION_TF[tf];
   const optional = async <T>(p: Promise<T> | null): Promise<T | null> => { try { return p ? await p : null; } catch { return null; } };
   const primary = deps.market.getCandles(symbol, tf, s.candleLimit, now);
