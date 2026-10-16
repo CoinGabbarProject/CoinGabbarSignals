@@ -1121,7 +1121,8 @@ async function engineConfigView(flash) {
         <li>On/off switches work in the full engine (profile B and C). Profile A (CORE4) ignores them. Periods apply to all.</li>
         <li>Switching an indicator off lowers the maximum score, and the score is rescaled to 100. Derivatives off stops profile C from trading.</li>
         <li>ATR and the safety checks (stale data, spread, invalid stop) can never be switched off.</li>
-        <li>Backtesting does not use these settings yet, so backtest results still reflect the built-in defaults.</li>
+                <li>Backtests use a saved version only when you run them with settings=&lt;version&gt;. They replay candles only, so derivatives, order-book and liquidation parts are not replayed. A preset is not "backtested" until you have run it that way.</li>
+        <li>A preset never goes live by itself. Only an admin can activate a saved draft.</li>
       </ul>`) +
     `<div style="height:10px"></div>` +
     panel("Saved versions", `${(d.versions || []).length} shown`,
