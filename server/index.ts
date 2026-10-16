@@ -17,6 +17,7 @@ await store.ensureIndexes();
 const settingsRepo = new MongoSettingsRepo(db);
 await settingsRepo.ensureIndexes();
 const settings = new SettingsService(settingsRepo);
+const presets = new PresetService(new MongoPresetRepo(db));
 
 const engine = new EngineService(
   {
