@@ -15,6 +15,15 @@ import type { EngineSettings } from "../../shared/engineConfig.js";
 
 export type SettingsStatus = "draft" | "active" | "archived";
 
+/** Which preset a draft started from. Informational only: the saved settings are the source of truth. */
+export interface PresetRef {
+  id: string;
+  name: string;
+  version: number;
+  modified: boolean;                           // true when the saved values differ from the preset
+  requiredData: ("derivatives" | "orderBook")[]; // data the engine must see fresh and complete before it may trade
+}
+
 export interface SettingsVersion {
   version: number;
   status: SettingsStatus;
