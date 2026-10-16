@@ -1354,7 +1354,7 @@ async function signalChartView(preselect) {
 
   let signals = [];
   try { await loadLwc(); signals = (await api("/signals?limit=200")).signals || []; }
-  catch (e) { status(e.message, true); return; }
+    catch (e) { status(e.message, true); $("scRefresh").onclick = () => signalChartView(); return; }
   if (!signals.length) { $("scInfo").textContent = "No signals yet."; return; }
   $("scSel").innerHTML = signals.map(s => `<option value="${esc(s.id)}">${esc(s.symbol)} ${esc(s.side)} ${esc(s.timeframe)} · score ${esc(s.score)} · ${esc(s.status)} · ${esc(new Date(s.createdAt).toLocaleString())}</option>`).join("");
   if (preselect && signals.some(s => s.id === preselect)) $("scSel").value = preselect;
