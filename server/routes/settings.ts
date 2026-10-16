@@ -63,8 +63,19 @@ export function createSettingsRouter(service: SettingsService, presets?: PresetS
 
   router.post("/engine/settings/drafts", ...guard, async (req, res) => {
     try {
-      const body = (req.body ?? {}) as { settings?: unknown; note?: unknown };
-      const saved = await service.createDraft(body.settings, body.note, who(req));
+            const body = (req.body ?? {}) as { settings?: unknown; note?: unknown; presetId?: unknown };
+      let ref: PresetRef | undefined;
+      if (body.presetId !== undefined) {
+        const preset = typeof body.presetId === "string" && presets ? await presets.get(body.presetId) : null;
+        if (!preset) throw new SettingsError("invalid", "Settings are not valid", ["presetId does not match a known preset"]);
+        const checked = service.check(body.settings);
+        ref = {
+          id: preset.id, name: preset.name, version: preset.version,
+          modified: !diffSettings(preset.settings, checked.settings).same,
+          requiredData: preset.required.filter((k): k is "derivatives" | "orderBook" => (k === "derivatives" || k === "orderBook") && checked.settings.toggles[k]),
+        };
+      }
+      const saved = await service.createDraft(body.settings, body.note, who(req), ref);
       res.status(201).json({ success: true, version: saved });
     } catch (e) { fail(res, e); }
   });
