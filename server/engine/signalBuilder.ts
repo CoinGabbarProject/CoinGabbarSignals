@@ -288,6 +288,11 @@ export function buildSignal(input: BuildSignalInput, opts: BuildOptions = {}): F
   if (decision.kind === "TRADE" && cfg.requireDerivatives && !hasRealDerivatives(input.derivatives)) {
     decision = { kind: "NO_TRADE", reason: "Profile C needs live derivatives data (funding, open interest, long/short, order book); it is unavailable" };
   }
+    if (decision.kind === "TRADE" && cfg.requiredData?.length) {
+    const need = cfg.requiredData.filter((k) => (k === "derivatives" ? engine.toggles.derivatives : engine.toggles.derivatives && engine.toggles.orderBook));
+    const a = assessDerivativesData(input.derivatives, need, now, cfg.derivativesMaxAgeMs ?? 5 * 60_000);
+    if (!a.ok) decision = { kind: "NO_TRADE", reason: `Required market data failed validation: ${a.reasons.join("; ")}` };
+  }
   const isTrade = decision.kind === "TRADE";
   const plan = decision.kind === "TRADE" ? decision.plan : null;
   const side = scored.side === "SHORT" ? -1 : 1;
