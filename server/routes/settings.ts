@@ -19,6 +19,14 @@ import { backtestCaveats, diffSettings, presetWarnings, summarizeSettings, valid
  *   POST /engine/settings/rollback          go back to the previously active version
  *   POST /engine/settings/reset             back to built-in defaults
  *
+ * Presets (only when a PresetService is given). None of these change the live engine:
+ *   GET  /engine/presets                    built-in + custom presets
+ *   POST /engine/presets                    save a custom preset (new name, or next version of a name)
+ *   POST /engine/presets/summary            indicator summary + warnings for a form state
+ *   POST /engine/presets/compare            which indicators differ between two presets
+ *   POST /engine/presets/:id/duplicate      copy any preset into a new custom preset
+ *   POST /engine/presets/:id/archive        hide a custom preset (history is kept)
+ *
  * POST is used for every change because the CORS list only allows GET, POST, PATCH and DELETE.
  */
 export function createSettingsRouter(service: SettingsService): Router {
