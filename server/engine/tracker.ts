@@ -11,20 +11,45 @@ const TF_MS: Record<string, number> = {
 const CANDLE_LIMIT = 1000;
 
 // Telegram alerts. Render env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (missing = alerts off).
-const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
-export async function tgSend(text: string): Promise<void> {
-  if (!TG_TOKEN || !TG_CHAT) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: "HTML", disable_web_page_preview: true }),
-      signal: AbortSignal.timeout(8000),
-    });
-  } catch (e) {
-    console.warn(`[telegram] send failed: ${e instanceof Error ? e.message : String(e)}`);
+// The token is read when a message is sent, so a changed env var or a test can take effect without a restart.
+export type TgResult = "sent" | "off" | "failed";
+/** Delays in ms. Exposed so tests can set them to 0. */
+export const tgTiming = { gapMs: 1100, retryMs: 1000 };
+const sleep = (ms: number): Promise<void> => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+
+async function tgPost(text: string): Promise<TgResult> {
+  const token = process.env.TELEGRAM_BOT_TOKEN ?? "", chat = process.env.TELEGRAM_CHAT_ID ?? "";
+  if (!token || !chat) return "off";
+  let plain = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chat, text: plain ? text.replace(/<[^>]+>/g, "") : text, ...(plain ? {} : { parse_mode: "HTML" }), disable_web_page_preview: true }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.ok) return "sent";
+      // Telegram answers with a JSON body that says why (bad token, wrong chat id, rate limit, bad HTML ...). Never ignore it.
+      const body = (await res.json().catch(() => ({}))) as { description?: string; parameters?: { retry_after?: number } };
+      console.warn(`[telegram] send failed (attempt ${attempt}/3): HTTP ${res.status} ${body.description ?? ""}`.trim());
+      if (res.status === 429) { await sleep(Math.min(20, body.parameters?.retry_after ?? 2) * 1000); continue; }
+      if (res.status === 400 && /parse entities/i.test(body.description ?? "") && !plain) { plain = true; continue; }   // resend without formatting
+      if (res.status >= 400 && res.status < 500) return "failed";                                                     // 401/403/404: retrying will not help
+    } catch (e) {
+      console.warn(`[telegram] send failed (attempt ${attempt}/3): ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (attempt < 3) await sleep(tgTiming.retryMs * attempt);
   }
+  return "failed";
+}
+
+// One message at a time, with a small gap: Telegram allows about 1 message per second per chat and drops the rest (HTTP 429).
+let tgQueue: Promise<unknown> = Promise.resolve();
+export function tgSend(text: string): Promise<TgResult> {
+  const run = tgQueue.then(() => tgPost(text), () => tgPost(text));
+  tgQueue = run.then(() => sleep(tgTiming.gapMs), () => sleep(tgTiming.gapMs));
+  return run;
 }
 export const usd = (n: number | null | undefined): string => {
   if (n == null || !Number.isFinite(Number(n))) return "-";
