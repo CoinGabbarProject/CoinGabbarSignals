@@ -34,7 +34,7 @@ const engine = new EngineService(
     timeframe: config.scan.timeframe,
     minScore: config.scan.minScore,
     concurrency: config.scan.concurrency,
-    candleLimit: 300,
+    candleLimit: 500,
   },
 );
 
