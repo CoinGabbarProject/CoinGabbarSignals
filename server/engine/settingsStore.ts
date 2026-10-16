@@ -85,7 +85,7 @@ export class SettingsService {
     if (errors.length > 0) throw new SettingsError("invalid", "Settings are not valid", errors);
     const v: SettingsVersion = {
       version: await this.repo.nextVersion(), status: "draft", schema: ENGINE_SETTINGS_SCHEMA,
-      settings: checked.settings, note: typeof note === "string" ? note.trim() : "",
+      settings: checked.settings, ...(preset ? { preset } : {}), note: typeof note === "string" ? note.trim() : "",
       createdAt: this.iso(), createdBy: by,
     };
     await this.repo.insert(v);
