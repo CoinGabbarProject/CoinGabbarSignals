@@ -1104,7 +1104,8 @@ async function engineConfigView(flash) {
   host.innerHTML =
     panel("Live now", "", `${live}<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="ecRollback">Roll back</button><button class="btn" id="ecReset">Use built-in defaults</button></div>`) +
-    `<div style="height:10px"></div>` +
+    <button class="btn" id="ecReset">Use built-in defaults</button></div>`) +
+    `<div style="height:10px"></div>` + presetPanel +
     panel("New draft", "A draft does nothing until you activate it", `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px">${periodInputs}</div>
       <div style="margin-top:12px"><b style="font-size:12px">Indicators on / off</b>
