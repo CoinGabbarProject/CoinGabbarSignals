@@ -26,7 +26,7 @@ export interface EngineDeps {
   log?: Pick<Console, "info" | "warn" | "error">;
   /** Optional. The active engine settings (indicator periods and switches), read once per scan. null = built-in defaults.
    *  If it throws, the scan fails instead of silently trading with different settings. */
-  activeSettings?: () => Promise<{ version: number; settings: EngineSettingsInput } | null>;
+  activeSettings?: () => Promise<{ version: number; settings: EngineSettingsInput; requiredData?: ("derivatives" | "orderBook")[] } | null>;
 }
 
 export class EngineBusyError extends Error {
