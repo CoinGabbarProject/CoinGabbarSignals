@@ -48,7 +48,7 @@ const docs = await this.signals().find({ symbol, "timeframe.primary": primaryTf,
       {
         $set: {
           status: o.status,
-          outcome: { status: o.status, exit: o.exit, closed: o.closed, at: atIso, hits: o.hits ?? {}, ...(o.trailStop !== undefined ? { trailStop: o.trailStop } : {}) },
+          outcome: { status: o.status, exit: o.exit, closed: o.closed, at: atIso, hits: o.hits ?? {}, ...(o.trailStop !== undefined ? { trailStop: o.trailStop } : {}), ...(o.tg !== undefined ? { tg: o.tg } : {}) },
           "timestamps.updatedAt": atIso,
           "timestamps.closedAt": o.closed ? atIso : null,
         },
