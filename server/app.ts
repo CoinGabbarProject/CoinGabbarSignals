@@ -19,7 +19,7 @@ import { createSettingsRouter } from "./routes/settings.js";
 import type { SettingsService } from "./engine/settingsStore.js";
 import type { PresetService } from "./engine/presetStore.js";
 
-export interface AppDeps { engine?: EngineService; store?: SignalStore; settings?: SettingsService }
+ export interface AppDeps { engine?: EngineService; store?: SignalStore; settings?: SettingsService; presets?: PresetService }
 
 export function createApp(config: ServerConfig, deps: AppDeps = {}): Express {
   const app = express();
