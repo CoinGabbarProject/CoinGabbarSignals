@@ -114,8 +114,18 @@ export class OkxMarketData implements MarketData {
   }
 
   async getCandles(symbol: string, tf: Timeframe, limit: number, now: number, includeForming = false): Promise<Candle[]> {
-    const rows = await this.withInst(symbol, (instId) =>
-      this.get("/api/v5/market/candles", { instId, bar: BAR[tf], limit: Math.min(limit + 1, 300) }));
+        const rows = await this.withInst(symbol, async (instId) => {
+      const all: unknown[] = [...(await this.get("/api/v5/market/candles", { instId, bar: BAR[tf], limit: Math.min(limit + 1, 300) }))];
+      // OKX /candles sirf latest 300 deta hai. Purani candles history-candles se page karke laate hain.
+      let guard = 0;
+      while (all.length < limit + 1 && guard++ < 40) {
+        const oldest = toNum(arr(all[all.length - 1])[0]);
+        const page = await this.get("/api/v5/market/history-candles", { instId, bar: BAR[tf], limit: 100, after: oldest });
+        if (!page.length) break;
+        all.push(...page);
+      }
+      return all;
+    });
     const out: Candle[] = [];
     for (const row of rows) {
       const r = arr(row);
