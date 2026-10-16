@@ -28,7 +28,8 @@ export interface SettingsVersion {
   version: number;
   status: SettingsStatus;
   schema: number;                 // ENGINE_SETTINGS_SCHEMA when saved
-  settings: EngineSettings;       // always the full, resolved values
+    settings: EngineSettings;       // always the full, resolved values
+  preset?: PresetRef;             // set when the draft was started from a preset
   note: string;
   createdAt: string;
   createdBy: string;
