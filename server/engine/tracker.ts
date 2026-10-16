@@ -66,6 +66,10 @@ const PRE_TP1_BE = Number(process.env.PRE_TP1_BE ?? "0");
 // Percentage trailing: after armed / TP1, SL follows the best price by this % (0 = off).
 const TRAIL_PCT = Number(process.env.TRAIL_PCT ?? "1.5");
 
+// Alerts that Telegram did not accept, counted per signal + status. Memory only: after a restart it simply counts again.
+const tgTries = new Map<string, number>();
+const TG_MAX_RUNS = 6;
+
 export const trackHorizonMs = (execTf: string): number => (TF_MS[execTf] ?? 300_000) * CANDLE_LIMIT * 0.9;
 
 export type Evaluation =
