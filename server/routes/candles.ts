@@ -9,7 +9,7 @@ const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as const;
 const querySchema = z.object({
   symbol: z.string().trim().toUpperCase().regex(SYMBOL_RE),
   timeframe: z.enum(TIMEFRAMES).default("1H"),
-  limit: z.coerce.number().int().min(10).max(1000).default(300),
+  limit: z.coerce.number().int().min(10).max(4000).default(300),
 });
 
 const market = createMarketData();
