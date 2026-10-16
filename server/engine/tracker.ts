@@ -191,15 +191,19 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
         );
         changed++;
       } else if (ev?.kind === "outcome") {
-        const o = ev.outcome;
-        if (s.status === o.status && Boolean(s.outcome?.closed) === o.closed && s.outcome?.hits && s.outcome?.trailStop === o.trailStop) continue;
-                const hitTimes = Object.values(o.hits ?? {}).filter((t): t is number => typeof t === "number");
+                const o = ev.outcome;
+        // What Telegram last confirmed for this signal. Older records have no marker: treat what is stored as already sent.
+        const keyOf = (st: string, closed: boolean): string => st + (closed ? ":closed" : "");
+        const sentKey = s.outcome?.tg ?? (s.outcome ? keyOf(s.outcome.status, Boolean(s.outcome.closed)) : "ACTIVE");
+        const key = keyOf(o.status, o.closed);
+        if (key === sentKey && s.status === o.status && Boolean(s.outcome?.closed) === o.closed && s.outcome?.hits && s.outcome?.trailStop === o.trailStop) continue;
+        const hitTimes = Object.values(o.hits ?? {}).filter((t): t is number => typeof t === "number");
         const outcomeIso = hitTimes.length ? new Date(Math.max(...hitTimes)).toISOString() : atIso;
-        await deps.store.setOutcome(s.id, o, outcomeIso);
-        const statusChanged = s.status !== o.status;
-        const justClosed = o.closed && !s.outcome?.closed;
-        if (statusChanged || justClosed) {
-                    const head: Record<string, string> = {
+
+        let tg = sentKey;
+        if (key !== sentKey) {
+          const justClosed = o.closed && !sentKey.endsWith(":closed");
+          const head: Record<string, string> = {
             TP1_HIT: "🎯 <b>TP1 HIT</b> ✅",
             TP2_HIT: "🎯🎯 <b>TP2 HIT</b> ✅✅",
             TP3_HIT: "🏆 <b>TP3 HIT · FULL TARGET</b> 🚀",
@@ -215,8 +219,17 @@ export async function trackOutcomes(deps: TrackerDeps): Promise<number> {
             : o.status === "SL_HIT" ? "❌ Trade closed at loss. Risk managed, next setup loading…"
             : "⚖️ Closed at breakeven, no loss.";
           const trail = o.trailStop !== undefined && !o.closed ? `\n🛡 Trailing SL: <b>${usd(o.trailStop)}</b>` : "";
-          void tgSend(`${title}\n\n${tgPair(s)}\n\n📍 Entry: ${usd(s.entry.ideal)}\n🏁 Exit: <b>${usd(o.exit)}</b>${trail}\n\n${tail}`);
+          const r = await tgSend(`${title}\n\n${tgPair(s)}\n\n📍 Entry: ${usd(s.entry.ideal)}\n🏁 Exit: <b>${usd(o.exit)}</b>${trail}\n\n${tail}`);
+          const tryKey = `${s.id}:${key}`;
+          if (r !== "failed") { tg = key; tgTries.delete(tryKey); }
+          else {
+            // Not delivered: keep the old marker so the next tracker run sends it again. Give up after a few runs so a broken bot cannot loop forever.
+            const n = (tgTries.get(tryKey) ?? 0) + 1;
+            if (n >= TG_MAX_RUNS) { tg = key; tgTries.delete(tryKey); log.error(`[tracker] Telegram alert for ${s.symbol} ${key} could not be delivered after ${n} runs, giving up`); }
+            else { tgTries.set(tryKey, n); log.warn(`[tracker] Telegram alert for ${s.symbol} ${key} not delivered (run ${n}/${TG_MAX_RUNS}), will retry`); }
+          }
         }
+        await deps.store.setOutcome(s.id, { ...o, tg }, outcomeIso);
         changed++;
       } else if (ev?.kind === "entered") {
         if (!s.entered) {
