@@ -1227,8 +1227,219 @@ async function engineConfigView(flash) {
     await engineConfigView("Built-in defaults are live.");
   });
 }
+// ===== Signal Chart: read-only chart of a signal with every indicator its configuration uses =====
+// Only GET requests are made. Nothing on this page can create, change, close or delete a signal or a setting.
+const LWC_URL = "https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.2.0/lightweight-charts.standalone.production.js";
+let lwcPromise = null;
+function loadLwc() {
+  if (window.LightweightCharts) return Promise.resolve();
+  if (!lwcPromise) lwcPromise = new Promise((ok, bad) => {
+    const s = document.createElement("script");
+    s.src = LWC_URL; s.onload = ok; s.onerror = () => { lwcPromise = null; bad(new Error("Chart library could not be loaded")); };
+    document.head.appendChild(s);
+  });
+  return lwcPromise;
+}
 
+const CH_DEF_PERIODS = { emaFast: 20, emaSlow: 50, smaTrend: 200, rsi: 14, atr: 14, adx: 14, macdFast: 12, macdSlow: 26, macdSignal: 9, bbPeriod: 20, bbMult: 2 };
+const CH_DEF_TOGGLES = { rsi: true, macd: true, stochRsi: true, obv: true, vwap: true, bollinger: true, derivatives: true, orderBook: true, pivots: true, smc: true, liquidation: true };
+// Indicators that are always drawn because the engine always uses them (they cannot be switched off).
+const CH_ALWAYS = ["EMA fast", "EMA slow", "SMA trend", "ADX", "ATR (stop sizing)"];
+
+const chNaN = (n) => new Array(n).fill(NaN);
+function chSma(v, p) { const o = chNaN(v.length); let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= p) s -= v[i - p]; if (i >= p - 1) o[i] = s / p; } return o; }
+function chEma(v, p) {
+  const o = chNaN(v.length), st = v.findIndex(Number.isFinite);
+  if (st < 0 || v.length - st < p) return o;
+  const k = 2 / (p + 1); let seed = 0;
+  for (let i = st; i < st + p; i++) seed += v[i];
+  o[st + p - 1] = seed / p;
+  for (let i = st + p; i < v.length; i++) o[i] = v[i] * k + o[i - 1] * (1 - k);
+  return o;
+}
+function chRsi(c, p) {
+  const o = chNaN(c.length); if (c.length <= p) return o;
+  let g = 0, l = 0;
+  for (let i = 1; i <= p; i++) { const d = c[i] - c[i - 1]; if (d > 0) g += d; else l -= d; }
+  g /= p; l /= p;
+  const f = (g, l) => l === 0 ? (g === 0 ? 50 : 100) : 100 - 100 / (1 + g / l);
+  o[p] = f(g, l);
+  for (let i = p + 1; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * (p - 1) + Math.max(d, 0)) / p; l = (l * (p - 1) + Math.max(-d, 0)) / p; o[i] = f(g, l); }
+  return o;
+}
+function chStoch(c, rsiP) {
+  const r = chRsi(c, rsiP), n = 14, raw = chNaN(c.length);
+  for (let i = 0; i < c.length; i++) {
+    if (i < n - 1 || !Number.isFinite(r[i - n + 1])) continue;
+    const w = r.slice(i - n + 1, i + 1); const hi = Math.max(...w), lo = Math.min(...w);
+    raw[i] = hi === lo ? 50 : ((r[i] - lo) / (hi - lo)) * 100;
+  }
+  const k = chSma(raw.map(x => Number.isFinite(x) ? x : 0), 3).map((x, i) => Number.isFinite(raw[i - 2]) ? x : NaN);
+  const d = chSma(k.map(x => Number.isFinite(x) ? x : 0), 3).map((x, i) => Number.isFinite(k[i - 2]) ? x : NaN);
+  return { k, d };
+}
+function chMacd(c, f, s, sg) {
+  const ef = chEma(c, f), es = chEma(c, s), m = c.map((_, i) => ef[i] - es[i]), sig = chEma(m, sg);
+  return { macd: m, signal: sig, hist: m.map((v, i) => v - sig[i]) };
+}
+function chBoll(c, p, mult) {
+  const mid = chSma(c, p), up = chNaN(c.length), lo = chNaN(c.length);
+  for (let i = p - 1; i < c.length; i++) { let s = 0; for (let j = i - p + 1; j <= i; j++) s += (c[j] - mid[i]) ** 2; const sd = Math.sqrt(s / p); up[i] = mid[i] + mult * sd; lo[i] = mid[i] - mult * sd; }
+  return { up, mid, lo };
+}
+function chVwap(cs) {
+  const o = []; let pv = 0, vol = 0, day = -1;
+  cs.forEach(k => { const d = Math.floor(k.timestamp / 86400000); if (d !== day) { day = d; pv = 0; vol = 0; } pv += (k.high + k.low + k.close) / 3 * k.volume; vol += k.volume; o.push(vol > 0 ? pv / vol : k.close); });
+  return o;
+}
+function chObv(cs) { const o = []; let t = 0; cs.forEach((k, i) => { if (i > 0) t += k.close > cs[i - 1].close ? k.volume : k.close < cs[i - 1].close ? -k.volume : 0; o.push(t); }); return o; }
+function chAdx(cs, p) {
+  const n = cs.length, adx = chNaN(n), pdi = chNaN(n), mdi = chNaN(n); if (n <= p * 2) return { adx, pdi, mdi };
+  const tr = [], pd = [], md = [];
+  for (let i = 1; i < n; i++) {
+    const up = cs[i].high - cs[i - 1].high, dn = cs[i - 1].low - cs[i].low;
+    pd.push(up > dn && up > 0 ? up : 0); md.push(dn > up && dn > 0 ? dn : 0);
+    tr.push(Math.max(cs[i].high - cs[i].low, Math.abs(cs[i].high - cs[i - 1].close), Math.abs(cs[i].low - cs[i - 1].close)));
+  }
+  let a = tr.slice(0, p).reduce((x, y) => x + y, 0), b = pd.slice(0, p).reduce((x, y) => x + y, 0), c = md.slice(0, p).reduce((x, y) => x + y, 0);
+  const dx = [];
+  for (let i = p; i <= tr.length; i++) {
+    if (i > p) { a = a - a / p + tr[i - 1]; b = b - b / p + pd[i - 1]; c = c - c / p + md[i - 1]; }
+    const pi = a ? 100 * b / a : 0, mi = a ? 100 * c / a : 0;
+    pdi[i] = pi; mdi[i] = mi; dx.push([i, pi + mi ? 100 * Math.abs(pi - mi) / (pi + mi) : 0]);
+  }
+  if (dx.length >= p) {
+    let v = dx.slice(0, p).reduce((x, y) => x + y[1], 0) / p; adx[dx[p - 1][0]] = v;
+    for (let j = p; j < dx.length; j++) { v = (v * (p - 1) + dx[j][1]) / p; adx[dx[j][0]] = v; }
+  }
+  return { adx, pdi, mdi };
+}
+// Swing pivots (3 left / 3 right) -> nearest support / resistance levels, same idea as the engine's S/R levels.
+function chPivots(cs, close) {
+  const hi = [], lo = [], L = 3, start = Math.max(L, cs.length - 200);
+  for (let i = start; i < cs.length - L; i++) {
+    let isH = true, isL = true;
+    for (let j = 1; j <= L; j++) { if (cs[i].high <= cs[i - j].high || cs[i].high <= cs[i + j].high) isH = false; if (cs[i].low >= cs[i - j].low || cs[i].low >= cs[i + j].low) isL = false; }
+    if (isH) hi.push(cs[i].high); if (isL) lo.push(cs[i].low);
+  }
+  return { res: hi.filter(x => x > close).sort((a, b) => a - b).slice(0, 3), sup: lo.filter(x => x < close).sort((a, b) => b - a).slice(0, 3) };
+}
+
+const CH_TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1H": 3600, "4H": 14400, "1D": 86400 };
+
+async function signalChartView(preselect) {
+  host.innerHTML = panel("Signal Chart", "Watch only - nothing here can change a signal or a setting", `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <label style="font-size:11px;flex:1;min-width:240px">Signal<select id="scSel" style="${INP};width:100%"></select></label>
+      <button class="btn" id="scRefresh">Refresh</button>
+      <span id="scStatus" style="font-size:11px;opacity:.75"></span>
+    </div>
+    <div id="scInfo" style="margin-top:10px;font-size:12px"></div>
+    <div id="scLegend" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;font-size:11px"></div>
+    <div id="scCharts" style="margin-top:10px"></div>
+    <div id="scNotes" style="margin-top:8px;font-size:11px;opacity:.75"></div>`);
+  const status = (t, bad) => { const el = $("scStatus"); if (el) { el.textContent = t; el.className = bad ? "red" : ""; } };
+
+  let signals = [];
+  try { await loadLwc(); signals = (await api("/signals?limit=200")).signals || []; }
+  catch (e) { status(e.message, true); return; }
+  if (!signals.length) { $("scInfo").textContent = "No signals yet."; return; }
+  $("scSel").innerHTML = signals.map(s => `<option value="${esc(s.id)}">${esc(s.symbol)} ${esc(s.side)} ${esc(s.timeframe)} · score ${esc(s.score)} · ${esc(s.status)} · ${esc(new Date(s.createdAt).toLocaleString())}</option>`).join("");
+  if (preselect && signals.some(s => s.id === preselect)) $("scSel").value = preselect;
+
+  let charts = [];
+  const cfgCache = {};
+  async function configFor(sig) {
+    if (!sig.settingsVersion) return { label: "default config", periods: CH_DEF_PERIODS, toggles: CH_DEF_TOGGLES, known: true };
+    if (!cfgCache[sig.settingsVersion]) {
+      try { const r = await api("/engine/settings/" + encodeURIComponent(sig.settingsVersion)); cfgCache[sig.settingsVersion] = { label: "config v" + sig.settingsVersion, periods: { ...CH_DEF_PERIODS, ...r.version.settings.periods }, toggles: { ...CH_DEF_TOGGLES, ...r.version.settings.toggles }, known: true }; }
+      catch (e) { cfgCache[sig.settingsVersion] = { label: "config v" + sig.settingsVersion + " (could not be read, showing all indicators)", periods: CH_DEF_PERIODS, toggles: CH_DEF_TOGGLES, known: false }; }
+    }
+    return cfgCache[sig.settingsVersion];
+  }
+
+  async function draw() {
+    const sig = signals.find(s => s.id === $("scSel").value); if (!sig) return;
+    charts.forEach(c => c.remove()); charts = []; $("scCharts").innerHTML = "";
+    status("Loading…");
+    let cs;
+    try {
+      const r = await api("/candles?symbol=" + encodeURIComponent(sig.symbol) + "&timeframe=" + encodeURIComponent(sig.timeframe) + "&limit=500");
+      cs = (r.data || []).filter(k => [k.timestamp, k.open, k.high, k.low, k.close, k.volume].every(Number.isFinite)).sort((a, b) => a.timestamp - b.timestamp);
+    } catch (e) { status(e.message, true); return; }
+    if (cs.length < 60) { status("Not enough candles to draw indicators (" + cs.length + ").", true); return; }
+    const cfg = await configFor(sig), P = cfg.periods, T = cfg.toggles;
+    const close = cs.map(k => k.close), t = cs.map(k => Math.floor(k.timestamp / 1000));
+    const css = getComputedStyle(document.documentElement);
+    const txt = css.getPropertyValue("--text").trim() || "#ccc", grid = css.getPropertyValue("--line").trim() || "#333";
+    const mk = (h) => {
+      const el = document.createElement("div"); el.style.cssText = "margin-top:6px;border:1px solid " + grid + ";border-radius:6px;overflow:hidden"; $("scCharts").appendChild(el);
+      const label = document.createElement("div"); label.style.cssText = "position:absolute;z-index:3;left:8px;top:4px;font-size:11px;opacity:.8;pointer-events:none"; el.style.position = "relative"; el.appendChild(label);
+      const c = LightweightCharts.createChart(el, { height: h, autoSize: false, width: el.clientWidth || 800, layout: { background: { color: "transparent" }, textColor: txt }, grid: { vertLines: { color: grid }, horzLines: { color: grid } }, rightPriceScale: { borderColor: grid }, timeScale: { borderColor: grid, timeVisible: true, secondsVisible: false }, crosshair: { mode: 0 } });
+      charts.push(c); return { c, label };
+    };
+    const line = (c, vals, color, w, extra) => { const s = c.addLineSeries({ color, lineWidth: w || 1, priceLineVisible: false, lastValueVisible: false, ...(extra || {}) }); s.setData(vals.map((v, i) => Number.isFinite(v) ? { time: t[i], value: v } : null).filter(Boolean)); return s; };
+
+    // main price chart
+    const main = mk(400); main.label.textContent = sig.symbol + " " + sig.timeframe;
+    const candle = main.c.addCandlestickSeries({ upColor: "#21e39a", downColor: "#ff5368", borderVisible: false, wickUpColor: "#21e39a", wickDownColor: "#ff5368" });
+    candle.setData(cs.map((k, i) => ({ time: t[i], open: k.open, high: k.high, low: k.low, close: k.close })));
+    line(main.c, chEma(close, P.emaFast), "#f1a933", 2); line(main.c, chEma(close, P.emaSlow), "#8a79ff", 2); line(main.c, chSma(close, P.smaTrend), "#e8eef6", 1);
+    if (T.vwap) line(main.c, chVwap(cs), "#2cc7ff", 1, { lineStyle: 2 });
+    if (T.bollinger) { const b = chBoll(close, P.bbPeriod, P.bbMult); line(main.c, b.up, "#7d8aa0", 1); line(main.c, b.mid, "#7d8aa0", 1, { lineStyle: 2 }); line(main.c, b.lo, "#7d8aa0", 1); }
+    const lvl = (price, color, title, style) => candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title });
+    if (T.pivots) { const pv = chPivots(cs, close[close.length - 1]); pv.res.forEach((p, i) => lvl(p, "#ff8a98", "R" + (i + 1), 3)); pv.sup.forEach((p, i) => lvl(p, "#7bf0c0", "S" + (i + 1), 3)); }
+    // the signal itself (read from the stored signal, never recalculated)
+    lvl(sig.entry, "#27bfff", "Entry", 0); lvl(sig.stop, "#ff5368", "Stop", 0);
+    (sig.targets || []).forEach((p, i) => lvl(p, "#21e39a", "TP" + (i + 1), 0));
+    const bar = Math.floor(new Date(sig.createdAt).getTime() / 1000), step = CH_TF_SEC[sig.timeframe] || 3600;
+    const idx = t.findIndex((x, i) => bar >= x && (i === t.length - 1 || bar < t[i + 1]));
+    const inRange = bar >= t[0] && bar < t[t.length - 1] + step && idx >= 0;
+    if (inRange) candle.setMarkers([{ time: t[idx], position: sig.side === "LONG" ? "belowBar" : "aboveBar", color: sig.side === "LONG" ? "#21e39a" : "#ff5368", shape: sig.side === "LONG" ? "arrowUp" : "arrowDown", text: sig.side + " " + sig.score }]);
+
+    // indicator panels (only the ones this configuration uses)
+    const panels = [];
+    if (T.rsi) { const p = mk(120); p.label.textContent = "RSI " + P.rsi; line(p.c, chRsi(close, P.rsi), "#f1a933", 1).createPriceLine({ price: 70, color: grid, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" }); panels.push(p); }
+    if (T.stochRsi) { const p = mk(120), s = chStoch(close, P.rsi); p.label.textContent = "Stochastic RSI"; line(p.c, s.k, "#2cc7ff", 1); line(p.c, s.d, "#ff8a98", 1); panels.push(p); }
+    if (T.macd) { const p = mk(130), m = chMacd(close, P.macdFast, P.macdSlow, P.macdSignal); p.label.textContent = "MACD " + P.macdFast + "/" + P.macdSlow + "/" + P.macdSignal;
+      const h = p.c.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false }); h.setData(m.hist.map((v, i) => Number.isFinite(v) ? { time: t[i], value: v, color: v >= 0 ? "#21e39a88" : "#ff536888" } : null).filter(Boolean));
+      line(p.c, m.macd, "#2cc7ff", 1); line(p.c, m.signal, "#f1a933", 1); panels.push(p); }
+    { const p = mk(120), a = chAdx(cs, P.adx); p.label.textContent = "ADX " + P.adx + " (+DI / -DI)"; line(p.c, a.adx, "#e8eef6", 2); line(p.c, a.pdi, "#21e39a", 1); line(p.c, a.mdi, "#ff5368", 1); panels.push(p); }
+    if (T.obv) { const p = mk(110); p.label.textContent = "OBV"; line(p.c, chObv(cs), "#8a79ff", 1); panels.push(p); }
+
+    // keep every chart on the same time range
+    let syncing = false;
+    charts.forEach(src => src.timeScale().subscribeVisibleLogicalRangeChange(r => { if (syncing || !r) return; syncing = true; charts.forEach(o => { if (o !== src) o.timeScale().setVisibleLogicalRange(r); }); syncing = false; }));
+    charts.forEach(c => c.timeScale().fitContent());
+
+    // info + legend
+    const pc = (v) => v == null ? "-" : fmtP(v);
+    $("scInfo").innerHTML = `<b class="${sig.side === "LONG" ? "green" : "red"}">${esc(sig.side)}</b> ${esc(sig.symbol)} ${esc(sig.timeframe)} · score ${esc(sig.score)}/100 · <span class="status ${["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(sig.status) ? "active" : "neutral"}">${esc(sig.status)}</span><br>` +
+      `Entry ${esc(pc(sig.entry))} · Stop ${esc(pc(sig.stop))} · Targets ${esc((sig.targets || []).map(fmtP).join(", "))}<br>` +
+      `<span style="opacity:.75">Made with ${esc(cfg.label)}${sig.strategyVersion ? " · " + esc(sig.strategyVersion) : ""} · ${esc(new Date(sig.createdAt).toLocaleString())}</span>`;
+    const chip = (name, on, note) => `<span style="padding:3px 8px;border-radius:999px;border:1px solid ${grid};${on ? "" : "opacity:.45;text-decoration:line-through"}" title="${esc(note || "")}">${esc(name)}</span>`;
+    $("scLegend").innerHTML =
+      CH_ALWAYS.map(n => chip(n, true, "Always used by the engine")).join("") +
+      [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"]].map(([n, k]) => chip(n, !!T[k], T[k] ? "Used and drawn" : "Switched off in this configuration")).join("") +
+      [["Derivatives", "derivatives"], ["Order book", "orderBook"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].map(([n, k]) => chip(n, !!T[k], T[k] ? "Used by the engine, no candle series to draw" : "Switched off in this configuration")).join("");
+    const notes = ["Indicator lines are recalculated here from the candles using the periods of this signal's configuration. The entry, stop and targets are the stored values.",
+      "Derivatives, order book, SMC zones and liquidation clusters are used by the engine but are not price series, so they are shown as chips only.",
+      "Support / resistance lines are the nearest swing pivots (3 bars each side) in the last 200 candles."];
+    if (!cfg.known) notes.push("The configuration could not be read, so all indicators are drawn with default periods.");
+    if (!inRange) notes.push("This signal is older than the 500 candles loaded, so no arrow is drawn.");
+    $("scNotes").innerHTML = notes.map(n => "• " + esc(n)).join("<br>");
+    status("Updated " + new Date().toLocaleTimeString());
+  }
+
+  $("scSel").onchange = draw; $("scRefresh").onclick = draw;
+  window.addEventListener("resize", () => charts.forEach(c => { const el = c.chartElement ? c.chartElement().parentElement : null; if (el) c.applyOptions({ width: el.clientWidth }); }));
+  await draw();
+  clearInterval(viewTimer);
+  viewTimer = setInterval(() => { if (host.dataset.view === "Signal Chart") draw(); else clearInterval(viewTimer); }, 60000);
+  }
+  
 const VIEW_MAP = {
+"Signal Chart": signalChartView,
 "Engine Config": engineConfigView,
 "Scan Health": scanView, "Score Breakdown": scoreView,
   "Market Data": marketView, "Indicators": indicatorsView,
