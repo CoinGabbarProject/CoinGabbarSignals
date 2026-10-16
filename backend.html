@@ -1146,7 +1146,7 @@ async function engineConfigView(flash) {
     msg("These settings are valid. Nothing was saved.", false);
   });
   $("ecSave").onclick = busy($("ecSave"), "Saving…", async () => {
-    const r = await engApi("/engine/settings/drafts", "POST", { settings: collect(), note: $("ecNote").value });
+    const r = await engApi("/engine/settings/drafts", "POST", { settings: collect(), note: $("ecNote").value, ...(curPreset ? { presetId: curPreset.id } : {}) });
     await engineConfigView("Saved as draft v" + r.version.version + ". It is not live until you activate it.");
   });
   $("ecDefaults").onclick = () => {
