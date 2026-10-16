@@ -3,7 +3,9 @@ import type { Response } from "express";
 import { requireAuth, requireAdmin } from "../middleware/requireAuth.js";
 import { DEFAULT_ENGINE_SETTINGS, ENGINE_SETTINGS_SCHEMA } from "../../shared/engineConfig.js";
 import { SettingsError } from "../engine/settingsStore.js";
-import type { SettingsService } from "../engine/settingsStore.js";
+import type { PresetRef, SettingsService } from "../engine/settingsStore.js";
+import type { PresetService } from "../engine/presetStore.js";
+import { backtestCaveats, diffSettings, presetWarnings, summarizeSettings, validatePresetSettings } from "../../shared/presets.js";
 
 /**
  * Admin API for engine settings (indicator periods and on/off switches).
