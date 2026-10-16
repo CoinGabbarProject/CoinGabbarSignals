@@ -6,8 +6,11 @@ export interface SymbolResult {
   symbol: string;
   direction: FinalSignal["direction"];
   score: number;
-  outcome: ScanOutcome;
+    outcome: ScanOutcome;
   error?: string;
+  bias?: string;
+  reason?: string;
+  conflicts?: string[];
 }
 export interface ScanSummary {
   startedAt: string; finishedAt: string; timeframe: Timeframe;
