@@ -77,7 +77,7 @@ export class SettingsService {
     return { ok: top.length === 0 && v.ok, errors: [...top, ...v.errors], settings: v.settings };
   }
 
-  async createDraft(input: unknown, note: unknown, by: string): Promise<SettingsVersion> {
+  async createDraft(input: unknown, note: unknown, by: string, preset?: PresetRef): Promise<SettingsVersion> {
     const checked = this.check(input);
     const errors = [...checked.errors];
     if (note !== undefined && typeof note !== "string") errors.push("note must be text");
