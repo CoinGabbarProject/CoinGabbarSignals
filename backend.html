@@ -1384,7 +1384,7 @@ async function signalChartView(preselect) {
     const main = mk(400); main.label.textContent = sig.symbol + " " + sig.timeframe;
     const candle = main.c.addCandlestickSeries({ upColor: "#21e39a", downColor: "#ff5368", borderVisible: false, wickUpColor: "#21e39a", wickDownColor: "#ff5368" });
     candle.setData(cs.map((k, i) => ({ time: t[i], open: k.open, high: k.high, low: k.low, close: k.close })));
-    line(main.c, chEma(close, P.emaFast), "#f1a933", 2); line(main.c, chEma(close, P.emaSlow), "#8a79ff", 2); line(main.c, chSma(close, P.smaTrend), "#e8eef6", 1);
+    
     if (T.vwap) line(main.c, chVwap(cs), "#2cc7ff", 1, { lineStyle: 2 });
     if (T.bollinger) { const b = chBoll(close, P.bbPeriod, P.bbMult); line(main.c, b.up, "#7d8aa0", 1); line(main.c, b.mid, "#7d8aa0", 1, { lineStyle: 2 }); line(main.c, b.lo, "#7d8aa0", 1); }
     const lvl = (price, color, title, style) => candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title });
