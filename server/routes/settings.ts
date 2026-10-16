@@ -29,7 +29,7 @@ import { backtestCaveats, diffSettings, presetWarnings, summarizeSettings, valid
  *
  * POST is used for every change because the CORS list only allows GET, POST, PATCH and DELETE.
  */
-export function createSettingsRouter(service: SettingsService): Router {
+export function createSettingsRouter(service: SettingsService, presets?: PresetService): Router {
   const router = Router();
   const guard = [requireAuth, requireAdmin];
 
