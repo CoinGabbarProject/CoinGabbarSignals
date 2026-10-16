@@ -197,7 +197,7 @@ export async function buildForSymbol(symbol: string, tf: Timeframe, s: ScanSetti
     candles: pr instanceof Error ? [] : pr,
     confirmation, change24hPct: ticker?.change24hPct ?? null, volume24h: ticker?.volume24h ?? null, htf, liquidations,
     derivatives, news,
-}, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore, ...(settings ? { settings } : {}) } });
+}, { now, config: { ...resolveProfile(process.env.STRATEGY_PROFILE).config, minScore: s.minScore, ...(settings ? { settings } : {}), ...(requiredData?.length ? { requiredData } : {}) } });
   // Record which saved settings version produced this signal (absent = built-in defaults).
   const built = settingsVersion !== undefined && built0.strategy ? { ...built0, strategy: { ...built0.strategy, settingsVersion } } : built0;
   const signal = await guardEntry(built, tf, deps, now, btc, s.minScore);
