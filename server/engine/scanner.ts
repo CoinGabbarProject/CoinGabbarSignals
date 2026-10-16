@@ -260,9 +260,14 @@ export class EngineService {
           const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings, active?.version, active?.requiredData);
           const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
           await exitIfWeak(signal, this.deps.store, now, this.log).catch((e: unknown) => this.log.error(`[scan] weak-exit check failed: ${errMsg(e)}`));
+                    const info = {
+            bias: String(signal.structure?.bias ?? ""),
+            reason: String(signal.reasoning?.primaryReason ?? ""),
+            conflicts: (signal.reasoning?.conflicts ?? []).slice(0, 3).map(String),
+          };
           return error === undefined
-            ? { symbol, direction: signal.direction, score: signal.score.total, outcome }
-            : { symbol, direction: signal.direction, score: signal.score.total, outcome: "error", error };
+            ? { symbol, direction: signal.direction, score: signal.score.total, outcome, ...info }
+            : { symbol, direction: signal.direction, score: signal.score.total, outcome: "error", error, ...info };
         } catch (e) {
           this.log.error(`[scan] ${symbol} failed: ${errMsg(e)}`);
           return { symbol, direction: "NO_TRADE", score: 0, outcome: "error", error: errMsg(e) };
