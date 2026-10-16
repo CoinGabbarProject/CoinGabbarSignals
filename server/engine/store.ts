@@ -21,7 +21,9 @@ export interface SignalOutcome {
   status: "TP1_HIT" | "TP2_HIT" | "TP3_HIT" | "SL_HIT" | "BE_HIT",
   exit: number;
   closed: boolean;
-  trailStop?: number;
+    trailStop?: number;
+  /** Last status Telegram confirmed for this signal (e.g. "TP1_HIT" or "TP1_HIT:closed"). A mismatch means the alert still has to be sent. */
+  tg?: string;
 }
 export const TRACKABLE_STATUSES = ["ACTIVE", "TP1_HIT", "TP2_HIT"] as const;
 
