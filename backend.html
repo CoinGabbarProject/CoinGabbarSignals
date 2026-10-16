@@ -1417,11 +1417,11 @@ async function signalChartView(preselect) {
     $("scInfo").innerHTML = `<b class="${sig.side === "LONG" ? "green" : "red"}">${esc(sig.side)}</b> ${esc(sig.symbol)} ${esc(sig.timeframe)} · score ${esc(sig.score)}/100 · <span class="status ${["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(sig.status) ? "active" : "neutral"}">${esc(sig.status)}</span><br>` +
       `Entry ${esc(pc(sig.entry))} · Stop ${esc(pc(sig.stop))} · Targets ${esc((sig.targets || []).map(fmtP).join(", "))}<br>` +
       `<span style="opacity:.75">Made with ${esc(cfg.label)}${sig.strategyVersion ? " · " + esc(sig.strategyVersion) : ""} · ${esc(new Date(sig.createdAt).toLocaleString())}</span>`;
-    const chip = (name, on, note) => `<span style="padding:3px 8px;border-radius:999px;border:1px solid ${grid};${on ? "" : "opacity:.45;text-decoration:line-through"}" title="${esc(note || "")}">${esc(name)}</span>`;
-    $("scLegend").innerHTML =
-      CH_ALWAYS.map(n => chip(n, true, "Always used by the engine")).join("") +
-      [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"]].map(([n, k]) => chip(n, !!T[k], T[k] ? "Used and drawn" : "Switched off in this configuration")).join("") +
-      [["Derivatives", "derivatives"], ["Order book", "orderBook"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].map(([n, k]) => chip(n, !!T[k], T[k] ? "Used by the engine, no candle series to draw" : "Switched off in this configuration")).join("");
+        // only the indicators that are ON in this configuration are listed; OFF ones are hidden to avoid clutter
+    const chip = (name, note) => `<span style="padding:3px 8px;border-radius:999px;border:1px solid ${grid}" title="${esc(note)}">${esc(name)}</span>`;
+    const drawn = [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"]].filter(([, k]) => T[k]);
+    const dataOnly = [["Derivatives", "derivatives"], ["Order book", "orderBook"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].filter(([, k]) => T[k]);
+    $("scLegend").innerHTML = drawn.map(([n]) => chip(n, "Selected and drawn")).join("") + dataOnly.map(([n]) => chip(n + " (data only)", "Selected, but it is not a price series so nothing is drawn")).join("") || "No indicators selected";
     const notes = ["Indicator lines are recalculated here from the candles using the periods of this signal's configuration. The entry, stop and targets are the stored values.",
       "Derivatives, order book, SMC zones and liquidation clusters are used by the engine but are not price series, so they are shown as chips only.",
       "Support / resistance lines are the nearest swing pivots (3 bars each side) in the last 200 candles."];
