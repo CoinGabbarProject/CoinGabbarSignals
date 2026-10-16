@@ -26,7 +26,7 @@ const engine = new EngineService(
     exchange: "okx",
     activeSettings: async () => {
       const a = await settings.getActive();
-      return a ? { version: a.version, settings: a.settings } : null;
+      return a ? { version: a.version, settings: a.settings, requiredData: a.preset?.requiredData ?? [] } : null;
     },
   },
   {
