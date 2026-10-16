@@ -104,5 +104,45 @@ export function createSettingsRouter(service: SettingsService, presets?: PresetS
     } catch (e) { fail(res, e); }
   });
 
+    if (presets) {
+    router.get("/engine/presets", ...guard, async (_req, res) => {
+      try { res.json({ success: true, builtin: presets.builtins(), custom: await presets.listCustom(true) }); } catch (e) { fail(res, e); }
+    });
+    router.post("/engine/presets", ...guard, async (req, res) => {
+      try {
+        const b = (req.body ?? {}) as { name?: unknown; description?: unknown; settings?: unknown; required?: unknown };
+        res.status(201).json({ success: true, preset: await presets.saveCustom({ name: b.name, description: b.description, settings: b.settings, required: b.required }, who(req)) });
+      } catch (e) { fail(res, e); }
+    });
+    router.post("/engine/presets/summary", ...guard, async (req, res) => {
+      const b = (req.body ?? {}) as { settings?: unknown; presetId?: unknown };
+      const checked = validatePresetSettings(b.settings ?? {});
+      const preset = typeof b.presetId === "string" ? await presets.get(b.presetId).catch(() => null) : null;
+      res.status(checked.ok ? 200 : 400).json({
+        success: checked.ok, errors: checked.errors,
+        summary: summarizeSettings(checked.settings),
+        warnings: preset ? presetWarnings(preset, checked.settings) : presetWarnings({ name: "", required: [] }, checked.settings),
+        backtestCaveats: backtestCaveats(checked.settings),
+      });
+    });
+    router.post("/engine/presets/compare", ...guard, async (req, res) => {
+      try {
+        const b = (req.body ?? {}) as { a?: unknown; b?: unknown };
+        const [pa, pb] = await Promise.all([typeof b.a === "string" ? presets.get(b.a) : null, typeof b.b === "string" ? presets.get(b.b) : null]);
+        if (!pa || !pb) { res.status(404).json({ error: "Both presets must exist" }); return; }
+        res.json({ success: true, a: { id: pa.id, name: pa.name }, b: { id: pb.id, name: pb.name }, diff: diffSettings(pa.settings, pb.settings) });
+      } catch (e) { fail(res, e); }
+    });
+    router.post("/engine/presets/:id/duplicate", ...guard, async (req, res) => {
+      try {
+        const body = (req.body ?? {}) as { name?: unknown };
+        res.status(201).json({ success: true, preset: await presets.duplicate(String(req.params["id"]), body.name, who(req)) });
+      } catch (e) { fail(res, e); }
+    });
+    router.post("/engine/presets/:id/archive", ...guard, async (req, res) => {
+      try { res.json({ success: true, preset: await presets.archive(String(req.params["id"])) }); } catch (e) { fail(res, e); }
+    });
+  }
+
   return router;
 }
