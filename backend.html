@@ -1404,7 +1404,7 @@ async function signalChartView(preselect) {
     if (T.macd) { const p = mk(130), m = chMacd(close, P.macdFast, P.macdSlow, P.macdSignal); p.label.textContent = "MACD " + P.macdFast + "/" + P.macdSlow + "/" + P.macdSignal;
       const h = p.c.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false }); h.setData(m.hist.map((v, i) => Number.isFinite(v) ? { time: t[i], value: v, color: v >= 0 ? "#21e39a88" : "#ff536888" } : null).filter(Boolean));
       line(p.c, m.macd, "#2cc7ff", 1); line(p.c, m.signal, "#f1a933", 1); panels.push(p); }
-    { const p = mk(120), a = chAdx(cs, P.adx); p.label.textContent = "ADX " + P.adx + " (+DI / -DI)"; line(p.c, a.adx, "#e8eef6", 2); line(p.c, a.pdi, "#21e39a", 1); line(p.c, a.mdi, "#ff5368", 1); panels.push(p); }
+    
     if (T.obv) { const p = mk(110); p.label.textContent = "OBV"; line(p.c, chObv(cs), "#8a79ff", 1); panels.push(p); }
 
     // keep every chart on the same time range
