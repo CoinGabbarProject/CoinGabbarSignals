@@ -1085,6 +1085,22 @@ async function engineConfigView(flash) {
       <td style="font-size:11px">${esc(v.createdBy)}<br>${esc(when(v.createdAt))}</td>
       <td>${v.status === "active" ? "" : `<button class="btn" data-act="${esc(v.version)}">Activate</button>`}</td></tr>`).join("");
 
+    const presetOpts = allPresets.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.status === "builtin" ? "" : " (custom v" + esc(p.version) + ")"}</option>`).join("");
+  const presetPanel = allPresets.length ? panel("Indicator presets", "Fills the form only. Nothing goes live until you save a draft and activate it", `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <label style="font-size:11px;flex:1;min-width:200px">Preset<select id="epSel" style="${box}"><option value="">- choose a preset -</option>${presetOpts}</select></label>
+        <button class="btn" id="epApply">Apply</button><button class="btn" id="epReset">Reset</button>
+        <button class="btn" id="epDup">Duplicate</button><button class="btn" id="epSaveCustom">Save as custom preset</button>
+      </div>
+      <div id="epDesc" style="font-size:11px;opacity:.75;margin-top:8px"></div>
+      <div style="margin-top:12px;border-top:1px solid rgba(128,128,128,.25);padding-top:10px">
+        <b style="font-size:12px">Compare two presets</b>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+          <label style="font-size:11px;flex:1;min-width:160px">A<select id="epA" style="${box}">${presetOpts}</select></label>
+          <label style="font-size:11px;flex:1;min-width:160px">B<select id="epB" style="${box}">${presetOpts}</select></label>
+          <button class="btn" id="epCompare">Compare</button></div>
+        <div id="epCmp" style="font-size:12px;margin-top:8px"></div></div>`) + `<div style="height:10px"></div>` : "";
+
   host.innerHTML =
     panel("Live now", "", `${live}<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="ecRollback">Roll back</button><button class="btn" id="ecReset">Use built-in defaults</button></div>`) +
