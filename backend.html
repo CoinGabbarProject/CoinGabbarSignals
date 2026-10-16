@@ -1058,7 +1058,11 @@ async function engineConfigView(flash) {
   host.innerHTML = panel("Engine Config", "Loading…", "");
   let d;
   try { d = await engApi("/engine/settings"); }
-  catch (e) { host.innerHTML = panel("Engine Config", "", `<span class="red">${esc(e.message)}</span>`); return; }
+    catch (e) { host.innerHTML = panel("Engine Config", "", `<span class="red">${esc(e.message)}</span>`); return; }
+  let pr = { builtin: [], custom: [] };
+  try { pr = await engApi("/engine/presets"); } catch (e) { /* presets unavailable: the rest of the page still works */ }
+  const allPresets = [...(pr.builtin || []), ...(pr.custom || []).filter(p => p.status === "saved")];
+  let curPreset = null;
 
   const base = d.active ? d.active.settings : d.defaults;
   const box = INP + ";width:100%;box-sizing:border-box";
