@@ -4,6 +4,7 @@ import { calcAdvanced, calcIndicators } from "../../shared/indicators.js";
 import type { FibPlan, SRLevel } from "../../shared/indicators.js";
 import { resolveEngineSettings } from "../../shared/engineConfig.js";
 import type { EngineSettingsInput } from "../../shared/engineConfig.js";
+import { assessDerivativesData } from "../../shared/presets.js";
 import { scoreSetup } from "../../shared/scoring.js";
 import type { ScoreInput, ScoreResult, SetupGates } from "../../shared/scoring.js";
 import type { FinalSignal } from "../models/signal.js";
