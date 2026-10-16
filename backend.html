@@ -1228,15 +1228,28 @@ async function engineConfigView(flash) {
 }
 // ===== Signal Chart: read-only chart of a signal with every indicator its configuration uses =====
 // Only GET requests are made. Nothing on this page can create, change, close or delete a signal or a setting.
-const LWC_URL = "https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.2.0/lightweight-charts.standalone.production.js";
+// Several CDNs are tried one after another, so one blocked or slow CDN does not break the chart.
+const LWC_URLS = [
+  "https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js",
+  "https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.2.0/lightweight-charts.standalone.production.js"
+];
 let lwcPromise = null;
-function loadLwc() {
-  if (window.LightweightCharts) return Promise.resolve();
-  if (!lwcPromise) lwcPromise = new Promise((ok, bad) => {
+function loadScriptOnce(src) {
+  return new Promise((ok, bad) => {
     const s = document.createElement("script");
-    s.src = LWC_URL; s.onload = ok; s.onerror = () => { lwcPromise = null; bad(new Error("Chart library could not be loaded")); };
+    s.src = src; s.onload = ok; s.onerror = () => { s.remove(); bad(new Error("failed: " + src)); };
     document.head.appendChild(s);
   });
+}
+function loadLwc() {
+  if (window.LightweightCharts) return Promise.resolve();
+  if (!lwcPromise) lwcPromise = (async () => {
+    for (const url of LWC_URLS) {
+      try { await loadScriptOnce(url); if (window.LightweightCharts) return; } catch (e) { /* try the next CDN */ }
+    }
+    throw new Error("Chart library could not be loaded from any CDN. Check your internet / ad-blocker and press Refresh.");
+  })().catch(e => { lwcPromise = null; throw e; });
   return lwcPromise;
 }
 
