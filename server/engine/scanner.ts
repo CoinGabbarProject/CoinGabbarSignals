@@ -257,7 +257,7 @@ export class EngineService {
       const results = await pool(symbols, this.settings.concurrency, async (symbol): Promise<SymbolResult> => {
         const now = this.now;
         try {
-          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings, active?.version);
+          const { signal, error } = await buildForSymbol(symbol, tf, this.settings, this.deps, now, btc, active?.settings, active?.version, active?.requiredData);
           const outcome = await serial(() => persistSignal(signal, this.deps.store, now));
           await exitIfWeak(signal, this.deps.store, now, this.log).catch((e: unknown) => this.log.error(`[scan] weak-exit check failed: ${errMsg(e)}`));
           return error === undefined
