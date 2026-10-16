@@ -1422,8 +1422,8 @@ async function signalChartView(preselect) {
     const drawn = [["RSI", "rsi"], ["MACD", "macd"], ["Stochastic RSI", "stochRsi"], ["OBV", "obv"], ["VWAP", "vwap"], ["Bollinger Bands", "bollinger"], ["Swing pivots (S/R)", "pivots"]].filter(([, k]) => T[k]);
     const dataOnly = [["Derivatives", "derivatives"], ["Order book", "orderBook"], ["SMC zones", "smc"], ["Liquidation clusters", "liquidation"]].filter(([, k]) => T[k]);
     $("scLegend").innerHTML = drawn.map(([n]) => chip(n, "Selected and drawn")).join("") + dataOnly.map(([n]) => chip(n + " (data only)", "Selected, but it is not a price series so nothing is drawn")).join("") || "No indicators selected";
-    const notes = ["Indicator lines are recalculated here from the candles using the periods of this signal's configuration. The entry, stop and targets are the stored values.",
-      "Derivatives, order book, SMC zones and liquidation clusters are used by the engine but are not price series, so they are shown as chips only.",
+        const notes = ["Only the indicators selected in this signal's configuration are shown. Their lines are recalculated here from the candles with that configuration's periods. Entry, stop and targets are the stored values.",
+      "Derivatives, order book, SMC zones and liquidation clusters are not price series, so they appear as \"data only\" chips.",
       "Support / resistance lines are the nearest swing pivots (3 bars each side) in the last 200 candles."];
     if (!cfg.known) notes.push("The configuration could not be read, so all indicators are drawn with default periods.");
     if (!inRange) notes.push("This signal is older than the 500 candles loaded, so no arrow is drawn.");
