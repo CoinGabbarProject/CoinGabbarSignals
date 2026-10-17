@@ -770,6 +770,16 @@ $("sr").onchange = () => { ls.set("cg_refresh", +$("sr").value); $("sm").textCon
   $("sx").onclick = () => { if (confirm("Reset watchlist and alerts?")) { localStorage.removeItem("cg_watch"); localStorage.removeItem("cg_alerts"); $("sm").textContent = "Reset done"; } };
 }
 
+setInterval(() => {
+  const el = document.getElementById("scNext");
+  if (!el) return;
+  const at = window.__nextScanAt;
+  if (!at) { el.textContent = "--:--"; return; }
+  const sec = Math.round((at - Date.now()) / 1000);
+  if (sec > 0) { el.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); el.style.color = ""; }
+  else { el.textContent = "now..."; el.style.color = "#f1a933"; }
+}, 1000);
+
 async function scanView() {
   if (!host.querySelector('[data-live="Scan Health"]')) host.innerHTML = panel("Scan Health", "Loading...", "Loading...", "Scan Health");
   autoRefresh("Scan Health", scanView);
