@@ -1469,8 +1469,12 @@ async function signalChartView(preselect) {
     // keep every chart on the same time range
     let syncing = false;
     charts.forEach(src => src.timeScale().subscribeVisibleLogicalRangeChange(r => { if (syncing || !r) return; syncing = true; charts.forEach(o => { if (o !== src) o.timeScale().setVisibleLogicalRange(r); }); syncing = false; }));
-    charts.forEach(c => c.timeScale().fitContent());
-
+        charts.forEach(c => c.timeScale().fitContent());
+    {
+      const n = cs.length, from = Math.max(n - 300, Math.min(n - 100, (inRange ? idx : n) - 30));
+      const dz = () => main.c.timeScale().setVisibleLogicalRange({ from, to: n + 6 });
+      if (prevRange) { try { main.c.timeScale().setVisibleRange(prevRange); } catch (e) { dz(); } } else dz();
+    }
     // info + legend
     const pc = (v) => v == null ? "-" : fmtP(v);
     $("scInfo").innerHTML = `<b class="${sig.side === "LONG" ? "green" : "red"}">${esc(sig.side)}</b> ${esc(sig.symbol)} ${esc(sig.timeframe)} · score ${esc(sig.score)}/100 · <span class="status ${["ACTIVE", "TP1_HIT", "TP2_HIT"].includes(sig.status) ? "active" : "neutral"}">${esc(sig.status)}</span><br>` +
