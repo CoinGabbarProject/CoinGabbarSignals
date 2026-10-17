@@ -780,6 +780,13 @@ setInterval(() => {
   else { el.textContent = "now..."; el.style.color = "#f1a933"; }
 }, 1000);
 
+function scLeft() {
+  const at = window.__nextScanAt;
+  if (!at) return "--:--";
+  const sec = Math.round((at - Date.now()) / 1000);
+  return sec > 0 ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") : "now...";
+}
+
 async function scanView() {
   if (!host.querySelector('[data-live="Scan Health"]')) host.innerHTML = panel("Scan Health", "Loading...", "Loading...", "Scan Health");
   autoRefresh("Scan Health", scanView);
