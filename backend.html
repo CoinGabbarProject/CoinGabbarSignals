@@ -771,7 +771,8 @@ $("sr").onchange = () => { ls.set("cg_refresh", +$("sr").value); $("sm").textCon
 }
 
 async function scanView() {
-  host.innerHTML = panel("Scan Health", "Loading...", "Loading...");
+  if (!host.querySelector('[data-live="Scan Health"]')) host.innerHTML = panel("Scan Health", "Loading...", "Loading...", "Scan Health");
+  autoRefresh("Scan Health", scanView);
   try {
     const d = await api("/engine/status"), lr = d.lastRun, res = (lr && lr.results) || [];
     const n = (f) => res.filter(f).length;
