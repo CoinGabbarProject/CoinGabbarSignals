@@ -789,6 +789,7 @@ async function scanView() {
     const every = Math.round((d.intervalMs || 0) / 60000);
     const age = lr ? Math.round((Date.now() - Date.parse(lr.finishedAt)) / 60000) : null;
     const stale = !lr || age > every * 2 + 2;
+    window.__nextScanAt = lr ? Date.parse(lr.startedAt || lr.finishedAt) + (d.intervalMs || 0) : 0;
     const done = new Set(res.map(r => r.symbol));
     const missing = d.symbols.filter(s => !done.has(s));
     const card = (l, v, c = "", sub = "") => `<div class="card"><div class="label">${l}</div><div class="value ${c}">${v}</div><div class="sub">${sub}</div></div>`;
