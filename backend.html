@@ -1371,7 +1371,18 @@ async function signalChartView(preselect) {
     return cfgCache[sig.settingsVersion];
   }
 
-  async function draw() {
+    async function draw(keep) {
+    if (keep === true) {
+      try {
+        const fresh = (await api("/signals?limit=200")).signals || [];
+        if (fresh.length) {
+          const cur = $("scSel").value;
+          signals = fresh;
+          $("scSel").innerHTML = fresh.map(s => `<option value="${esc(s.id)}">${esc(s.symbol)} ${esc(s.side)} ${esc(s.timeframe)} · score ${esc(s.score)} · ${esc(s.status)} · ${esc(new Date(s.createdAt).toLocaleString())}</option>`).join("");
+          $("scSel").value = fresh.some(s => s.id === cur) ? cur : fresh[0].id;
+        }
+      } catch (e) { /* purani list se kaam chalao */ }
+    }
     const sig = signals.find(s => s.id === $("scSel").value); if (!sig) return;
     charts.forEach(c => c.remove()); charts = []; $("scCharts").innerHTML = "";
     status("Loading…");
