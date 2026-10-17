@@ -1409,7 +1409,13 @@ async function signalChartView(preselect) {
 
     // main price chart
     const main = mk(400); main.label.textContent = sig.symbol + " " + sig.timeframe;
-    const candle = main.c.addCandlestickSeries({ upColor: "#21e39a", downColor: "#ff5368", borderVisible: false, wickUpColor: "#21e39a", wickDownColor: "#ff5368" });
+    const lvAll = [sig.entry, sig.stop, ...(sig.targets || [])].filter(Number.isFinite);
+    const lastC = close[close.length - 1], prec = lastC >= 1000 ? 2 : lastC >= 100 ? 3 : lastC >= 1 ? 4 : lastC >= 0.1 ? 5 : lastC >= 0.01 ? 6 : 8;
+    const candle = main.c.addCandlestickSeries({
+      upColor: "#21e39a", downColor: "#ff5368", borderVisible: false, wickUpColor: "#21e39a", wickDownColor: "#ff5368",
+      priceFormat: { type: "price", precision: prec, minMove: Math.pow(10, -prec) },
+      autoscaleInfoProvider: (orig) => { const r = orig(); if (r && lvAll.length) { r.priceRange.minValue = Math.min(r.priceRange.minValue, ...lvAll); r.priceRange.maxValue = Math.max(r.priceRange.maxValue, ...lvAll); } return r; }
+    });
     candle.setData(cs.map((k, i) => ({ time: t[i], open: k.open, high: k.high, low: k.low, close: k.close })));
     
     if (T.vwap) line(main.c, chVwap(cs), "#2cc7ff", 1, { lineStyle: 2 });
