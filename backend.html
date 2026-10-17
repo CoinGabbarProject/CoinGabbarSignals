@@ -1384,8 +1384,7 @@ async function signalChartView(preselect) {
       } catch (e) { /* purani list se kaam chalao */ }
     }
     const sig = signals.find(s => s.id === $("scSel").value); if (!sig) return;
-    charts.forEach(c => c.remove()); charts = []; $("scCharts").innerHTML = "";
-    status("Loading…");
+        status("Loading…");
     let cs;
     try {
       const r = await api("/candles?symbol=" + encodeURIComponent(sig.symbol) + "&timeframe=" + encodeURIComponent(sig.timeframe) + "&limit=" + Math.min(4000, Math.ceil(20 * 86400 / (CH_TF_SEC[sig.timeframe] || 3600))));
