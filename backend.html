@@ -798,7 +798,7 @@ async function scanView() {
       Not scanned in last run : <b class="${missing.length ? "red" : "green"}">${missing.length}</b>${missing.length ? " (" + esc(missing.join(", ")) + ")" : ""}</p>
       <table class="table">${th(["Coin", "Direction", "Score", "Result", "Bias", "Reason", "Conflicts"])}<tbody>${rows || '<tr><td colspan="7">No scan has run yet</td></tr>'}</tbody></table>`, "Scan Health");
   } catch (e) {
-    host.innerHTML = panel("Scan Health", "", `<span class="red">${esc(e.message)}</span>`);
+    host.innerHTML = panel("Scan Health", "", `<span class="red">${esc(e.message)}</span>`, "Scan Health");
   }
 }
 
