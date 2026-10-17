@@ -1391,7 +1391,11 @@ async function signalChartView(preselect) {
       cs = (r.data || []).filter(k => [k.timestamp, k.open, k.high, k.low, k.close, k.volume].every(Number.isFinite)).sort((a, b) => a.timestamp - b.timestamp);
     } catch (e) { status(e.message, true); return; }
     if (cs.length < 60) { status("Not enough candles to draw indicators (" + cs.length + ").", true); return; }
-    const cfg = await configFor(sig), P = cfg.periods, T = cfg.toggles;
+        const cfg = await configFor(sig), P = cfg.periods, T = cfg.toggles;
+    let prevRange = null;
+    if (keep === true && charts[0] && host.dataset.sigId === sig.id) { try { prevRange = charts[0].timeScale().getVisibleRange(); } catch (e) {} }
+    host.dataset.sigId = sig.id;
+    charts.forEach(c => c.remove()); charts = []; $("scCharts").innerHTML = "";
     const close = cs.map(k => k.close), t = cs.map(k => Math.floor(k.timestamp / 1000));
     const css = getComputedStyle(document.documentElement);
     const txt = css.getPropertyValue("--text").trim() || "#ccc", grid = css.getPropertyValue("--line").trim() || "#333";
