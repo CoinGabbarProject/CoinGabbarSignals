@@ -1498,7 +1498,7 @@ async function signalChartView(preselect) {
   window.addEventListener("resize", () => charts.forEach(c => { const el = c.chartElement ? c.chartElement().parentElement : null; if (el) c.applyOptions({ width: el.clientWidth }); }));
   await draw();
   clearInterval(viewTimer);
-  viewTimer = setInterval(() => { if (host.dataset.view === "Signal Chart") draw(); else clearInterval(viewTimer); }, 60000);
+  viewTimer = setInterval(() => { if (host.dataset.view === "Signal Chart") draw(true); else clearInterval(viewTimer); }, 30000);
   }
   
 const VIEW_MAP = {
