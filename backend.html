@@ -796,7 +796,7 @@ async function scanView() {
       Score 75+ : <b class="cyan">${n(r => r.score >= 75)}</b> · 60 to 74 : <b>${n(r => r.score >= 60 && r.score < 75)}</b> · below 60 : <b>${n(r => r.score < 60)}</b><br>
       Already open (duplicate) : <b>${n(r => r.outcome === "duplicate")}</b> · Skipped (no setup) : : <b>${n(r => r.outcome === "not_emitted")}</b><br>
       Not scanned in last run : <b class="${missing.length ? "red" : "green"}">${missing.length}</b>${missing.length ? " (" + esc(missing.join(", ")) + ")" : ""}</p>
-      <table class="table">${th(["Coin", "Direction", "Score", "Result", "Bias", "Reason", "Conflicts"])}<tbody>${rows || '<tr><td colspan="7">No scan has run yet</td></tr>'}</tbody></table>`);
+      <table class="table">${th(["Coin", "Direction", "Score", "Result", "Bias", "Reason", "Conflicts"])}<tbody>${rows || '<tr><td colspan="7">No scan has run yet</td></tr>'}</tbody></table>`, "Scan Health");
   } catch (e) {
     host.innerHTML = panel("Scan Health", "", `<span class="red">${esc(e.message)}</span>`);
   }
