@@ -1494,7 +1494,7 @@ async function signalChartView(preselect) {
     status("Updated " + new Date().toLocaleTimeString());
   }
 
-  $("scSel").onchange = draw; $("scRefresh").onclick = draw;
+  $("scSel").onchange = () => draw(); $("scRefresh").onclick = () => draw(true);
   window.addEventListener("resize", () => charts.forEach(c => { const el = c.chartElement ? c.chartElement().parentElement : null; if (el) c.applyOptions({ width: el.clientWidth }); }));
   await draw();
   clearInterval(viewTimer);
