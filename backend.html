@@ -642,7 +642,8 @@ function backtestView() {
       <button id="bgo" class="btn p">Run backtest</button>
       <button id="bhb" class="btn">Saved runs</button>
     </div>
-    <pre id="bout" style="margin-top:12px;white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5"></pre>`);
+    <pre id="bout" style="margin-top:12px;white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5"></pre>
+    <div id="bhist" style="margin-top:16px"></div>`);
   $("bd").value = "30"; $("bt").value = "1H"; $("bm").value = "75";
   $("bgo").onclick = async () => {
     const key = $("bk").value.trim();
