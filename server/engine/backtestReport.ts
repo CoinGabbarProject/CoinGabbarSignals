@@ -400,6 +400,15 @@ export function createBacktestRouter(scan: ScanConfig, settingsService?: Setting
             const rep = buildReport(result.trades);
       const baseline = await runBacktest(histories, btc, { ...runOpts, minScore: 0 });
       const validation = buildValidation(result.trades, baseline.trades, p.opts.minScore);
+      try {
+        const at = new Date();
+        await getMongoDB().collection("backtest_runs").insertOne({
+          ts: at.getTime(), createdAt: at, date: new Date(at.getTime() + 19800000).toISOString().slice(0, 10),
+          params: { days: p.days, tf: p.opts.timeframe, minScore: p.opts.minScore, profile: p.opts.config?.strategyVersion ?? "core4-v1", settings: chosen.info.label, stop: p.opts.stopMode, trail: p.opts.trailPct, coins: p.symbols.length },
+          summary: { trades: rep.overall.n, winPct: rep.overall.winPct, avgR: rep.overall.avgR, totalR: rep.overall.totalR, verdict: validation.verdict },
+          text: formatReport(result, rep, failed, chosen.info) + "\n\n" + formatValidation(validation),
+        });
+      } catch (e) { console.error("backtest save failed:", e instanceof Error ? e.message : e); }
             if (p.json) { res.json({ success: true, failed, settings: { label: chosen.info.label, version: chosen.info.version ?? null, liveVersion: chosen.info.liveVersion ?? null, liveKnown: chosen.info.liveKnown }, report: rep, validation, skips: result.skips, trades: result.trades }); return; }
             res.type("text/plain; charset=utf-8").send(formatReport(result, rep, failed, chosen.info) + "\n\n" + formatValidation(validation));
     } catch (err) {
