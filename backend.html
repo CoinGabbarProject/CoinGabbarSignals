@@ -672,6 +672,7 @@ $("bd").value = "30"; $("bt").value = "1H"; $("bm").value = "75";
     try {
       const r = await fetch(root + "/engine/backtest?" + q.toString());
       $("bout").textContent = await r.text();
+      loadHist();
     } catch (e) { $("bout").textContent = "Request failed: " + e.message; }
     $("bgo").disabled = false;
   };
