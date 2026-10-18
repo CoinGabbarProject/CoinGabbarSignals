@@ -419,5 +419,26 @@ export function createBacktestRouter(scan: ScanConfig, settingsService?: Setting
     }
   });
 
+    router.get("/backtest-history", async (req, res) => {
+    const key = process.env["BACKTEST_KEY"];
+    if (!key) { res.status(404).type("text/plain").send("Backtest disabled. Set BACKTEST_KEY on the server."); return; }
+    if (!safeEqual(one(req.query["key"]) ?? "", key)) { res.status(401).type("text/plain").send("Wrong key."); return; }
+    try {
+      const col = getMongoDB().collection("backtest_runs");
+      const id = one(req.query["id"]);
+      if (id) {
+        const d = await col.findOne({ ts: Number(id) });
+        if (!d) { res.status(404).type("text/plain").send("Saved run not found."); return; }
+        res.type("text/plain; charset=utf-8").send(String(d["text"] ?? ""));
+        return;
+      }
+      const docs = await col.find({}, { projection: { text: 0 } }).sort({ ts: -1 }).limit(200).toArray();
+      res.json({ runs: docs.map((d) => ({ id: d["ts"], date: d["date"], createdAt: d["createdAt"], params: d["params"], summary: d["summary"] })) });
+    } catch (e) {
+      console.error("backtest history failed:", e instanceof Error ? e.message : e);
+      res.status(500).type("text/plain").send("Could not read saved backtests.");
+    }
+  });
+
   return router;
 }
