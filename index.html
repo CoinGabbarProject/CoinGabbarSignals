@@ -6281,6 +6281,7 @@ var MIN = 60000, STALE = 15000;
 
   var A = P.acts;
   A['x9-hmv'] = function (el) { D.hm = el.dataset.v; P.render(); };
+  A['x9-cm'] = function (el) { var v = +el.dataset.v; D.cm = v === 0 ? 0 : Math.min(0, (D.cm || 0) + v); P.render(); };
   A['x9-bd'] = function (el) { D.bd = el.dataset.v; P.render(); };
   A['x9-hm'] = function (el) { var rd = document.getElementById('x9-hmrd'); if (rd) rd.innerHTML = el.dataset.tip; };
 
