@@ -6224,7 +6224,7 @@ var MIN = 60000, STALE = 15000;
       '<div class="pt-mut" style="font-size:11px;margin-top:6px">Realized P&amp;L (after fees) by the day each trade closed. This view ignores the range chips above.</div>';
   }
   function secHeat(ctx) {
-    return '<div class="pt-box"><h3>P&amp;L Heatmap</h3>' + seg('x9-hmv', D.hm, [['week', 'Day &times; Hour'], ['cal', 'Calendar']]) + (D.hm === 'cal' ? calGrid(ctx) : weekGrid(ctx)) + '</div>';
+    return '<div class="pt-box"><h3>P&amp;L Heatmap</h3>' + seg('x9-hmv', D.hm, [['week', 'Day &times; Hour'], ['cal', 'Calendar']]) + (D.hm === 'cal' ? calMonth(ctx) : weekGrid(ctx)) + '</div>';
   }
 
   /* ---------- breakdowns ---------- */
