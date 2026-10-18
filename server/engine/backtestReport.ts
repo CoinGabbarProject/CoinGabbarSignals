@@ -4,6 +4,7 @@ import type { Request } from "express";
 import type { Candle, Timeframe } from "../../shared/market.js";
 import type { ScanConfig } from "../config/env.js";
 import { SYMBOL_RE } from "../config/env.js";
+import { getMongoDB } from "../db/mongodb.js";
 import { DEFAULT_BACKTEST_OPTIONS, runBacktest } from "./backtest.js";
 import { resolveProfile } from "./signalBuilder.js";
 import type { BacktestOptions, BacktestResult, BacktestTrade } from "./backtest.js";
