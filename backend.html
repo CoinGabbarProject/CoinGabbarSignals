@@ -644,7 +644,21 @@ function backtestView() {
     </div>
     <pre id="bout" style="margin-top:12px;white-space:pre;overflow-x:auto;font-size:12px;line-height:1.5"></pre>
     <div id="bhist" style="margin-top:16px"></div>`);
-  $("bd").value = "30"; $("bt").value = "1H"; $("bm").value = "75";
+$("bd").value = "30"; $("bt").value = "1H"; $("bm").value = "75";
+  const loadHist = async () => {
+    const key = $("bk").value.trim();
+    if (!key) { $("bout").textContent = "Enter BACKTEST_KEY first."; return; }
+    try {
+      const r = await fetch(root + "/engine/backtest-history?key=" + encodeURIComponent(key));
+      if (!r.ok) { $("bhist").textContent = await r.text(); return; }
+      const j = await r.json(), by = {};
+      (j.runs || []).forEach(x => { (by[x.date] = by[x.date] || []).push(x); });
+      const days = Object.keys(by);
+      $("bhist").innerHTML = days.length ? days.map(d => `<div style="margin:10px 0 4px;font-weight:700">${esc(d)}</div>` + by[d].map(x => `<div class="bh" data-id="${esc(x.id)}" style="cursor:pointer;padding:6px 8px;border:1px solid #1d3550;border-radius:6px;margin-bottom:4px;font-size:12px">${esc(new Date(x.createdAt).toLocaleTimeString())} | ${esc(x.params.tf)} ${esc(x.params.days)}d score ${esc(x.params.minScore)} | ${esc(x.summary.trades)} trades, win ${(+x.summary.winPct).toFixed(0)}%, avg R ${(+x.summary.avgR).toFixed(2)} | ${esc(x.summary.verdict)}</div>`).join("")).join("") : "<span style=\"opacity:.7\">No saved runs yet.</span>";
+      $("bhist").querySelectorAll(".bh").forEach(el => { el.onclick = async () => { const rr = await fetch(root + "/engine/backtest-history?key=" + encodeURIComponent(key) + "&id=" + el.dataset.id); $("bout").textContent = await rr.text(); }; });
+    } catch (e) { $("bhist").textContent = "Request failed: " + e.message; }
+  };
+  $("bhb").onclick = loadHist;
   $("bgo").onclick = async () => {
     const key = $("bk").value.trim();
     if (!key) { $("bout").textContent = "Enter BACKTEST_KEY first."; return; }
