@@ -6223,6 +6223,35 @@ var MIN = 60000, STALE = 15000;
       '<div style="font-size:12px;margin-top:4px">Last 5 weeks: <b class="' + cls(tot) + '">' + money(tot, 1) + '</b> <span class="pt-mut">&middot; ' + win + ' green day' + (win === 1 ? '' : 's') + ', ' + lose + ' red day' + (lose === 1 ? '' : 's') + '</span></div>' +
       '<div class="pt-mut" style="font-size:11px;margin-top:6px">Realized P&amp;L (after fees) by the day each trade closed. This view ignores the range chips above.</div>';
   }
+      /* ---------- heatmap: month calendar with full history (previous / next month) ---------- */
+  function calMonth(ctx) {
+    var days = {}, first = null, all = 0;
+    ctx.acc.trades.forEach(function (t) { var d = new Date(t.closed); d.setHours(0, 0, 0, 0); var k = d.getTime(), c = days[k] || (days[k] = { n: 0, pnl: 0 }); c.pnl += t.pnl; c.n++; all += t.pnl; if (first === null || k < first) first = k; });
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var minOff = 0;
+    if (first !== null) { var f = new Date(first); minOff = (f.getFullYear() - today.getFullYear()) * 12 + f.getMonth() - today.getMonth(); }
+    var off = Math.min(0, Math.max(minOff, D.cm || 0)); D.cm = off;
+    var ref = new Date(today.getFullYear(), today.getMonth() + off, 1), dim = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate();
+    var mx = 0, tot = 0, win = 0, lose = 0, trades = 0;
+    for (var j = 1; j <= dim; j++) { var c0 = days[new Date(ref.getFullYear(), ref.getMonth(), j).getTime()]; if (c0) { mx = Math.max(mx, Math.abs(c0.pnl)); tot += c0.pnl; trades += c0.n; if (c0.pnl > 0) win++; else if (c0.pnl < 0) lose++; } }
+    var label = ref.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    var btn = function (v, t, dis) { return '<button class="pt-chip" data-act="x9-cm" data-v="' + v + '"' + (dis ? ' style="opacity:.35"' : '') + '>' + t + '</button>'; };
+    var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin:2px 0 8px">' + btn(-1, '&lsaquo;', off <= minOff) + '<b style="font-size:15px">' + label + '</b>' + btn(1, '&rsaquo;', off >= 0) + '</div>';
+    if (off !== 0) h += '<div style="margin:-2px 0 8px;text-align:center">' + btn(0, 'Current month') + '</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px">' + DN.map(function (n) { return '<span class="pt-mut" style="font-size:10px;text-align:center">' + n + '</span>'; }).join('');
+    for (var l = 0; l < wd(ref); l++) h += '<div></div>';
+    for (var i = 1; i <= dim; i++) {
+      var d = new Date(ref.getFullYear(), ref.getMonth(), i), k = d.getTime(), c = days[k], fut = k > today.getTime();
+      var tip = d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) + ' &middot; ' + (c ? c.n + ' close' + (c.n > 1 ? 's' : '') + ' &middot; ' + money(c.pnl, 1) : 'no trades');
+      h += '<div data-act="x9-hm" data-tip="' + esc(tip) + '" style="border-radius:5px;padding:4px 2px;min-height:38px;text-align:center;background:' + (fut ? 'transparent' : shade(c && c.pnl, mx)) + ';' + (k === today.getTime() ? 'outline:1px solid var(--cyan);' : '') + 'opacity:' + (fut ? .3 : 1) + '">' +
+        '<span class="pt-mut" style="font-size:9px;display:block">' + i + '</span><b style="font-size:10px;display:block;margin-top:2px">' + (c ? short(c.pnl) : '') + '</b></div>';
+    }
+    h += '</div>';
+    return h + '<div id="x9-hmrd" class="pt-mut" style="font-size:12px;margin-top:8px;min-height:16px">Tap a day for details</div>' +
+      '<div style="font-size:12px;margin-top:4px">' + (trades ? label + ': <b class="' + cls(tot) + '">' + money(tot, 1) + '</b> <span class="pt-mut">&middot; ' + trades + ' trade' + (trades === 1 ? '' : 's') + ', ' + win + ' green day' + (win === 1 ? '' : 's') + ', ' + lose + ' red day' + (lose === 1 ? '' : 's') + '</span>' : '<span class="pt-mut">No closed trades in ' + label + '</span>') + '</div>' +
+      '<div style="font-size:12px;margin-top:4px">All history: <b class="' + cls(all) + '">' + money(all, 1) + '</b></div>' +
+      '<div class="pt-mut" style="font-size:11px;margin-top:6px">Realized P&amp;L (after fees) by the day each trade closed. Use the arrows to see earlier months. This view ignores the range chips above.</div>';
+  }
   function secHeat(ctx) {
     return '<div class="pt-box"><h3>P&amp;L Heatmap</h3>' + seg('x9-hmv', D.hm, [['week', 'Day &times; Hour'], ['cal', 'Calendar']]) + (D.hm === 'cal' ? calMonth(ctx) : weekGrid(ctx)) + '</div>';
   }
