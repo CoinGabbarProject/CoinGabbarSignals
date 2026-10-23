@@ -61,13 +61,13 @@ export const STRATEGY_VERSION = "core4-v1";
 
 export const DEFAULT_CONFIG: BuilderConfig = {
   minScore: DEFAULT_MIN_SCORE,
-    minTp1R: 2,
-  minWeightedR: Number(process.env.MIN_WEIGHTED_R ?? "2"),
+    minTp1R: 1,
+  minWeightedR: Number(process.env.MIN_WEIGHTED_R ?? "1"),
   atrStopMult: 2,
   stopBufferAtr: 0.25,
   minStopAtr: 1.5,
   maxStopAtr: 3,
-    targetsR: [2, 3, 5],
+    targetsR: [1, 2, 3],
   exitWeights: [0.5, 0.3, 0.2],
   levelBufferAtr: 0.1,
   entryBehindAtr: 0.3,
@@ -88,7 +88,7 @@ export const DEFAULT_CONFIG: BuilderConfig = {
   },
   fibStop: (process.env.FIB_ENTRY ?? "true") !== "false",
   fibMinScore: Number(process.env.FIB_MIN_SCORE ?? "65"),    // score needed in Fib mode (pullbacks score lower on momentum)
-  fibMinTp1R: Number(process.env.FIB_MIN_TP1R ?? "1.5"),
+  fibMinTp1R: Number(process.env.FIB_MIN_TP1R ?? "1"),
 };
 
 export type ProfileId = "A" | "B" | "C";
