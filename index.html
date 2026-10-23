@@ -357,7 +357,7 @@ html,body{max-width:100%;overflow-x:hidden}
 <script>
 (function(){
   var KEY='cgs-settings', THEME_KEY='cgs-theme';
-  var DEF={theme:'dark',fs:'normal',tz:'Asia/Kolkata',tf:'15m',pair:'BTCUSDT',balance:1000,riskPct:1,leverage:5,fee:0.05,minRR:2,maxDailyLoss:3,maxTrades:3,
+  var DEF={theme:'dark',fs:'normal',tz:'Asia/Kolkata',tf:'15m',pair:'BTCUSDT',balance:1000,riskPct:1,leverage:5,fee:0.05,minRR:1,maxDailyLoss:3,maxTrades:3,
     sigAlerts:true,mktAlerts:true,sound:false,push:false,minScore:70,side:'both',refreshMs:5000};
   function read(){try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return Object.assign({},DEF);}}
   var S=read();
@@ -2421,7 +2421,7 @@ drop.style.cssText="position:fixed;display:none;z-index:99999;max-height:260px;o
   "use strict";
   var KL = "https://data-api.binance.vision/api/v3/klines";
   var CG = window.CG = window.CG || {};
-  CG.cfg = Object.assign({ balance: 1000, riskPct: 1, leverage: 5, refreshMs: 5000, tpMult: [1.5, 2.5, 3.5], tpSplit: [33, 33, 34] }, CG.cfg || {});
+  CG.cfg = Object.assign({ balance: 1000, riskPct: 1, leverage: 5, refreshMs: 5000, tpMult: [1, 2, 3], tpSplit: [33, 33, 34] }, CG.cfg || {});
   CG.state = CG.state || {};
   var $ = function (id) { return document.getElementById(id); };
   var last = function (a) { return a[a.length - 1]; };
@@ -2817,7 +2817,7 @@ var bd = $("posCalcBackdrop");
     if (supL == null) { var mn = Math.min.apply(null, rec.map(function (x) { return x.l; })); if (mn < price) supL = mn; }
     if (resL == null) { var mx = Math.max.apply(null, rec.map(function (x) { return x.h; })); if (mx > price) resL = mx; }
     info.sr = { sup: supL, res: resL };
-    var R = Math.abs(s.entry - s.sl) || price * 0.003, mult = (cfg.tpMult || [1.5, 2.5, 3.5])[1];
+    var R = Math.abs(s.entry - s.sl) || price * 0.003, mult = (cfg.tpMult || [1, 2, 3])[1];
     var opp = d > 0 ? (resL != null ? resL - price : Infinity) : (supL != null ? price - supL : Infinity);
     var back = d > 0 ? (supL != null ? price - supL : Infinity) : (resL != null ? resL - price : Infinity);
     var head = Number.isFinite(opp) ? clamp(opp / (R * mult), 0, 1.2) / 1.2 : 1;
